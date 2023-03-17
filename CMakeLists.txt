@@ -6,9 +6,6 @@ project(renderer)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# https://vulkan.lunarg.com/doc/sdk/1.3.239.0/windows/layer_configuration.html
-set(ENV{VK_LOADER_LAYERS_ENABLE} *api_dump,*validation)
-
 # Vulkan
 find_package(Vulkan REQUIRED)
 find_package(glm REQUIRED)

@@ -15,10 +15,14 @@ private:
     void MainLoop();
     void Cleanup();
     void CreateInstance();
-    void PrintAvailableVulkanExtensions();
+
+    void SetupDebugMessenger();
+    std::vector<const char*> GetRequiredExtensions();
     bool CheckValidationLayerSupport();
+    static void PrintAvailableVulkanExtensions();
 
     VkInstance instance;
+    VkDebugUtilsMessengerEXT debugMessenger;
 
     GLFWwindow* window;
 
