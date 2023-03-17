@@ -1,0 +1,8 @@
+{
+  "name": "renderer",
+  "version-string": "1.0.0",
+  "dependencies": [
+    "glm",
+    "glfw3"
+  ]
+}
