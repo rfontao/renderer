@@ -8,9 +8,10 @@
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
 
     bool IsComplete() {
-        return graphicsFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
 
@@ -33,11 +34,14 @@ private:
     void PickPhysicalDevice();
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
     bool IsDeviceSuitable(VkPhysicalDevice device);
+    void CreateSurface();
 
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue graphicsQueue;
+    VkQueue presentQueue;
+    VkSurfaceKHR surface;
     VkDebugUtilsMessengerEXT debugMessenger;
 
     GLFWwindow* window;
