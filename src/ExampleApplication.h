@@ -73,6 +73,8 @@ private:
 
     VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
+    void CreateRenderPass();
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -84,6 +86,9 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
+    VkRenderPass renderPass;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
     VkDebugUtilsMessengerEXT debugMessenger;
 
     GLFWwindow *window;
