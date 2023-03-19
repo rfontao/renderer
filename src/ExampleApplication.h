@@ -69,6 +69,10 @@ private:
 
     void CreateImageViews();
 
+    void CreateGraphicsPipeline();
+
+    VkShaderModule CreateShaderModule(const std::vector<char> &code);
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;

@@ -10,6 +10,7 @@
 #include <set>
 #include <cstdint>
 #include <limits>
+#include <fstream>
 
 #include "ExampleApplication.h"
 
@@ -76,6 +77,7 @@ void ExampleApplication::InitVulkan() {
     CreateLogicalDevice();
     CreateSwapChain();
     CreateImageViews();
+    CreateGraphicsPipeline();
 }
 
 void ExampleApplication::MainLoop() {
@@ -493,4 +495,62 @@ void ExampleApplication::CreateImageViews() {
             throw std::runtime_error("Failed to create image views!");
         }
     }
+}
+
+static std::vector<char> ReadFile(const std::string &filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file - " + filename + "!");
+    }
+
+    size_t fileSize = (size_t) file.tellg();
+    std::vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    return buffer;
+}
+
+void ExampleApplication::CreateGraphicsPipeline() {
+    auto vertShaderCode = ReadFile("shaders/vert.spv");
+    auto fragShaderCode = ReadFile("shaders/frag.spv");
+
+    VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vertShaderModule,
+            .pName = "main",
+    };
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fragShaderModule,
+            .pName = "main",
+    };
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+    vkDestroyShaderModule(device, fragShaderModule, nullptr);
+    vkDestroyShaderModule(device, vertShaderModule, nullptr);
+}
+
+VkShaderModule ExampleApplication::CreateShaderModule(const std::vector<char> &code) {
+    VkShaderModuleCreateInfo createInfo{
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = code.size(),
+            .pCode = reinterpret_cast<const uint32_t *>(code.data()),
+    };
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shader module!");
+    }
+
+    return shaderModule;
 }
