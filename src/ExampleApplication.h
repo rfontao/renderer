@@ -67,6 +67,8 @@ private:
 
     VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
+    void CreateImageViews();
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -75,6 +77,7 @@ private:
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
+    std::vector<VkImageView> swapChainImageViews;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
     VkDebugUtilsMessengerEXT debugMessenger;
