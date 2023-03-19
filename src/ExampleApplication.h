@@ -10,7 +10,7 @@ struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool IsComplete() {
+    [[nodiscard]] bool IsComplete() const {
         return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
@@ -28,7 +28,7 @@ private:
     void CreateLogicalDevice();
 
     void SetupDebugMessenger();
-    std::vector<const char*> GetRequiredExtensions();
+    [[nodiscard]] std::vector<const char*> GetRequiredExtensions() const;
     bool CheckValidationLayerSupport();
     static void PrintAvailableVulkanExtensions();
     void PickPhysicalDevice();
