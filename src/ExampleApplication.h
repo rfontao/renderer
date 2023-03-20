@@ -75,6 +75,22 @@ private:
 
     void CreateRenderPass();
 
+    void CreateFramebuffers();
+
+    void CreateCommandPool();
+
+    void CreateCommandBuffers();
+
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+    void DrawFrame();
+
+    void CreateSyncObjects();
+
+    void RecreateSwapChain();
+
+    void CleanupSwapChain();
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -89,7 +105,17 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
     VkDebugUtilsMessengerEXT debugMessenger;
+
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+
+    uint32_t currentFrame = 0;
+    bool framebufferResized = false;
 
     GLFWwindow *window;
 
