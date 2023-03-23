@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(Vulkan REQUIRED)
 find_package(glm REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(Stb REQUIRED)
 
 add_executable(renderer src/main.cpp src/ExampleApplication.cpp src/ExampleApplication.h)
 target_link_libraries(${PROJECT_NAME} glfw Vulkan::Vulkan glm::glm)
+target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})

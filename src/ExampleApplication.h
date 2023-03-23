@@ -158,6 +158,19 @@ private:
 
     void CreateDescriptorSets();
 
+    void CreateTextureImage();
+
+    void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+                     VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
+
+    VkCommandBuffer BeginSingleTimeCommands();
+
+    void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+    void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -179,6 +192,9 @@ private:
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
     VkDebugUtilsMessengerEXT debugMessenger;
+
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
