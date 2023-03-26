@@ -6,17 +6,22 @@
 
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 
 #include <vector>
 #include <optional>
 #include <array>
+#include <string>
 
 struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
 };
+
 
 struct Vertex {
     glm::vec3 pos;
@@ -54,7 +59,21 @@ struct Vertex {
         return attributeDescriptions;
     }
 
+    bool operator==(const Vertex &other) const {
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
 };
+
+namespace std {
+    template<>
+    struct hash<Vertex> {
+        size_t operator()(Vertex const &vertex) const {
+            return ((hash<glm::vec3>()(vertex.pos) ^
+                     (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                   (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -190,6 +209,8 @@ private:
 
     VkFormat FindDepthFormat();
 
+    void LoadModel();
+
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkDevice device;
@@ -237,27 +258,16 @@ private:
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
 
-    const std::vector<Vertex> vertices = {
-            {{-0.5f, -0.5f, 0.0f},  {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f,  -0.5f, 0.0f},  {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f,  0.5f,  0.0f},  {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f,  0.0f},  {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f,  0.5f,  -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f,  -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-    };
-
-    const std::vector<uint16_t> indices = {
-            0, 1, 2, 2, 3, 0,
-            4, 5, 6, 6, 7, 4
-    };
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
     GLFWwindow *window;
 
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
+
+    const std::string MODEL_PATH = "models/viking_room.obj";
+    const std::string TEXTURE_PATH = "textures/viking_room.png";
 
     const std::vector<const char *> validationLayers = {
             "VK_LAYER_KHRONOS_validation"
