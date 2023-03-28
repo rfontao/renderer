@@ -185,9 +185,11 @@ private:
 
     void CreateTextureImage();
 
-    void CreateImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling,
-                     VkImageUsageFlags usage,
-                     VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
+    void
+    CreateImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format,
+                VkImageTiling tiling,
+                VkImageUsageFlags usage,
+                VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
 
     VkCommandBuffer BeginSingleTimeCommands();
 
@@ -214,6 +216,10 @@ private:
     void LoadModel();
 
     void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+
+    VkSampleCountFlagBits GetMaxUsableSampleCount();
+
+    void CreateColorResources();
 
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
@@ -243,9 +249,15 @@ private:
     VkSampler textureSampler;
     VkDeviceMemory textureImageMemory;
 
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+
     VkImage depthImage;
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
+
+    VkImage colorImage;
+    VkDeviceMemory colorImageMemory;
+    VkImageView colorImageView;
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
