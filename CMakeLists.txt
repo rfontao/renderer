@@ -13,7 +13,7 @@ find_package(glfw3 REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Tinyobjloader REQUIRED)
 
-add_executable(renderer src/main.cpp src/ExampleApplication.cpp src/ExampleApplication.h)
+add_executable(renderer src/main.cpp src/ExampleApplication.cpp src/ExampleApplication.h src/camera.cpp src/camera.h)
 target_link_libraries(${PROJECT_NAME} glfw Vulkan::Vulkan glm::glm)
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${Tinyobjloader_INCLUDE_DIR})

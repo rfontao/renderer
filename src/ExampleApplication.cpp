@@ -113,6 +113,7 @@ void ExampleApplication::InitVulkan() {
     CreateDescriptorSets();
     CreateCommandBuffers();
     CreateSyncObjects();
+
 }
 
 void ExampleApplication::MainLoop() {
@@ -171,6 +172,9 @@ void ExampleApplication::Cleanup() {
 }
 
 void ExampleApplication::InitWindow() {
+
+    camera = Camera(glm::vec3(2.0f, -2.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -181,6 +185,48 @@ void ExampleApplication::InitWindow() {
         auto app = reinterpret_cast<ExampleApplication *>(glfwGetWindowUserPointer(w));
         app->framebufferResized = true;
     });
+
+    glfwSetMouseButtonCallback(window, [](GLFWwindow *w, int button, int action, int mods) {
+        auto app = reinterpret_cast<ExampleApplication *>(glfwGetWindowUserPointer(w));
+
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (GLFW_PRESS == action) {
+                app->lbutton_down = true;
+                glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+            } else if (GLFW_RELEASE == action) {
+                app->firstMouse = true;
+                app->lbutton_down = false;
+                glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+
+        }
+    });
+
+    glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xposIn, double yposIn) {
+                                 auto app = reinterpret_cast<ExampleApplication *>(glfwGetWindowUserPointer(w));
+                                 if (!app->lbutton_down) {
+                                     return;
+                                 }
+
+                                 float xpos = static_cast<float>(xposIn);
+                                 float ypos = static_cast<float>(yposIn);
+
+                                 if (app->firstMouse) {
+                                     app->lastX = xpos;
+                                     app->lastY = ypos;
+                                     app->firstMouse = false;
+                                 }
+
+                                 float xoffset = xpos - app->lastX;
+                                 float yoffset = app->lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+                                 app->lastX = xpos;
+                                 app->lastY = ypos;
+
+                                 app->GetCamera().ProcessMouseMovement(xoffset, yoffset);
+                             }
+    );
+
 }
 
 void ExampleApplication::CreateInstance() {
@@ -1219,8 +1265,10 @@ void ExampleApplication::UpdateUniformBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+//    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+//    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = camera.GetViewMatrix();
     ubo.proj = glm::perspective(glm::radians(45.0f), (float) swapChainExtent.width / (float) swapChainExtent.height,
                                 0.1f,
                                 10.0f);
@@ -1742,4 +1790,8 @@ void ExampleApplication::CreateColorResources() {
                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
     colorImageView = CreateImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+}
+
+Camera &ExampleApplication::GetCamera() {
+    return camera;
 }

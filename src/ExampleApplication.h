@@ -16,6 +16,8 @@
 #include <array>
 #include <string>
 
+#include "camera.h"
+
 struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
@@ -93,6 +95,8 @@ struct SwapChainSupportDetails {
 class ExampleApplication {
 public:
     void Run();
+
+    Camera &GetCamera();
 
 private:
     void InitWindow();
@@ -277,6 +281,12 @@ private:
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
+
+    Camera camera;
+    float lastX = (float) WIDTH / 2.0f;
+    float lastY = (float) HEIGHT / 2.0f;
+    bool firstMouse = true;
+    bool lbutton_down = false;
 
     GLFWwindow *window;
 
