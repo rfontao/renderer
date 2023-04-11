@@ -4,7 +4,7 @@ Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp,
                const glm::vec3 &focusPoint,
                double yaw, double pitch) : position(position), worldUp(worldUp),
                                            focusPoint(focusPoint), yaw(yaw),
-                                           pitch(pitch) {
+                                           pitch(pitch), up(worldUp) {
 
 }
 
