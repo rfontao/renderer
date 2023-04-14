@@ -113,7 +113,6 @@ void ExampleApplication::InitVulkan() {
     CreateDescriptorSets();
     CreateCommandBuffers();
     CreateSyncObjects();
-
 }
 
 void ExampleApplication::MainLoop() {
@@ -365,7 +364,7 @@ void ExampleApplication::PickPhysicalDevice() {
     for (const auto &device: devices) {
         if (IsDeviceSuitable(device)) {
             physicalDevice = device;
-            msaaSamples = GetMaxUsableSampleCount();
+//            msaaSamples = GetMaxUsableSampleCount();
             break;
         }
     }
@@ -427,8 +426,14 @@ void ExampleApplication::CreateLogicalDevice() {
             .samplerAnisotropy = VK_TRUE,
     };
 
+    constexpr VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeature{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+            .dynamicRendering = VK_TRUE,
+    };
+
     VkDeviceCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &dynamicRenderingFeature,
             .queueCreateInfoCount = (uint32_t) queueCreateInfos.size(),
             .pQueueCreateInfos = queueCreateInfos.data(),
             .enabledExtensionCount = (uint32_t) (deviceExtensions.size()),
@@ -749,8 +754,17 @@ void ExampleApplication::CreateGraphicsPipeline() {
         throw std::runtime_error("Failed to create pipeline layout!");
     }
 
+    // Dynamic rendering
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = &swapChainImageFormat,
+            .depthAttachmentFormat = FindDepthFormat(),
+    };
+
     VkGraphicsPipelineCreateInfo pipelineInfo{
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = &pipelineRenderingInfo,
             .stageCount = 2,
             .pStages = shaderStages,
             .pVertexInputState = &vertexInputInfo,
@@ -762,7 +776,8 @@ void ExampleApplication::CreateGraphicsPipeline() {
             .pColorBlendState = &colorBlending,
             .pDynamicState = &dynamicState,
             .layout = pipelineLayout,
-            .renderPass = renderPass,
+            // .renderPass = renderPass, -> no longer needed because of dynamic rendering
+            .renderPass = nullptr,
             .subpass = 0,
             .basePipelineHandle = VK_NULL_HANDLE,
     };
@@ -843,7 +858,7 @@ void ExampleApplication::CreateRenderPass() {
             .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachmentRef,
-            .pResolveAttachments = &colorAttachmentResolveRef,
+            .pResolveAttachments = msaaSamples != VK_SAMPLE_COUNT_1_BIT ? &colorAttachmentResolveRef : VK_NULL_HANDLE,
             .pDepthStencilAttachment = &depthAttachmentRef,
     };
 
@@ -927,6 +942,99 @@ void ExampleApplication::CreateCommandBuffers() {
 }
 
 void ExampleApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+//    VkCommandBufferBeginInfo beginInfo{
+//            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+//            .flags = 0,
+//            .pInheritanceInfo = nullptr,
+//    };
+//
+//    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+//        throw std::runtime_error("Failed to begin recording command buffer!");
+//    }
+//
+//    VkRenderPassBeginInfo renderPassInfo{
+//            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+//            .renderPass = renderPass,
+//            .framebuffer = swapChainFramebuffers[imageIndex],
+//    };
+//    renderPassInfo.renderArea.offset = {0, 0};
+//    renderPassInfo.renderArea.extent = swapChainExtent;
+//
+//
+//    std::array<VkClearValue, 2> clearValues{};
+//    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+//    clearValues[1].depthStencil = {1.0f, 0};
+//
+//    renderPassInfo.clearValueCount = (uint32_t) clearValues.size();
+//    renderPassInfo.pClearValues = clearValues.data();
+//
+//    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+//
+//    VkBuffer vertexBuffers[] = {vertexBuffer};
+//    VkDeviceSize offsets[] = {0};
+//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+//    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+//
+//    VkViewport viewport{
+//            .x = 0.0f,
+//            .y = 0.0f,
+//            .width = (float) swapChainExtent.width,
+//            .height = (float) swapChainExtent.height,
+//            .minDepth = 0.0f,
+//            .maxDepth = 1.0f,
+//    };
+//    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+//
+//    VkRect2D scissor{
+//            .offset = {0, 0},
+//            .extent = swapChainExtent,
+//    };
+//    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+//
+//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+//                            &descriptorSets[currentFrame], 0, nullptr);
+//    vkCmdDrawIndexed(commandBuffer, (uint32_t) indices.size(), 1, 0, 0, 0);
+//
+//    vkCmdEndRenderPass(commandBuffer);
+//
+//    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+//        throw std::runtime_error("Failed to record command buffer!");
+//    }
+
+    bool msaaEnabled = msaaSamples != VK_SAMPLE_COUNT_1_BIT;
+//    bool msaaEnabled = false;
+    VkRenderingAttachmentInfo colorAttachment{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = msaaEnabled ? colorImageView : swapChainImageViews[imageIndex],
+            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .resolveMode = msaaEnabled ? VK_RESOLVE_MODE_AVERAGE_BIT : VK_RESOLVE_MODE_NONE,
+            .resolveImageView = swapChainImageViews[imageIndex],
+            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    VkRenderingAttachmentInfo depthAttachment{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = depthImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    depthAttachment.clearValue.depthStencil = {1.0f, 0};
+
+    VkRenderingInfo renderInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, swapChainExtent.width, swapChainExtent.height},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachment,
+            .pDepthAttachment = &depthAttachment,
+//            .pStencilAttachment = &depthAttachment,
+    };
+
     VkCommandBufferBeginInfo beginInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = 0,
@@ -937,23 +1045,11 @@ void ExampleApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
         throw std::runtime_error("Failed to begin recording command buffer!");
     }
 
-    VkRenderPassBeginInfo renderPassInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = renderPass,
-            .framebuffer = swapChainFramebuffers[imageIndex],
-    };
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = swapChainExtent;
+    TransitionImageLayout(swapChainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    TransitionImageLayout(depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    clearValues[1].depthStencil = {1.0f, 0};
-
-    renderPassInfo.clearValueCount = (uint32_t) clearValues.size();
-    renderPassInfo.pClearValues = clearValues.data();
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRendering(commandBuffer, &renderInfo);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     VkBuffer vertexBuffers[] = {vertexBuffer};
@@ -981,11 +1077,15 @@ void ExampleApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint
                             &descriptorSets[currentFrame], 0, nullptr);
     vkCmdDrawIndexed(commandBuffer, (uint32_t) indices.size(), 1, 0, 0, 0);
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRendering(commandBuffer);
+
+    TransitionImageLayout(swapChainImages[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer!");
     }
+
 }
 
 void ExampleApplication::DrawFrame() {
@@ -1375,8 +1475,7 @@ void ExampleApplication::CreateTextureImage() {
                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
-    TransitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
+    TransitionImageLayout(textureImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     CopyBufferToImage(stagingBuffer, textureImage, (uint32_t) texWidth, (uint32_t) texHeight);
 
 //    Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
@@ -1451,7 +1550,7 @@ VkCommandBuffer ExampleApplication::BeginSingleTimeCommands() {
     return commandBuffer;
 }
 
-void ExampleApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
+void ExampleApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer) const {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{
@@ -1466,8 +1565,8 @@ void ExampleApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-void ExampleApplication::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-                                               VkImageLayout newLayout, uint32_t mipLevels) {
+void ExampleApplication::TransitionImageLayout(VkImage image, VkImageLayout oldLayout,
+                                               VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier{
@@ -1478,11 +1577,14 @@ void ExampleApplication::TransitionImageLayout(VkImage image, VkFormat format, V
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image,
     };
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    // TODO: Check if this is the correct way to know if it is a depth image correct way
+    barrier.subresourceRange.aspectMask =
+            newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ? VK_IMAGE_ASPECT_DEPTH_BIT
+                                                                  : VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = mipLevels;
+    barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
@@ -1500,6 +1602,24 @@ void ExampleApplication::TransitionImageLayout(VkImage image, VkFormat format, V
 
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+
+        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     } else {
         throw std::invalid_argument("Unsupported layout transition!");
     }

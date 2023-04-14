@@ -98,7 +98,7 @@ public:
 
     Camera &GetCamera();
 
-private:
+public:
     void InitWindow();
 
     void InitVulkan();
@@ -197,10 +197,9 @@ private:
 
     VkCommandBuffer BeginSingleTimeCommands();
 
-    void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
+    void EndSingleTimeCommands(VkCommandBuffer commandBuffer) const;
 
-    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                               uint32_t mipLevels);
+    void TransitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
@@ -231,11 +230,13 @@ private:
     VkQueue graphicsQueue;
     VkQueue presentQueue;
     VkSurfaceKHR surface;
+
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
+
     VkRenderPass renderPass;
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
@@ -245,6 +246,7 @@ private:
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
+
     VkDebugUtilsMessengerEXT debugMessenger;
 
     uint32_t mipLevels;
@@ -301,7 +303,10 @@ private:
     };
 
     const std::vector<const char *> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
+//            Provided by Vulkan 1.3?
+//            VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     };
 
 #ifdef NDEBUG
