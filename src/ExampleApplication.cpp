@@ -1,32 +1,4 @@
-#define GLFW_INCLUDE_VULKAN
-
-#include <GLFW/glfw3.h>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
-
-#include <stb_image.h>
-
-#define TINYOBJLOADER_IMPLEMENTATION
-
-#include <tiny_obj_loader.h>
-
-#include <stdexcept>
-#include <vector>
-#include <iostream>
-#include <cstring>
-#include <optional>
-#include <set>
-#include <cstdint>
-#include <limits>
-#include <chrono>
-#include <string>
-#include <unordered_map>
+#include "pch.h"
 
 #include "ExampleApplication.h"
 
@@ -777,7 +749,7 @@ void ExampleApplication::CreateGraphicsPipeline() {
             .pDynamicState = &dynamicState,
             .layout = pipelineLayout,
             // .renderPass = renderPass, -> no longer needed because of dynamic rendering
-            .renderPass = nullptr,
+            .renderPass = VK_NULL_HANDLE,
             .subpass = 0,
             .basePipelineHandle = VK_NULL_HANDLE,
     };

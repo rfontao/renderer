@@ -1,21 +1,5 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-
-#include <GLFW/glfw3.h>
-
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-
-#define GLM_ENABLE_EXPERIMENTAL
-
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-
-#include <vector>
-#include <optional>
-#include <array>
-#include <string>
-
 #include "camera.h"
 
 struct UniformBufferObject {

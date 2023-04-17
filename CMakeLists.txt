@@ -15,7 +15,9 @@ find_package(Tinyobjloader REQUIRED)
 
 file(GLOB SourceFiles "src/*.cpp" "src/*.h")
 add_executable(renderer ${SourceFiles})
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/pch.h)
 
 target_link_libraries(${PROJECT_NAME} glfw Vulkan::Vulkan glm::glm)
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${Tinyobjloader_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE src)
