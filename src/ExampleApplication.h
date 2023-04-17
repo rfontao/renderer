@@ -272,7 +272,7 @@ public:
     float lastX = (float) WIDTH / 2.0f;
     float lastY = (float) HEIGHT / 2.0f;
     bool firstMouse = true;
-    bool lbutton_down = false;
+    bool rbutton_down = false;
 
     GLFWwindow *window;
 

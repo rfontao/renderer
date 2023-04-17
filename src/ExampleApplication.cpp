@@ -160,44 +160,23 @@ void ExampleApplication::InitWindow() {
     glfwSetMouseButtonCallback(window, [](GLFWwindow *w, int button, int action, int mods) {
         auto app = reinterpret_cast<ExampleApplication *>(glfwGetWindowUserPointer(w));
 
-        if (button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (GLFW_PRESS == action) {
-                app->lbutton_down = true;
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            if (action == GLFW_PRESS) {
+                app->GetCamera().SetMove(true);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-            } else if (GLFW_RELEASE == action) {
-                app->firstMouse = true;
-                app->lbutton_down = false;
+            } else if (action == GLFW_RELEASE) {
+                app->GetCamera().SetMove(false);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
-
         }
     });
 
-    glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xposIn, double yposIn) {
+    glfwSetCursorPosCallback(window,
+                             [](GLFWwindow *w, double xPosIn, double yPosIn) {
                                  auto app = reinterpret_cast<ExampleApplication *>(glfwGetWindowUserPointer(w));
-                                 if (!app->lbutton_down) {
-                                     return;
-                                 }
-
-                                 float xpos = static_cast<float>(xposIn);
-                                 float ypos = static_cast<float>(yposIn);
-
-                                 if (app->firstMouse) {
-                                     app->lastX = xpos;
-                                     app->lastY = ypos;
-                                     app->firstMouse = false;
-                                 }
-
-                                 float xoffset = xpos - app->lastX;
-                                 float yoffset = app->lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-                                 app->lastX = xpos;
-                                 app->lastY = ypos;
-
-                                 app->GetCamera().ProcessMouseMovement(xoffset, yoffset);
+                                 app->GetCamera().HandleMouseMovement((float) xPosIn, (float) yPosIn);
                              }
     );
-
 }
 
 void ExampleApplication::CreateInstance() {
@@ -914,68 +893,8 @@ void ExampleApplication::CreateCommandBuffers() {
 }
 
 void ExampleApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-//    VkCommandBufferBeginInfo beginInfo{
-//            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-//            .flags = 0,
-//            .pInheritanceInfo = nullptr,
-//    };
-//
-//    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-//        throw std::runtime_error("Failed to begin recording command buffer!");
-//    }
-//
-//    VkRenderPassBeginInfo renderPassInfo{
-//            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-//            .renderPass = renderPass,
-//            .framebuffer = swapChainFramebuffers[imageIndex],
-//    };
-//    renderPassInfo.renderArea.offset = {0, 0};
-//    renderPassInfo.renderArea.extent = swapChainExtent;
-//
-//
-//    std::array<VkClearValue, 2> clearValues{};
-//    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-//    clearValues[1].depthStencil = {1.0f, 0};
-//
-//    renderPassInfo.clearValueCount = (uint32_t) clearValues.size();
-//    renderPassInfo.pClearValues = clearValues.data();
-//
-//    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-//    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-//
-//    VkBuffer vertexBuffers[] = {vertexBuffer};
-//    VkDeviceSize offsets[] = {0};
-//    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-//    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-//
-//    VkViewport viewport{
-//            .x = 0.0f,
-//            .y = 0.0f,
-//            .width = (float) swapChainExtent.width,
-//            .height = (float) swapChainExtent.height,
-//            .minDepth = 0.0f,
-//            .maxDepth = 1.0f,
-//    };
-//    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-//
-//    VkRect2D scissor{
-//            .offset = {0, 0},
-//            .extent = swapChainExtent,
-//    };
-//    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-//
-//    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
-//                            &descriptorSets[currentFrame], 0, nullptr);
-//    vkCmdDrawIndexed(commandBuffer, (uint32_t) indices.size(), 1, 0, 0, 0);
-//
-//    vkCmdEndRenderPass(commandBuffer);
-//
-//    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-//        throw std::runtime_error("Failed to record command buffer!");
-//    }
 
     bool msaaEnabled = msaaSamples != VK_SAMPLE_COUNT_1_BIT;
-//    bool msaaEnabled = false;
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = msaaEnabled ? colorImageView : swapChainImageViews[imageIndex],
