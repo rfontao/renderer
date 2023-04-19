@@ -13,7 +13,7 @@ find_package(glfw3 REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Tinyobjloader REQUIRED)
 
-file(GLOB SourceFiles "src/*.cpp" "src/*.h")
+file(GLOB_RECURSE SourceFiles "src/*.cpp" "src/*.h")
 add_executable(renderer ${SourceFiles})
 target_precompile_headers(${PROJECT_NAME} PUBLIC src/pch.h)
 

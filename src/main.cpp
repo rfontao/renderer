@@ -1,4 +1,5 @@
 #include "ExampleApplication.h"
+#include "Application.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -6,7 +7,8 @@
 
 int main() {
 
-    ExampleApplication app;
+//    ExampleApplication app;
+    Application app;
 
     try {
         app.Run();
