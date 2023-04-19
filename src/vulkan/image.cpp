@@ -42,8 +42,8 @@ Image::Image(std::shared_ptr<Device> device, uint32_t width, uint32_t height, ui
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    imageInfo.extent.height = (uint32_t) height;
-    imageInfo.extent.width = (uint32_t) width;
+    imageInfo.extent.height = (uint32_t) m_Height;
+    imageInfo.extent.width = (uint32_t) m_Width;
     imageInfo.extent.depth = 1;
 
     VK_CHECK(vkCreateImage(m_Device->GetDevice(), &imageInfo, nullptr, &m_Image), "Failed to create image!");
@@ -79,12 +79,14 @@ Image::Image(std::shared_ptr<Device> device, uint32_t width, uint32_t height, ui
 }
 
 Image::~Image() {
-    vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
+    if (m_Image != VK_NULL_HANDLE) {
+        vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
 
-    // Image should only be destroyed if it doesn't belong to swapchain
-    if (!m_IsSwapchainImage) {
-        vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
-        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
+        // Image should only be destroyed if it doesn't belong to swapchain
+        if (!m_IsSwapchainImage) {
+            vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
+            vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
+        }
     }
 }
 

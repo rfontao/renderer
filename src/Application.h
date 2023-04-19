@@ -137,19 +137,17 @@ public:
 
     VkDebugUtilsMessengerEXT debugMessenger;
 
-    Texture texture;
+    std::shared_ptr<Texture> texture;
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    Image depthImage;
-    Image colorImage;
+    std::shared_ptr<Image> depthImage;
+    std::shared_ptr<Image> colorImage;
 
-    Buffer vertexBuffer;
-    Buffer indexBuffer;
+    std::shared_ptr<Buffer> vertexBuffer;
+    std::shared_ptr<Buffer> indexBuffer;
 
-    std::vector<Buffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void *> uniformBuffersMapped;
+    std::vector<std::shared_ptr<Buffer>> uniformBuffers;
 
     uint32_t currentFrame = 0;
 
@@ -158,7 +156,7 @@ public:
 
     std::shared_ptr<Device> m_Device;
 
-    Swapchain m_Swapchain;
+    std::shared_ptr<Swapchain> m_Swapchain;
 
     Camera m_Camera;
     GLFWwindow *m_Window;
@@ -170,6 +168,7 @@ public:
     const std::string TEXTURE_PATH = "textures/viking_room.png";
 
     const std::vector<const char *> validationLayers = {
+//            "VK_LAYER_LUNARG_api_dump",
             "VK_LAYER_KHRONOS_validation"
     };
 

@@ -57,12 +57,13 @@ void Application::InitVulkan() {
 
     VkSurfaceKHR surface = CreateSurface();
     m_Device = std::make_shared<Device>(m_Instance, surface);
-    m_Swapchain = Swapchain(m_Device, m_Window);
+    m_Swapchain = std::make_shared<Swapchain>(m_Device, m_Window);
 
     CreateDescriptorSetLayout();
     CreateGraphicsPipeline();
     CreateColorResources();
     CreateDepthResources();
+    texture = make_shared<Texture>(m_Device, TEXTURE_PATH);
     LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
@@ -108,7 +109,7 @@ void Application::InitWindow() {
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow *w, int width, int height) {
         auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Swapchain.m_NeedsResizing = true;
+        app->m_Swapchain->m_NeedsResizing = true;
     });
 
     glfwSetMouseButtonCallback(m_Window, [](GLFWwindow *w, int button, int action, int mods) {
@@ -286,15 +287,15 @@ void Application::CreateGraphicsPipeline() {
     VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
-            .width = (float) m_Swapchain.GetWidth(),
-            .height = (float) m_Swapchain.GetHeight(),
+            .width = (float) m_Swapchain->GetWidth(),
+            .height = (float) m_Swapchain->GetHeight(),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
     };
 
     VkRect2D scissor{
             .offset = {0, 0},
-            .extent = m_Swapchain.GetExtent(),
+            .extent = m_Swapchain->GetExtent(),
     };
 
     VkPipelineViewportStateCreateInfo viewportState{
@@ -366,7 +367,7 @@ void Application::CreateGraphicsPipeline() {
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
             .colorAttachmentCount = 1,
-            .pColorAttachmentFormats = &m_Swapchain.GetImageFormat(),
+            .pColorAttachmentFormats = &m_Swapchain->GetImageFormat(),
             .depthAttachmentFormat = FindDepthFormat(),
     };
 
@@ -415,10 +416,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     bool msaaEnabled = msaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = msaaEnabled ? colorImage.GetImageView() : m_Swapchain.GetImageView(imageIndex),
+            .imageView = msaaEnabled ? colorImage->GetImageView() : m_Swapchain->GetImageView(imageIndex),
             .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .resolveMode = msaaEnabled ? VK_RESOLVE_MODE_AVERAGE_BIT : VK_RESOLVE_MODE_NONE,
-            .resolveImageView = m_Swapchain.GetImageView(imageIndex),
+            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
             .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -427,7 +428,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingAttachmentInfo depthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = depthImage.GetImageView(),
+            .imageView = depthImage->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -436,7 +437,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingInfo renderInfo{
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, m_Swapchain.GetWidth(), m_Swapchain.GetHeight()},
+            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachment,
@@ -454,23 +455,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         throw std::runtime_error("Failed to begin recording command buffer!");
     }
 
-    m_Swapchain.GetImage(imageIndex).TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
-                                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    depthImage.TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
+                                                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    depthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-    VkBuffer vertexBuffers[] = {vertexBuffer.GetBuffer()};
+    VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
-            .width = (float) m_Swapchain.GetWidth(),
-            .height = (float) m_Swapchain.GetHeight(),
+            .width = (float) m_Swapchain->GetWidth(),
+            .height = (float) m_Swapchain->GetHeight(),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
     };
@@ -478,7 +479,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRect2D scissor{
             .offset = {0, 0},
-            .extent = m_Swapchain.GetExtent(),
+            .extent = m_Swapchain->GetExtent(),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
@@ -488,46 +489,47 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
-    m_Swapchain.GetImage(imageIndex).TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
 }
 
 void Application::DrawFrame() {
-    vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain.GetWaitFences()[currentFrame], VK_TRUE, UINT64_MAX);
+    std::cout << currentFrame << " " << m_Swapchain->GetWaitFences().size() << std::endl;
+    vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame], VK_TRUE, UINT64_MAX);
 
-    uint32_t imageIndex = m_Swapchain.AcquireNextImage(currentFrame);
+    uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max())
         return;
 
     UpdateUniformBuffer(currentFrame);
-    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain.GetWaitFences()[currentFrame]);
+    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame]);
 
-    vkResetCommandBuffer(m_Swapchain.GetCommandBuffers()[currentFrame], 0);
-    RecordCommandBuffer(m_Swapchain.GetCommandBuffers()[currentFrame], imageIndex);
+    vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[currentFrame], 0);
+    RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     };
 
-    VkSemaphore waitSemaphores[] = {m_Swapchain.GetImageAvailableSemaphores()[currentFrame]};
+    VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_Swapchain.GetCommandBuffers()[currentFrame];
+    submitInfo.pCommandBuffers = &m_Swapchain->GetCommandBuffers()[currentFrame];
 
-    VkSemaphore signalSemaphores[] = {m_Swapchain.GetRenderFinishedSemaphores()[currentFrame]};
+    VkSemaphore signalSemaphores[] = {m_Swapchain->GetRenderFinishedSemaphores()[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain.GetWaitFences()[currentFrame]),
+    VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain->GetWaitFences()[currentFrame]),
              "Failed to submit draw command buffer!");
 
-    m_Swapchain.Present(imageIndex, currentFrame);
+    m_Swapchain->Present(imageIndex, currentFrame);
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -554,30 +556,32 @@ void Application::DrawFrame() {
 void Application::CreateVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    Buffer stagingBuffer = Buffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    Buffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     stagingBuffer.Map();
     stagingBuffer.From(vertices.data(), (size_t) bufferSize);
     stagingBuffer.Unmap();
 
-    vertexBuffer = Buffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vertexBuffer.FromBuffer(stagingBuffer);
+    vertexBuffer = std::make_shared<Buffer>(m_Device, bufferSize,
+                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vertexBuffer->FromBuffer(stagingBuffer);
 }
 
 void Application::CreateIndexBuffer() {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    Buffer stagingBuffer = Buffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    Buffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBuffer.Map();
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
     stagingBuffer.Unmap();
 
-    indexBuffer = Buffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    indexBuffer.FromBuffer(stagingBuffer);
+    indexBuffer = std::make_shared<Buffer>(m_Device, bufferSize,
+                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    indexBuffer->FromBuffer(stagingBuffer);
 }
 
 void Application::CreateDescriptorSetLayout() {
@@ -614,10 +618,10 @@ void Application::CreateUniformBuffers() {
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        uniformBuffers[i] = Buffer(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        vkMapMemory(m_Device->GetDevice(), uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+        uniformBuffers[i] = std::make_shared<Buffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        uniformBuffers[i]->Map();;
     }
 
 }
@@ -633,13 +637,13 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 //    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 //    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = m_Camera.GetViewMatrix();
-    ubo.proj = glm::perspective(glm::radians(45.0f), (float) m_Swapchain.GetWidth() / (float) m_Swapchain.GetHeight(),
+    ubo.proj = glm::perspective(glm::radians(45.0f), (float) m_Swapchain->GetWidth() / (float) m_Swapchain->GetHeight(),
                                 0.1f,
                                 10.0f);
 
     ubo.proj[1][1] *= -1;
 
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    uniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 }
 
 void Application::CreateDescriptorPool() {
@@ -672,20 +676,19 @@ void Application::CreateDescriptorSets() {
     };
 
     descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(m_Device->GetDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate descriptor sets!");
-    }
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocInfo, descriptorSets.data()),
+             "Failed to allocate descriptor sets!");
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{
-                .buffer = uniformBuffers[i].GetBuffer(),
+                .buffer = uniformBuffers[i]->GetBuffer(),
                 .offset = 0,
                 .range = sizeof(UniformBufferObject),
         };
 
         VkDescriptorImageInfo imageInfo{
-                .sampler = texture.GetSampler(),
-                .imageView = texture.GetImage().GetImageView(),
+                .sampler = texture->GetSampler(),
+                .imageView = texture->GetImage()->GetImageView(),
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
@@ -709,7 +712,6 @@ void Application::CreateDescriptorSets() {
         vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) descriptorWrites.size(), descriptorWrites.data(), 0,
                                nullptr);
     }
-
 }
 
 VkFormat
@@ -732,10 +734,12 @@ Application::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImag
 void Application::CreateDepthResources() {
     VkFormat depthFormat = FindDepthFormat();
 
-    depthImage = Image(m_Device, m_Swapchain.GetWidth(), m_Swapchain.GetHeight(), 1, msaaSamples, depthFormat,
-                       VK_IMAGE_TILING_OPTIMAL,
-                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                       VK_IMAGE_ASPECT_DEPTH_BIT);
+    depthImage = std::make_shared<Image>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
+                                         depthFormat,
+                                         VK_IMAGE_TILING_OPTIMAL,
+                                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                         VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 VkFormat Application::FindDepthFormat() const {
@@ -785,12 +789,13 @@ void Application::LoadModel() {
 }
 
 void Application::CreateColorResources() {
-    VkFormat colorFormat = m_Swapchain.GetImageFormat();
+    VkFormat colorFormat = m_Swapchain->GetImageFormat();
 
-    colorImage = Image(m_Device, m_Swapchain.GetWidth(), m_Swapchain.GetHeight(), 1, msaaSamples, colorFormat,
-                       VK_IMAGE_TILING_OPTIMAL,
-                       VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    colorImage = std::make_shared<Image>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
+                                         colorFormat,
+                                         VK_IMAGE_TILING_OPTIMAL,
+                                         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 Camera &Application::GetCamera() {

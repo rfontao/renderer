@@ -115,7 +115,7 @@ void Swapchain::Create() {
     // Create swapchain images
     m_ImageFormat = surfaceFormat.format;
     for (auto image: swapchainImages) {
-        m_Images.emplace_back(m_Device, image, m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        m_Images.push_back(std::make_shared<Image>(m_Device, image, m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1));
     }
 
     // Sync objects
@@ -227,10 +227,10 @@ void Swapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
 
 }
 
-Image Swapchain::GetImage(uint32_t index) const {
+std::shared_ptr<Image> Swapchain::GetImage(uint32_t index) const {
     return m_Images[index];
 }
 
 VkImageView Swapchain::GetImageView(uint32_t index) const {
-    return m_Images[index].GetImageView();
+    return m_Images[index]->GetImageView();
 }

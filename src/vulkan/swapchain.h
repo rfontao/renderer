@@ -24,7 +24,7 @@ public:
     GetRenderFinishedSemaphores() const { return m_RenderFinishedSemaphores; }
     [[nodiscard]] const std::vector<VkCommandBuffer> &GetCommandBuffers() const { return m_CommandBuffers; }
     [[nodiscard]] VkImageView GetImageView(uint32_t index) const;
-    [[nodiscard]] Image GetImage(uint32_t index) const;
+    [[nodiscard]] std::shared_ptr<Image> GetImage(uint32_t index) const;
     [[nodiscard]] uint32_t GetHeight() const { return m_Extent.height; }
     [[nodiscard]] uint32_t GetWidth() const { return m_Extent.width; }
     [[nodiscard]] VkExtent2D GetExtent() const { return m_Extent; }
@@ -41,7 +41,7 @@ private:
     VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
     VkSwapchainKHR m_Swapchain;
-    std::vector<Image> m_Images;
+    std::vector<std::shared_ptr<Image>> m_Images;
 
     VkFormat m_ImageFormat;
     VkExtent2D m_Extent;
@@ -55,5 +55,4 @@ private:
 
     std::vector<VkCommandBuffer> m_CommandBuffers;
     VkCommandPool m_CommandPool;
-
 };

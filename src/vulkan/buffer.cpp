@@ -8,8 +8,8 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
 
     VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .size = m_Size,
+            .usage = m_Usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
     VK_CHECK(vkCreateBuffer(m_Device->GetDevice(), &bufferInfo, nullptr, &m_Buffer),
@@ -21,7 +21,7 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
     VkMemoryAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .allocationSize = memRequirements.size,
-            .memoryTypeIndex = device->FindMemoryType(memRequirements.memoryTypeBits, properties),
+            .memoryTypeIndex = m_Device->FindMemoryType(memRequirements.memoryTypeBits, properties),
     };
     VK_CHECK(vkAllocateMemory(m_Device->GetDevice(), &allocInfo, nullptr, &m_Memory),
              "Failed to allocate vertex buffer memory!");
@@ -30,8 +30,11 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
 }
 
 Buffer::~Buffer() {
-    vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
-    vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
+    // TODO: Check later
+    if (m_Buffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
+        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
+    }
 }
 
 void Buffer::Map() {

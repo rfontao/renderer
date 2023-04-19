@@ -33,9 +33,9 @@ public:
     bool m_IsSwapchainImage = false;
 private:
     uint32_t m_Width, m_Height;
-    VkImage m_Image;
-    VkImageView m_View;
-    VkDeviceMemory m_Memory;
+    VkImage m_Image = VK_NULL_HANDLE;
+    VkImageView m_View = VK_NULL_HANDLE;
+    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
 
     std::shared_ptr<Device> m_Device;
 };
