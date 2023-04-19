@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "camera.h"
+#include "Camera.h"
 
 Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp,
                const glm::vec3 &focusPoint) : m_Position(position), m_WorldUp(worldUp),

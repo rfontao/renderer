@@ -1,14 +1,14 @@
 #include "pch.h"
-#include "swapchain.h"
+#include "VulkanSwapchain.h"
 
-#include "device.h"
-#include "utils.h"
+#include "VulkanDevice.h"
+#include "Utils.h"
 
-Swapchain::Swapchain(std::shared_ptr<Device> device, GLFWwindow *window) : m_Device(device), m_Window(window) {
+VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) : m_Device(device), m_Window(window) {
     Create(false);
 }
 
-void Swapchain::Destroy() {
+void VulkanSwapchain::Destroy() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(m_Device->GetDevice(), m_RenderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(m_Device->GetDevice(), m_ImageAvailableSemaphores[i], nullptr);
@@ -17,14 +17,14 @@ void Swapchain::Destroy() {
     Clean();
 }
 
-void Swapchain::Clean() {
+void VulkanSwapchain::Clean() {
     for (auto &image: m_Images) {
         image->Destroy();
     }
     vkDestroySwapchainKHR(m_Device->GetDevice(), m_Swapchain, nullptr);
 }
 
-void Swapchain::Recreate() {
+void VulkanSwapchain::Recreate() {
     // Handle window resizing
     int width = 0, height = 0;
     glfwGetFramebufferSize(m_Window, &width, &height);
@@ -41,7 +41,7 @@ void Swapchain::Recreate() {
     Create(true);
 }
 
-void Swapchain::Create(bool resizing) {
+void VulkanSwapchain::Create(bool resizing) {
     SwapChainSupportDetails swapChainSupport = m_Device->QuerySwapChainSupport();
 
     VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -64,7 +64,7 @@ void Swapchain::Create(bool resizing) {
             .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
     };
 
-    Device::QueueFamilyIndices indices = m_Device->FindQueueFamilies();
+    VulkanDevice::QueueFamilyIndices indices = m_Device->FindQueueFamilies();
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily) {
@@ -95,8 +95,8 @@ void Swapchain::Create(bool resizing) {
     m_ImageFormat = surfaceFormat.format;
     m_Images.resize(swapchainImages.size());
     for (size_t i = 0; i < m_Images.size(); ++i) {
-        m_Images[i] = (std::make_shared<Image>(m_Device, swapchainImages[i], m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT,
-                                               1));
+        m_Images[i] = (std::make_shared<VulkanImage>(m_Device, swapchainImages[i], m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                     1));
     }
 
     if (!resizing) {
@@ -141,7 +141,7 @@ void Swapchain::Create(bool resizing) {
 
 }
 
-uint32_t Swapchain::AcquireNextImage(uint32_t currentFrame) {
+uint32_t VulkanSwapchain::AcquireNextImage(uint32_t currentFrame) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(m_Device->GetDevice(), m_Swapchain, UINT64_MAX,
                                             m_ImageAvailableSemaphores[currentFrame],
@@ -159,7 +159,7 @@ uint32_t Swapchain::AcquireNextImage(uint32_t currentFrame) {
     return imageIndex;
 }
 
-bool Swapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
+bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
     VkSwapchainKHR swapChains[] = {m_Swapchain};
     VkSemaphore signalSemaphores[] = {m_RenderFinishedSemaphores[currentFrame]};
     VkPresentInfoKHR presentInfo{
@@ -183,15 +183,15 @@ bool Swapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
     return false;
 }
 
-std::shared_ptr<Image> Swapchain::GetImage(uint32_t index) const {
+std::shared_ptr<VulkanImage> VulkanSwapchain::GetImage(uint32_t index) const {
     return m_Images[index];
 }
 
-VkImageView Swapchain::GetImageView(uint32_t index) const {
+VkImageView VulkanSwapchain::GetImageView(uint32_t index) const {
     return m_Images[index]->GetImageView();
 }
 
-VkSurfaceFormatKHR Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
+VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
     for (const auto &availableFormat: availableFormats) {
         if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
             availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
@@ -202,7 +202,7 @@ VkSurfaceFormatKHR Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfac
     return availableFormats[0];
 }
 
-VkPresentModeKHR Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
+VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
     for (const auto &availablePresentMode: availablePresentModes) {
         // Triple buffering
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -214,7 +214,7 @@ VkPresentModeKHR Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentMod
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
+VkExtent2D VulkanSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         return capabilities.currentExtent;
     } else {

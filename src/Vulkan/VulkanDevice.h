@@ -2,8 +2,8 @@
 
 #include "../pch.h"
 
-#include "utils.h"
-#include "swapchain.h"
+#include "Utils.h"
+#include "VulkanSwapchain.h"
 
 struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
@@ -11,7 +11,7 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-class Device {
+class VulkanDevice {
 public:
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphicsFamily;
@@ -22,7 +22,7 @@ public:
         }
     };
 
-    Device(VkInstance instance, VkSurfaceKHR surface);
+    VulkanDevice(VkInstance instance, VkSurfaceKHR surface);
     void Destroy();
 
     [[nodiscard]] SwapChainSupportDetails QuerySwapChainSupport() const;

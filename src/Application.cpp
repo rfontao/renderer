@@ -56,14 +56,14 @@ void Application::InitVulkan() {
     SetupDebugMessenger();
 
     VkSurfaceKHR surface = CreateSurface();
-    m_Device = std::make_shared<Device>(m_Instance, surface);
-    m_Swapchain = std::make_shared<Swapchain>(m_Device, m_Window);
+    m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
+    m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
     CreateDescriptorSetLayout();
     CreateGraphicsPipeline();
     CreateColorResources();
     CreateDepthResources();
-    texture = make_shared<Texture>(m_Device, TEXTURE_PATH);
+    texture = make_shared<VulkanTexture>(m_Device, TEXTURE_PATH);
     LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
@@ -560,16 +560,16 @@ void Application::DrawFrame() {
 void Application::CreateVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    Buffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     stagingBuffer.Map();
     stagingBuffer.From(vertices.data(), (size_t) bufferSize);
     stagingBuffer.Unmap();
 
-    vertexBuffer = std::make_shared<Buffer>(m_Device, bufferSize,
+    vertexBuffer = std::make_shared<VulkanBuffer>(m_Device, bufferSize,
                                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vertexBuffer->FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -577,15 +577,15 @@ void Application::CreateVertexBuffer() {
 void Application::CreateIndexBuffer() {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    Buffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBuffer.Map();
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
     stagingBuffer.Unmap();
 
-    indexBuffer = std::make_shared<Buffer>(m_Device, bufferSize,
+    indexBuffer = std::make_shared<VulkanBuffer>(m_Device, bufferSize,
                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     indexBuffer->FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -624,7 +624,7 @@ void Application::CreateUniformBuffers() {
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        uniformBuffers[i] = std::make_shared<Buffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        uniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         uniformBuffers[i]->Map();;
@@ -740,12 +740,12 @@ Application::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImag
 void Application::CreateDepthResources() {
     VkFormat depthFormat = FindDepthFormat();
 
-    depthImage = std::make_shared<Image>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
-                                         depthFormat,
-                                         VK_IMAGE_TILING_OPTIMAL,
-                                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                         VK_IMAGE_ASPECT_DEPTH_BIT);
+    depthImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
+                                               depthFormat,
+                                               VK_IMAGE_TILING_OPTIMAL,
+                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                               VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 VkFormat Application::FindDepthFormat() const {
@@ -797,11 +797,11 @@ void Application::LoadModel() {
 void Application::CreateColorResources() {
     VkFormat colorFormat = m_Swapchain->GetImageFormat();
 
-    colorImage = std::make_shared<Image>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
-                                         colorFormat,
-                                         VK_IMAGE_TILING_OPTIMAL,
+    colorImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1, msaaSamples,
+                                               colorFormat,
+                                               VK_IMAGE_TILING_OPTIMAL,
                                          VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 Camera &Application::GetCamera() {

@@ -1,15 +1,15 @@
 #pragma once
 
-#include "device.h"
-#include "image.h"
+#include "VulkanDevice.h"
+#include "VulkanImage.h"
 
-class Image;
-class Device;
+class VulkanImage;
+class VulkanDevice;
 
-class Swapchain {
+class VulkanSwapchain {
 public:
-    Swapchain() = default;
-    Swapchain(std::shared_ptr<Device> device, GLFWwindow *window);
+    VulkanSwapchain() = default;
+    VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window);
     void Destroy();
 
     void Recreate();
@@ -23,7 +23,7 @@ public:
     GetRenderFinishedSemaphores() const { return m_RenderFinishedSemaphores; }
     [[nodiscard]] const std::vector<VkCommandBuffer> &GetCommandBuffers() const { return m_CommandBuffers; }
     [[nodiscard]] VkImageView GetImageView(uint32_t index) const;
-    [[nodiscard]] std::shared_ptr<Image> GetImage(uint32_t index) const;
+    [[nodiscard]] std::shared_ptr<VulkanImage> GetImage(uint32_t index) const;
     [[nodiscard]] uint32_t GetHeight() const { return m_Extent.height; }
     [[nodiscard]] uint32_t GetWidth() const { return m_Extent.width; }
     [[nodiscard]] VkExtent2D GetExtent() const { return m_Extent; }
@@ -40,7 +40,7 @@ private:
     VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
     VkSwapchainKHR m_Swapchain;
-    std::vector<std::shared_ptr<Image>> m_Images;
+    std::vector<std::shared_ptr<VulkanImage>> m_Images;
 
     VkFormat m_ImageFormat;
     VkExtent2D m_Extent;
@@ -53,5 +53,5 @@ private:
 
     std::vector<VkCommandBuffer> m_CommandBuffers;
 
-    std::shared_ptr<Device> m_Device;
+    std::shared_ptr<VulkanDevice> m_Device;
 };

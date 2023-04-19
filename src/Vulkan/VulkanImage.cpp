@@ -1,12 +1,12 @@
 #include "pch.h"
-#include "image.h"
+#include "VulkanImage.h"
 
-#include "device.h"
-#include "utils.h"
-#include "buffer.h"
+#include "VulkanDevice.h"
+#include "Utils.h"
+#include "VulkanBuffer.h"
 
-Image::Image(std::shared_ptr<Device> device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-             uint32_t mipLevelCount) : m_Device(device), m_Image(image), m_IsSwapchainImage(true) {
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+                         uint32_t mipLevelCount) : m_Device(device), m_Image(image), m_IsSwapchainImage(true) {
 
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
@@ -25,10 +25,10 @@ Image::Image(std::shared_ptr<Device> device, VkImage image, VkFormat format, VkI
              "Failed to create texture image view!");
 }
 
-Image::Image(std::shared_ptr<Device> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
-             VkSampleCountFlagBits numSamples, VkFormat format,
-             VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-             VkImageAspectFlags aspectFlags) : m_Device(device), m_Width(width), m_Height(height) {
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
+                         VkSampleCountFlagBits numSamples, VkFormat format,
+                         VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+                         VkImageAspectFlags aspectFlags) : m_Device(device), m_Width(width), m_Height(height) {
     // VkImage creation
     VkImageCreateInfo imageInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -78,7 +78,7 @@ Image::Image(std::shared_ptr<Device> device, uint32_t width, uint32_t height, ui
              "Failed to create texture image view!");
 }
 
-void Image::Destroy() {
+void VulkanImage::Destroy() {
     vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
 
     // Image should only be destroyed if it doesn't belong to swapchain
@@ -88,7 +88,7 @@ void Image::Destroy() {
     }
 }
 
-void Image::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) {
+void VulkanImage::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
     VkImageMemoryBarrier barrier{
@@ -157,7 +157,7 @@ void Image::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) {
     m_Device->EndSingleTimeCommands(commandBuffer);
 }
 
-void Image::CopyBufferData(Buffer &buffer) {
+void VulkanImage::CopyBufferData(VulkanBuffer &buffer) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
     VkBufferImageCopy region{
@@ -185,12 +185,12 @@ void Image::CopyBufferData(Buffer &buffer) {
     m_Device->EndSingleTimeCommands(commandBuffer);
 }
 
-void Image::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount) {
+void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount) {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(m_Device->GetPhysicalDevice(), format, &formatProperties);
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-        throw std::runtime_error("Texture image format does not support linear blitting!");
+        throw std::runtime_error("VulkanTexture image format does not support linear blitting!");
     }
 
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();

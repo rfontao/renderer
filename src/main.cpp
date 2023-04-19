@@ -1,4 +1,3 @@
-#include "ExampleApplication.h"
 #include "Application.h"
 
 #include <iostream>
@@ -6,8 +5,6 @@
 #include <cstdlib>
 
 int main() {
-
-//    ExampleApplication app;
     Application app;
 
     try {

@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "buffer.h"
+#include "VulkanBuffer.h"
 
-#include "utils.h"
+#include "Utils.h"
 
-Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage,
-               VkMemoryPropertyFlags properties) : m_Device(device), m_Size(size), m_Usage(usage) {
+VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize size, VkBufferUsageFlags usage,
+                           VkMemoryPropertyFlags properties) : m_Device(device), m_Size(size), m_Usage(usage) {
 
     VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -29,27 +29,27 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
     vkBindBufferMemory(m_Device->GetDevice(), m_Buffer, m_Memory, 0);
 }
 
-void Buffer::Destroy() {
+void VulkanBuffer::Destroy() {
     vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
     vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
 }
 
-void Buffer::Map() {
+void VulkanBuffer::Map() {
     vkMapMemory(m_Device->GetDevice(), m_Memory, 0, m_Size, 0, &m_Data);
 }
 
-void Buffer::Unmap() {
+void VulkanBuffer::Unmap() {
     vkUnmapMemory(m_Device->GetDevice(), m_Memory);
 }
 
-void Buffer::From(void *src, VkDeviceSize srcSize) {
+void VulkanBuffer::From(void *src, VkDeviceSize srcSize) {
     if (m_Data == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
     memcpy(m_Data, src, srcSize);
 }
 
 // TODO: Maybe receive size??
-void Buffer::FromBuffer(Buffer &src) {
+void VulkanBuffer::FromBuffer(VulkanBuffer &src) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
     VkBufferCopy copyRegion{

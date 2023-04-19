@@ -1,14 +1,14 @@
 #pragma once
 
-#include "device.h"
+#include "VulkanDevice.h"
 
-class Device;
+class VulkanDevice;
 
-class Buffer {
+class VulkanBuffer {
 public:
-    Buffer() = default;
-    Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage,
-           VkMemoryPropertyFlags properties);
+    VulkanBuffer() = default;
+    VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize size, VkBufferUsageFlags usage,
+                 VkMemoryPropertyFlags properties);
     void Destroy();
 
     void Map();
@@ -16,7 +16,7 @@ public:
 
     // TODO: Make name more clear
     void From(void *src, VkDeviceSize srcSize);
-    void FromBuffer(Buffer& src);
+    void FromBuffer(VulkanBuffer& src);
 
     [[nodiscard]] VkBuffer GetBuffer() const { return m_Buffer; };
 
@@ -27,5 +27,5 @@ private:
     VkBufferUsageFlags m_Usage = VK_NULL_HANDLE;
     void *m_Data = nullptr; // Must be mapped
 
-    std::shared_ptr<Device> m_Device;
+    std::shared_ptr<VulkanDevice> m_Device;
 };

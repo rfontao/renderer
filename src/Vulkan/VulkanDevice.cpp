@@ -1,9 +1,9 @@
 #include "pch.h"
-#include "device.h"
+#include "VulkanDevice.h"
 
-#include "swapchain.h"
+#include "VulkanSwapchain.h"
 
-Device::Device(VkInstance instance, VkSurfaceKHR surface) : m_Surface(surface) {
+VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface) : m_Surface(surface) {
     PickPhysicalDevice(instance);
 
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_DeviceProperties);
@@ -31,12 +31,12 @@ Device::Device(VkInstance instance, VkSurfaceKHR surface) : m_Surface(surface) {
     CreateCommandPool();
 }
 
-void Device::Destroy() {
+void VulkanDevice::Destroy() {
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
     vkDestroyDevice(m_Device, nullptr);
 }
 
-void Device::PickPhysicalDevice(VkInstance instance) {
+void VulkanDevice::PickPhysicalDevice(VkInstance instance) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
     if (deviceCount == 0) {
@@ -60,7 +60,7 @@ void Device::PickPhysicalDevice(VkInstance instance) {
     }
 }
 
-void Device::CreateLogicalDevice() {
+void VulkanDevice::CreateLogicalDevice() {
     QueueFamilyIndices indices = FindQueueFamilies();
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -109,8 +109,8 @@ void Device::CreateLogicalDevice() {
     vkGetDeviceQueue(m_Device, indices.presentFamily.value(), 0, &m_PresentQueue);
 }
 
-void Device::CreateCommandPool() {
-    Device::QueueFamilyIndices queueFamilyIndices = FindQueueFamilies();
+void VulkanDevice::CreateCommandPool() {
+    VulkanDevice::QueueFamilyIndices queueFamilyIndices = FindQueueFamilies();
 
     VkCommandPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -123,7 +123,7 @@ void Device::CreateCommandPool() {
 }
 
 
-SwapChainSupportDetails Device::QuerySwapChainSupport() const {
+SwapChainSupportDetails VulkanDevice::QuerySwapChainSupport() const {
     SwapChainSupportDetails details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, m_Surface, &details.capabilities);
@@ -147,7 +147,7 @@ SwapChainSupportDetails Device::QuerySwapChainSupport() const {
     return details;
 }
 
-bool Device::IsDeviceSuitable() {
+bool VulkanDevice::IsDeviceSuitable() {
     QueueFamilyIndices indices = FindQueueFamilies();
     bool extensionsSupported = CheckDeviceExtensionSupport(deviceExtensions);
 
@@ -164,7 +164,7 @@ bool Device::IsDeviceSuitable() {
 }
 
 // Check if the device supports extensions
-bool Device::CheckDeviceExtensionSupport(const std::vector<const char *> &extensions) const {
+bool VulkanDevice::CheckDeviceExtensionSupport(const std::vector<const char *> &extensions) const {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &extensionCount, nullptr);
 
@@ -180,7 +180,7 @@ bool Device::CheckDeviceExtensionSupport(const std::vector<const char *> &extens
     return requiredExtensions.empty();
 }
 
-Device::QueueFamilyIndices Device::FindQueueFamilies() const {
+VulkanDevice::QueueFamilyIndices VulkanDevice::FindQueueFamilies() const {
     QueueFamilyIndices indices;
 
     uint32_t queueFamilyCount = 0;
@@ -211,7 +211,7 @@ Device::QueueFamilyIndices Device::FindQueueFamilies() const {
     return indices;
 }
 
-VkSampleCountFlagBits Device::GetMaxUsableSampleCount() const {
+VkSampleCountFlagBits VulkanDevice::GetMaxUsableSampleCount() const {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
 
@@ -227,7 +227,7 @@ VkSampleCountFlagBits Device::GetMaxUsableSampleCount() const {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-uint32_t Device::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     for (uint32_t i = 0; i < m_MemoryProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (m_MemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
             return i;
@@ -237,7 +237,7 @@ uint32_t Device::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags prope
     throw std::runtime_error("Failed to find suitable memory type!");
 }
 
-VkCommandBuffer Device::BeginSingleTimeCommands() {
+VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = m_CommandPool,
@@ -257,7 +257,7 @@ VkCommandBuffer Device::BeginSingleTimeCommands() {
     return commandBuffer;
 }
 
-void Device::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
+void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{

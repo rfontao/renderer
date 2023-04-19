@@ -1,12 +1,12 @@
 #pragma once
 
-#include "camera.h"
-#include "vulkan/texture.h"
-#include "vulkan/device.h"
-#include "vulkan/swapchain.h"
-#include "vulkan/image.h"
-#include "vulkan/buffer.h"
-#include "vulkan/utils.h"
+#include "Camera.h"
+#include "vulkan/VulkanTexture.h"
+#include "vulkan/VulkanDevice.h"
+#include "vulkan/VulkanSwapchain.h"
+#include "vulkan/VulkanImage.h"
+#include "vulkan/VulkanBuffer.h"
+#include "vulkan/Utils.h"
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -127,17 +127,17 @@ public:
 
     void CreateColorResources();
 
-    std::shared_ptr<Device> m_Device;
+    std::shared_ptr<VulkanDevice> m_Device;
     VkInstance m_Instance;
-    std::shared_ptr<Texture> texture;
+    std::shared_ptr<VulkanTexture> texture;
 
-    std::shared_ptr<Image> depthImage;
-    std::shared_ptr<Image> colorImage;
+    std::shared_ptr<VulkanImage> depthImage;
+    std::shared_ptr<VulkanImage> colorImage;
 
-    std::shared_ptr<Buffer> vertexBuffer;
-    std::shared_ptr<Buffer> indexBuffer;
+    std::shared_ptr<VulkanBuffer> vertexBuffer;
+    std::shared_ptr<VulkanBuffer> indexBuffer;
 
-    std::shared_ptr<Swapchain> m_Swapchain;
+    std::shared_ptr<VulkanSwapchain> m_Swapchain;
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
@@ -148,7 +148,7 @@ public:
     VkDebugUtilsMessengerEXT debugMessenger;
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    std::vector<std::shared_ptr<Buffer>> uniformBuffers;
+    std::vector<std::shared_ptr<VulkanBuffer>> uniformBuffers;
 
     uint32_t currentFrame = 0;
 
