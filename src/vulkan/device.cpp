@@ -31,7 +31,7 @@ Device::Device(VkInstance instance, VkSurfaceKHR surface) : m_Surface(surface) {
     CreateCommandPool();
 }
 
-Device::~Device() {
+void Device::Destroy() {
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
     vkDestroyDevice(m_Device, nullptr);
 }
@@ -271,3 +271,5 @@ void Device::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
 
     vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
 }
+
+

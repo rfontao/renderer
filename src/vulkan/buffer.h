@@ -9,7 +9,7 @@ public:
     Buffer() = default;
     Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage,
            VkMemoryPropertyFlags properties);
-    ~Buffer();
+    void Destroy();
 
     void Map();
     void Unmap();

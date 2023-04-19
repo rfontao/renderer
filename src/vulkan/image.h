@@ -16,13 +16,10 @@ public:
 
     explicit Image(std::shared_ptr<Device> device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
                    uint32_t mipLevels);
-
-    ~Image();
+    void Destroy();
 
     void TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
-
     void CopyBufferData(Buffer &buffer);
-
     void GenerateMipMaps(VkFormat format, uint32_t mipLevelCount);
 
     [[nodiscard]] uint32_t GetWidth() const { return m_Width; }

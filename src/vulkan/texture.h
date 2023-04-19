@@ -11,6 +11,7 @@ class Texture {
 public:
     Texture() = default;
     Texture(std::shared_ptr<Device> device, const std::string &path);
+    void Destroy();
 
     [[nodiscard]] uint32_t GetWidth() const { return m_Image->GetWidth(); }
     [[nodiscard]] uint32_t GetHeight() const { return m_Image->GetHeight(); }

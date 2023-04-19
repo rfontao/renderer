@@ -9,6 +9,11 @@ Texture::Texture(std::shared_ptr<Device> device, const std::string &path) : m_De
     LoadFromFile(path);
 }
 
+void Texture::Destroy() {
+    vkDestroySampler(m_Device->GetDevice(), m_Sampler, nullptr);
+    m_Image->Destroy();
+}
+
 void Texture::LoadFromFile(const std::string &path) {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -38,6 +43,8 @@ void Texture::LoadFromFile(const std::string &path) {
     m_Image->CopyBufferData(stagingBuffer);
     m_Image->GenerateMipMaps(VK_FORMAT_R8G8B8A8_SRGB, m_MipLevelCount);
     CreateSampler();
+
+    stagingBuffer.Destroy();
 }
 
 void Texture::CreateSampler() {

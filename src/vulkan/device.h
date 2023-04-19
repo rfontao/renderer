@@ -23,7 +23,7 @@ public:
     };
 
     Device(VkInstance instance, VkSurfaceKHR surface);
-    ~Device();
+    void Destroy();
 
     [[nodiscard]] SwapChainSupportDetails QuerySwapChainSupport() const;
     [[nodiscard]] QueueFamilyIndices FindQueueFamilies() const;

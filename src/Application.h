@@ -127,7 +127,17 @@ public:
 
     void CreateColorResources();
 
+    std::shared_ptr<Device> m_Device;
     VkInstance m_Instance;
+    std::shared_ptr<Texture> texture;
+
+    std::shared_ptr<Image> depthImage;
+    std::shared_ptr<Image> colorImage;
+
+    std::shared_ptr<Buffer> vertexBuffer;
+    std::shared_ptr<Buffer> indexBuffer;
+
+    std::shared_ptr<Swapchain> m_Swapchain;
 
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
@@ -136,16 +146,7 @@ public:
     std::vector<VkDescriptorSet> descriptorSets;
 
     VkDebugUtilsMessengerEXT debugMessenger;
-
-    std::shared_ptr<Texture> texture;
-
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    std::shared_ptr<Image> depthImage;
-    std::shared_ptr<Image> colorImage;
-
-    std::shared_ptr<Buffer> vertexBuffer;
-    std::shared_ptr<Buffer> indexBuffer;
 
     std::vector<std::shared_ptr<Buffer>> uniformBuffers;
 
@@ -153,10 +154,6 @@ public:
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-
-    std::shared_ptr<Device> m_Device;
-
-    std::shared_ptr<Swapchain> m_Swapchain;
 
     Camera m_Camera;
     GLFWwindow *m_Window;

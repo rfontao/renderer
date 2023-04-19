@@ -78,15 +78,13 @@ Image::Image(std::shared_ptr<Device> device, uint32_t width, uint32_t height, ui
              "Failed to create texture image view!");
 }
 
-Image::~Image() {
-    if (m_Image != VK_NULL_HANDLE) {
-        vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
+void Image::Destroy() {
+    vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
 
-        // Image should only be destroyed if it doesn't belong to swapchain
-        if (!m_IsSwapchainImage) {
-            vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
-            vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
-        }
+    // Image should only be destroyed if it doesn't belong to swapchain
+    if (!m_IsSwapchainImage) {
+        vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
+        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
     }
 }
 

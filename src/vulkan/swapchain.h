@@ -10,12 +10,11 @@ class Swapchain {
 public:
     Swapchain() = default;
     Swapchain(std::shared_ptr<Device> device, GLFWwindow *window);
-
-    ~Swapchain();
+    void Destroy();
 
     void Recreate();
     uint32_t AcquireNextImage(uint32_t currentFrame);
-    void Present(uint32_t imageIndex, uint32_t currentFrame);
+    bool Present(uint32_t imageIndex, uint32_t currentFrame);
 
     [[nodiscard]] const std::vector<VkFence> &GetWaitFences() const { return m_WaitFences; }
     [[nodiscard]] const std::vector<VkSemaphore> &
@@ -33,8 +32,8 @@ public:
     int MAX_FRAMES_IN_FLIGHT = 2;
     bool m_NeedsResizing = false;
 private:
-    void Create();
-    void Destroy();
+    void Create(bool resizing);
+    void Clean();
 
     static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
     static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
@@ -46,7 +45,6 @@ private:
     VkFormat m_ImageFormat;
     VkExtent2D m_Extent;
 
-    std::shared_ptr<Device> m_Device;
     GLFWwindow *m_Window;
 
     std::vector<VkFence> m_WaitFences;
@@ -54,5 +52,6 @@ private:
     std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 
     std::vector<VkCommandBuffer> m_CommandBuffers;
-    VkCommandPool m_CommandPool;
+
+    std::shared_ptr<Device> m_Device;
 };

@@ -82,18 +82,32 @@ void Application::MainLoop() {
 }
 
 void Application::Cleanup() {
+    m_Swapchain->Destroy();
+    texture->Destroy();
+
+    colorImage->Destroy();
+    depthImage->Destroy();
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        uniformBuffers[i]->Destroy();
+    }
 
     vkDestroyDescriptorPool(m_Device->GetDevice(), descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(m_Device->GetDevice(), descriptorSetLayout, nullptr);
 
+    vertexBuffer->Destroy();
+    indexBuffer->Destroy();
+
     vkDestroyPipeline(m_Device->GetDevice(), graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(m_Device->GetDevice(), pipelineLayout, nullptr);
+
+    vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
+    m_Device->Destroy();
 
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(m_Instance, debugMessenger, nullptr);
     }
 
-//    vkDestroySurfaceKHR(m_Instance, surface, nullptr);
     vkDestroyInstance(m_Instance, nullptr);
 
     glfwDestroyWindow(m_Window);
@@ -456,7 +470,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     }
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
-                                                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     depthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
@@ -490,19 +504,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdEndRendering(commandBuffer);
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+                                                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
 }
 
 void Application::DrawFrame() {
-    std::cout << currentFrame << " " << m_Swapchain->GetWaitFences().size() << std::endl;
     vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
-    if (imageIndex == std::numeric_limits<uint32_t>::max())
+    if (imageIndex == std::numeric_limits<uint32_t>::max()) {
+        colorImage->Destroy();
+        CreateColorResources();
+        depthImage->Destroy();
+        CreateDepthResources();
         return;
+    }
 
     UpdateUniformBuffer(currentFrame);
     vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame]);
@@ -529,29 +547,15 @@ void Application::DrawFrame() {
     VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain->GetWaitFences()[currentFrame]),
              "Failed to submit draw command buffer!");
 
-    m_Swapchain->Present(imageIndex, currentFrame);
+    bool resourceNeedResizing = m_Swapchain->Present(imageIndex, currentFrame);
+    if (resourceNeedResizing) {
+        colorImage->Destroy();
+        CreateColorResources();
+        depthImage->Destroy();
+        CreateDepthResources();
+    }
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
-
-//TODO: Rebuild color and depth resources on resize
-//void Application::RecreateSwapChain() {
-//    int width = 0, height = 0;
-//    glfwGetFramebufferSize(m_Window, &width, &height);
-//    while (width == 0 || height == 0) {
-//        glfwGetFramebufferSize(m_Window, &width, &height);
-//        glfwWaitEvents();
-//    }
-//
-//    vkDeviceWaitIdle(device);
-//
-//    CleanupSwapChain();
-//
-//    CreateSwapChain();
-//    CreateImageViews();
-//    CreateColorResources();
-//    CreateDepthResources();
-//    CreateFramebuffers();
-//}
 
 void Application::CreateVertexBuffer() {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
@@ -567,6 +571,7 @@ void Application::CreateVertexBuffer() {
                                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vertexBuffer->FromBuffer(stagingBuffer);
+    stagingBuffer.Destroy();
 }
 
 void Application::CreateIndexBuffer() {
@@ -582,6 +587,7 @@ void Application::CreateIndexBuffer() {
                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     indexBuffer->FromBuffer(stagingBuffer);
+    stagingBuffer.Destroy();
 }
 
 void Application::CreateDescriptorSetLayout() {

@@ -29,12 +29,9 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
     vkBindBufferMemory(m_Device->GetDevice(), m_Buffer, m_Memory, 0);
 }
 
-Buffer::~Buffer() {
-    // TODO: Check later
-    if (m_Buffer != VK_NULL_HANDLE) {
-        vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
-        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
-    }
+void Buffer::Destroy() {
+    vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
+    vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
 }
 
 void Buffer::Map() {
