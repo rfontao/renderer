@@ -4,7 +4,8 @@
 #include "VulkanDevice.h"
 #include "Utils.h"
 
-VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) : m_Device(device), m_Window(window) {
+VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) : m_Device(device),
+                                                                                             m_Window(window) {
     Create(false);
 }
 
@@ -95,7 +96,8 @@ void VulkanSwapchain::Create(bool resizing) {
     m_ImageFormat = surfaceFormat.format;
     m_Images.resize(swapchainImages.size());
     for (size_t i = 0; i < m_Images.size(); ++i) {
-        m_Images[i] = (std::make_shared<VulkanImage>(m_Device, swapchainImages[i], m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT,
+        m_Images[i] = (std::make_shared<VulkanImage>(m_Device, swapchainImages[i], m_ImageFormat,
+                                                     VK_IMAGE_ASPECT_COLOR_BIT,
                                                      1));
     }
 

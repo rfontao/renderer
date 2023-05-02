@@ -5,6 +5,7 @@
     "glm",
     "glfw3",
     "stb",
-    "tinyobjloader"
+    "tinyobjloader",
+    "spirv-reflect"
   ]
 }

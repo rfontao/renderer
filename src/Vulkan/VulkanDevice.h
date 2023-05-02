@@ -39,6 +39,10 @@ public:
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+    VkFormat FindDepthFormat();
+    VkFormat FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                        VkFormatFeatureFlags features);
+
 private:
     [[nodiscard]] VkSampleCountFlagBits GetMaxUsableSampleCount() const;
     [[nodiscard]] bool CheckDeviceExtensionSupport(const std::vector<const char *> &extensions) const;

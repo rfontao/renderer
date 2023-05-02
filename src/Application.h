@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Camera.h"
+#include "Vulkan/VulkanPipeline.h"
 #include "vulkan/VulkanTexture.h"
 #include "vulkan/VulkanDevice.h"
 #include "vulkan/VulkanSwapchain.h"
@@ -19,37 +20,6 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription GetBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{
-                .binding = 0,
-                .stride = sizeof(Vertex),
-                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-        };
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].binding = offsetof(Vertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
 
     bool operator==(const Vertex &other) const {
         return pos == other.pos && color == other.color && texCoord == other.texCoord;
@@ -70,18 +40,13 @@ namespace std {
 class Application {
 public:
     Application() = default;
-
     void Run();
 
     Camera &GetCamera();
 
-public:
     void InitWindow();
-
     void InitVulkan();
-
     void MainLoop();
-
     void Cleanup();
 
     void CreateInstance();
@@ -94,10 +59,6 @@ public:
 
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
 
-    void CreateGraphicsPipeline();
-
-    [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<char> &code) const;
-
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void DrawFrame();
@@ -105,8 +66,6 @@ public:
     void CreateVertexBuffer();
 
     void CreateIndexBuffer();
-
-    void CreateDescriptorSetLayout();
 
     void CreateUniformBuffers();
 
@@ -117,11 +76,6 @@ public:
     void CreateDescriptorSets();
 
     void CreateDepthResources();
-
-    [[nodiscard]] VkFormat
-    FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
-
-    [[nodiscard]] VkFormat FindDepthFormat() const;
 
     void LoadModel();
 
@@ -139,9 +93,8 @@ public:
 
     std::shared_ptr<VulkanSwapchain> m_Swapchain;
 
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
+
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 

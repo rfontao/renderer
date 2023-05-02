@@ -1,5 +1,7 @@
 #pragma once
+
 #include "pch.h"
+#include "VulkanDevice.h"
 
 #define VK_CHECK(func, msg) if (func != VK_SUCCESS) throw std::runtime_error(msg)
 
