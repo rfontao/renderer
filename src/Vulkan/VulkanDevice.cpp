@@ -29,9 +29,11 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface) : m_Surfac
 
     CreateLogicalDevice();
     CreateCommandPool();
+    CreateDescriptorPool();
 }
 
 void VulkanDevice::Destroy() {
+    vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
     vkDestroyDevice(m_Device, nullptr);
 }
@@ -120,6 +122,24 @@ void VulkanDevice::CreateCommandPool() {
 
     VK_CHECK(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool),
              "Failed to create command pool!");
+}
+
+void VulkanDevice::CreateDescriptorPool() {
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         10},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10},
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .maxSets = 10,
+            .poolSizeCount = (uint32_t) poolSizes.size(),
+            .pPoolSizes = poolSizes.data(),
+    };
+
+    VK_CHECK(vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool),
+             "Failed to create descriptor pool!");
 }
 
 

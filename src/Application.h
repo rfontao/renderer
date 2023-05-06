@@ -40,6 +40,7 @@ namespace std {
 class Application {
 public:
     Application() = default;
+
     void Run();
 
     Camera &GetCamera();
@@ -71,15 +72,13 @@ public:
 
     void UpdateUniformBuffer(uint32_t currentImage);
 
-    void CreateDescriptorPool();
-
     void CreateDescriptorSets();
 
     void CreateDepthResources();
 
-    void LoadModel();
-
     void CreateColorResources();
+
+    void LoadModel();
 
     std::shared_ptr<VulkanDevice> m_Device;
     VkInstance m_Instance;
@@ -92,10 +91,8 @@ public:
     std::shared_ptr<VulkanBuffer> indexBuffer;
 
     std::shared_ptr<VulkanSwapchain> m_Swapchain;
-
     std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
 
-    VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
     VkDebugUtilsMessengerEXT debugMessenger;

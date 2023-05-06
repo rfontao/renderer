@@ -35,6 +35,7 @@ public:
     [[nodiscard]] VkQueue GetPresentQueue() const { return m_PresentQueue; }
     [[nodiscard]] VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
     [[nodiscard]] VkCommandPool GetCommandPool() const { return m_CommandPool; }
+    [[nodiscard]] VkDescriptorPool GetDescriptorPool() const { return m_DescriptorPool; }
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -70,6 +71,8 @@ private:
     std::vector<std::string> m_SupportedExtensions;
 
     VkCommandPool m_CommandPool;
+    VkDescriptorPool m_DescriptorPool;
+
 
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -84,4 +87,6 @@ private:
 #else
     const bool enableValidationLayers = true;
 #endif
+
+    void CreateDescriptorPool();
 };

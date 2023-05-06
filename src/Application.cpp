@@ -68,7 +68,6 @@ void Application::InitVulkan() {
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
-    CreateDescriptorPool();
     CreateDescriptorSets();
 }
 
@@ -92,7 +91,6 @@ void Application::Cleanup() {
         uniformBuffers[i]->Destroy();
     }
 
-    vkDestroyDescriptorPool(m_Device->GetDevice(), descriptorPool, nullptr);
     m_GraphicsPipeline->Destroy();
 
     vertexBuffer->Destroy();
@@ -440,29 +438,12 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     uniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 }
 
-void Application::CreateDescriptorPool() {
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         10},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10},
-    };
-
-    VkDescriptorPoolCreateInfo poolInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 10,
-            .poolSizeCount = (uint32_t) poolSizes.size(),
-            .pPoolSizes = poolSizes.data(),
-    };
-
-    VK_CHECK(vkCreateDescriptorPool(m_Device->GetDevice(), &poolInfo, nullptr, &descriptorPool),
-             "Failed to create descriptor pool!");
-}
 
 void Application::CreateDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayout());
     VkDescriptorSetAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = descriptorPool,
+            .descriptorPool = m_Device->GetDescriptorPool(),
             .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
             .pSetLayouts = layouts.data(),
     };
