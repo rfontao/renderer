@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "VulkanPipeline.h"
-#include "Application.h"
 
 #include "spirv_reflect.h"
 
@@ -395,89 +394,111 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
 
-    // https://github.com/KhronosGroup/SPIRV-Reflect/blob/master/examples/main_descriptors.cpp
-    SpvReflectShaderModule module = {};
-    SpvReflectResult result = spvReflectCreateShaderModule(vertShaderCode.size(),
-    reinterpret_cast<const uint32_t *>(vertShaderCode.data()), &module);
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
-
-    uint32_t count = 0;
-    result = spvReflectEnumerateInputVariables(&module, &count, nullptr);
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
-
-    std::vector<SpvReflectInterfaceVariable *> inputVars(count);
-    result = spvReflectEnumerateInputVariables(&module, &count, inputVars.data());
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
-
-    count = 0;
-    result = spvReflectEnumerateOutputVariables(&module, &count, nullptr);
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
-
-    std::vector<SpvReflectInterfaceVariable *> outputVars(count);
-    result = spvReflectEnumerateOutputVariables(&module, &count, outputVars.data());
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
-
+    std::vector<DescriptorSetLayoutData> setLayouts;
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     VkVertexInputBindingDescription bindingDescription{};
+    for (auto code: {vertShaderCode, fragShaderCode}) {
+        SpvReflectShaderModule module = {};
+        SpvReflectResult result = spvReflectCreateShaderModule(code.size(),
+                                                               reinterpret_cast<const uint32_t *>(code.data()),
+        &module);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    bindingDescription.binding = 0;
-    bindingDescription.stride = 0;  // computed below
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        uint32_t count = 0;
+        result = spvReflectEnumerateInputVariables(&module, &count, nullptr);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    attributeDescriptions.reserve(inputVars.size());
-    for (auto & inputVar : inputVars) {
-        const SpvReflectInterfaceVariable& refl_var = *inputVar;
-        // ignore built-in variables
-        if (refl_var.decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
-            continue;
+        std::vector<SpvReflectInterfaceVariable *> inputVars(count);
+        result = spvReflectEnumerateInputVariables(&module, &count, inputVars.data());
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        count = 0;
+        result = spvReflectEnumerateOutputVariables(&module, &count, nullptr);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectInterfaceVariable *> outputVars(count);
+        result = spvReflectEnumerateOutputVariables(&module, &count, outputVars.data());
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        count = 0;
+        result = spvReflectEnumerateDescriptorSets(&module, &count, nullptr);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectDescriptorSet *> sets(count);
+        result = spvReflectEnumerateDescriptorSets(&module, &count, sets.data());
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        if (module.shader_stage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) {
+            bindingDescription.binding = 0;
+            bindingDescription.stride = 0;  // computed below
+            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+            attributeDescriptions.reserve(inputVars.size());
+            for (auto &inputVar: inputVars) {
+                const SpvReflectInterfaceVariable &reflVar = *inputVar;
+                // ignore built-in variables
+                if (reflVar.decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
+                    continue;
+                }
+
+                VkVertexInputAttributeDescription attr_desc{};
+                attr_desc.location = reflVar.location;
+                attr_desc.binding = bindingDescription.binding;
+                attr_desc.format = static_cast<VkFormat>(reflVar.format);
+                attr_desc.offset = 0;  // final offset computed below after sorting.
+
+                attributeDescriptions.push_back(attr_desc);
+            }
+
+            // Sort attributes by location
+            std::sort(std::begin(attributeDescriptions),
+                      std::end(attributeDescriptions),
+                      [](const VkVertexInputAttributeDescription &a,
+                         const VkVertexInputAttributeDescription &b) {
+                          return a.location < b.location;
+                      });
+
+            // Compute final offsets of each attribute, and total vertex stride.
+            for (auto &attribute: attributeDescriptions) {
+                // TODO: Change
+                // uint32_t format_size = FormatSize(attribute.format);
+                uint32_t format_size = 16;
+
+                attribute.offset = bindingDescription.stride;
+                bindingDescription.stride += format_size;
+            }
         }
 
-        VkVertexInputAttributeDescription attr_desc{};
-        attr_desc.location = refl_var.location;
-        attr_desc.binding = bindingDescription.binding;
-        attr_desc.format = static_cast<VkFormat>(refl_var.format);
-        attr_desc.offset = 0;  // final offset computed below after sorting.
+        for (auto &set: sets) {
+            const SpvReflectDescriptorSet &reflSet = *set;
 
-        attributeDescriptions.push_back(attr_desc);
+            DescriptorSetLayoutData layout;
+            layout.bindings.resize(reflSet.binding_count);
+            for (uint32_t i_binding = 0; i_binding < reflSet.binding_count; ++i_binding) {
+                const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[i_binding]);
+                VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[i_binding];
+                layoutBinding.binding = reflBinding.binding;
+                layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
+                layoutBinding.descriptorCount = 1;
+                for (uint32_t iDim = 0; iDim < reflBinding.array.dims_count; ++iDim) {
+                    layoutBinding.descriptorCount *= reflBinding.array.dims[iDim];
+                }
+                layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
+            }
+            layout.setNumber = reflSet.set;
+            layout.createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layout.createInfo.bindingCount = reflSet.binding_count;
+            layout.createInfo.pBindings = layout.bindings.data();
+
+            setLayouts.push_back(layout);
+        }
     }
 
-    // Sort attributes by location
-    std::sort(std::begin(attributeDescriptions),
-              std::end(attributeDescriptions),
-              [](const VkVertexInputAttributeDescription &a,
-                 const VkVertexInputAttributeDescription &b) {
-                  return a.location < b.location;
-              });
-
-    // Compute final offsets of each attribute, and total vertex stride.
-    for (auto &attribute: attributeDescriptions) {
-        // TODO: Change
-//        uint32_t format_size = FormatSize(attribute.format);
-        uint32_t format_size = 16;
-
-        attribute.offset = bindingDescription.stride;
-        bindingDescription.stride += format_size;
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    for (auto &setLayout: setLayouts) {
+        bindings.insert(bindings.end(), setLayout.bindings.begin(), setLayout.bindings.end());
     }
 
-    // Descriptor set layout
-    // TODO: Change to SPIR-V Reflection
-    VkDescriptorSetLayoutBinding uboLayoutBinding{
-            .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-    };
-
-    // NOTE: Can be used in the vertex shader stage to deform a grid of vertices using a heightmap
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{
-            .binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .pImmutableSamplers = nullptr,
-    };
-
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
     VkDescriptorSetLayoutCreateInfo layoutInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .bindingCount = (uint32_t) bindings.size(),
@@ -514,9 +535,6 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             .dynamicStateCount = (uint32_t) dynamicStates.size(),
             .pDynamicStates = dynamicStates.data(),
     };
-
-//    auto bindingDescription = Vertex::GetBindingDescription();
-//    auto attributeDescriptions = Vertex::GetAttributeDescriptions();
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,

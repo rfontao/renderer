@@ -4,6 +4,13 @@
 
 class VulkanPipeline {
 public:
+
+    struct DescriptorSetLayoutData {
+        uint32_t setNumber;
+        VkDescriptorSetLayoutCreateInfo createInfo;
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
+    };
+
     VulkanPipeline() = default;
     VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat);
     void Destroy();
