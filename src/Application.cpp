@@ -43,7 +43,8 @@ static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT 
 }
 
 void Application::Run() {
-    m_Camera = Camera(glm::vec3(2.0f, -2.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    m_Camera = Camera(glm::vec3(2.0f, -2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+//    m_Camera = Camera(glm::vec3(300.0f, 300.0f, 300.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
 //    PrintAvailableVulkanExtensions();
     InitWindow();
@@ -61,12 +62,14 @@ void Application::InitVulkan() {
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat());
 
+    m_Scene = Scene(m_Device, "models/BoxVertexColors/BoxVertexColors.gltf");
+//    m_Scene = Scene(m_Device, "models/2CylinderEngine/2CylinderEngine.gltf");
+//    m_Scene = Scene(m_Device, "models/Sponza/Sponza.gltf");
+//    m_Scene = Scene(m_Device, "models/BoxTextured/BoxTextured.gltf");
+
     CreateColorResources();
     CreateDepthResources();
-    texture = make_shared<VulkanTexture>(m_Device, TEXTURE_PATH);
-    LoadModel();
-    CreateVertexBuffer();
-    CreateIndexBuffer();
+
     CreateUniformBuffers();
     CreateDescriptorSets();
 }
@@ -82,7 +85,6 @@ void Application::MainLoop() {
 
 void Application::Cleanup() {
     m_Swapchain->Destroy();
-    texture->Destroy();
 
     colorImage->Destroy();
     depthImage->Destroy();
@@ -92,9 +94,7 @@ void Application::Cleanup() {
     }
 
     m_GraphicsPipeline->Destroy();
-
-    vertexBuffer->Destroy();
-    indexBuffer->Destroy();
+    m_Scene.Destroy();
 
     vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
     m_Device->Destroy();
@@ -291,11 +291,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
 
-    VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
     VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
@@ -312,9 +307,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    // Bind camera matrices
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &descriptorSets[currentFrame], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, (uint32_t) indices.size(), 1, 0, 0, 0);
+    m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
 
     vkCmdEndRendering(commandBuffer);
 
@@ -372,39 +368,6 @@ void Application::DrawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Application::CreateVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    stagingBuffer.Map();
-    stagingBuffer.From(vertices.data(), (size_t) bufferSize);
-    stagingBuffer.Unmap();
-
-    vertexBuffer = std::make_shared<VulkanBuffer>(m_Device, bufferSize,
-                                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vertexBuffer->FromBuffer(stagingBuffer);
-    stagingBuffer.Destroy();
-}
-
-void Application::CreateIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    stagingBuffer.Map();
-    stagingBuffer.From(indices.data(), (size_t) bufferSize);
-    stagingBuffer.Unmap();
-
-    indexBuffer = std::make_shared<VulkanBuffer>(m_Device, bufferSize,
-                                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    indexBuffer->FromBuffer(stagingBuffer);
-    stagingBuffer.Destroy();
-}
-
 void Application::CreateUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -413,7 +376,7 @@ void Application::CreateUniformBuffers() {
         uniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        uniformBuffers[i]->Map();;
+        uniformBuffers[i]->Map();
     }
 
 }
@@ -421,17 +384,14 @@ void Application::CreateUniformBuffers() {
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+//    auto currentTime = std::chrono::high_resolution_clock::now();
+//    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-//    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-//    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = m_Camera.GetViewMatrix();
     ubo.proj = glm::perspective(glm::radians(45.0f), (float) m_Swapchain->GetWidth() / (float) m_Swapchain->GetHeight(),
                                 0.1f,
-                                10.0f);
+                                500.0f);
 
     ubo.proj[1][1] *= -1;
 
@@ -440,7 +400,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 
 
 void Application::CreateDescriptorSets() {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayout());
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayouts()[0]);
     VkDescriptorSetAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .descriptorPool = m_Device->GetDescriptorPool(),
@@ -459,13 +419,7 @@ void Application::CreateDescriptorSets() {
                 .range = sizeof(UniformBufferObject),
         };
 
-        VkDescriptorImageInfo imageInfo{
-                .sampler = texture->GetSampler(),
-                .imageView = texture->GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = descriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
@@ -473,14 +427,6 @@ void Application::CreateDescriptorSets() {
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
 
         vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) descriptorWrites.size(), descriptorWrites.data(), 0,
                                nullptr);
@@ -497,44 +443,6 @@ void Application::CreateDepthResources() {
                                                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                                VK_IMAGE_ASPECT_DEPTH_BIT);
-}
-
-void Application::LoadModel() {
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-        throw std::runtime_error(warn + err);
-    }
-
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-    for (const auto &shape: shapes) {
-        for (const auto &index: shape.mesh.indices) {
-            Vertex vertex{};
-
-            vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-            };
-
-            vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-
-            vertex.color = {1.0f, 1.0f, 1.0f};
-
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = (uint32_t) vertices.size();
-                vertices.push_back(vertex);
-            }
-
-            indices.push_back(uniqueVertices[vertex]);
-        }
-    }
 }
 
 void Application::CreateColorResources() {

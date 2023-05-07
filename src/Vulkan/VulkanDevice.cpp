@@ -126,14 +126,14 @@ void VulkanDevice::CreateCommandPool() {
 
 void VulkanDevice::CreateDescriptorPool() {
     std::vector<VkDescriptorPoolSize> poolSizes = {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         10},
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
     };
 
     VkDescriptorPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .maxSets = 10,
+            .maxSets = 1000,
             .poolSizeCount = (uint32_t) poolSizes.size(),
             .pPoolSizes = poolSizes.data(),
     };

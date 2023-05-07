@@ -396,6 +396,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     std::vector<DescriptorSetLayoutData> setLayouts;
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    std::vector<VkPushConstantRange> pushConstantRanges;
     VkVertexInputBindingDescription bindingDescription{};
     for (auto code: {vertShaderCode, fragShaderCode}) {
         SpvReflectShaderModule module = {};
@@ -426,6 +427,14 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
         std::vector<SpvReflectDescriptorSet *> sets(count);
         result = spvReflectEnumerateDescriptorSets(&module, &count, sets.data());
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        count = 0;
+        result = spvReflectEnumeratePushConstantBlocks(&module, &count, nullptr);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectBlockVariable *> pushConstantBlocks(count);
+        result = spvReflectEnumeratePushConstantBlocks(&module, &count, pushConstantBlocks.data());
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
         if (module.shader_stage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) {
@@ -492,22 +501,30 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
             setLayouts.push_back(layout);
         }
+
+        for (auto &pushConstantBlock: pushConstantBlocks) {
+            VkPushConstantRange pushConstant;
+            pushConstant.offset = pushConstantBlock->offset;
+            pushConstant.size = pushConstantBlock->size;
+            pushConstant.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
+            pushConstantRanges.push_back(pushConstant);
+        }
     }
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    for (auto &setLayout: setLayouts) {
-        bindings.insert(bindings.end(), setLayout.bindings.begin(), setLayout.bindings.end());
+    m_DescriptorSetLayouts.resize(setLayouts.size());
+    for (int i = 0; i < setLayouts.size(); ++i) {
+//        std::vector<VkDescriptorSetLayoutBinding> bindings;
+//        bindings.insert(bindings.end(), setLayout.bindings.begin(), setLayout.bindings.end());
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo{
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .bindingCount = (uint32_t) setLayouts[i].bindings.size(),
+                .pBindings = setLayouts[i].bindings.data(),
+        };
+
+        VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayouts[i]),
+                 "Failed to create descriptor set layout!");
     }
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = (uint32_t) bindings.size(),
-            .pBindings = bindings.data(),
-    };
-
-    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout),
-             "Failed to create descriptor set layout!");
-
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -607,8 +624,10 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &m_DescriptorSetLayout,
+            .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
+            .pSetLayouts = m_DescriptorSetLayouts.data(),
+            .pushConstantRangeCount = pushConstantRanges.size(),
+            .pPushConstantRanges = pushConstantRanges.data(),
     };
 
     VK_CHECK(vkCreatePipelineLayout(m_Device->GetDevice(), &pipelineLayoutInfo, nullptr, &m_Layout),
@@ -663,7 +682,9 @@ VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<char> &code)
 }
 
 void VulkanPipeline::Destroy() {
-    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), m_DescriptorSetLayout, nullptr);
+    for (auto m_DescriptorSetLayout: m_DescriptorSetLayouts) {
+        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), m_DescriptorSetLayout, nullptr);
+    }
     vkDestroyPipeline(m_Device->GetDevice(), m_Pipeline, nullptr);
     vkDestroyPipelineLayout(m_Device->GetDevice(), m_Layout, nullptr);
 }

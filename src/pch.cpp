@@ -4,6 +4,6 @@
 
 #include <stb_image.h>
 
-#define TINYOBJLOADER_IMPLEMENTATION
+#define TINYGLTF_IMPLEMENTATION
 
-#include <tiny_obj_loader.h>
+#include <tiny_gltf.h>

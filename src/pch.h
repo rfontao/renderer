@@ -12,9 +12,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <stb_image.h>
-#include <tiny_obj_loader.h>
+
+#define TINYGLTF_NO_INCLUDE_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+
+#include <tiny_gltf.h>
 
 #include <vulkan/vulkan.h>
 
@@ -32,3 +37,5 @@
 #include <cstdint>
 #include <chrono>
 #include <unordered_map>
+#include <filesystem>
+

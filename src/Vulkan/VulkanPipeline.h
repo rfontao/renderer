@@ -17,7 +17,7 @@ public:
 
     [[nodiscard]] VkPipeline GetPipeline() const { return m_Pipeline; }
     [[nodiscard]] VkPipelineLayout GetLayout() const { return m_Layout; }
-    [[nodiscard]] VkDescriptorSetLayout GetDescriptorSetLayout() const { return m_DescriptorSetLayout; }
+    [[nodiscard]] const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const { return m_DescriptorSetLayouts; }
 
 private:
     [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<char> &code) const;
@@ -25,7 +25,7 @@ private:
     VkPipelineLayout m_Layout = VK_NULL_HANDLE;
     VkPipeline m_Pipeline = VK_NULL_HANDLE;
 
-    VkDescriptorSetLayout m_DescriptorSetLayout = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts; // index are sets
 
     std::shared_ptr<VulkanDevice> m_Device;
 };

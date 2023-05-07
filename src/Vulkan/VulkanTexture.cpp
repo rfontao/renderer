@@ -5,8 +5,42 @@
 #include "VulkanBuffer.h"
 #include "VulkanImage.h"
 
-VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::string &path) : m_Device(device) {
+VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &path) : m_Device(device) {
     LoadFromFile(path);
+}
+
+// Load white texture
+VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device) : m_Device(device) {
+
+    const int texHeight = 64;
+    const int texWidth = 64;
+    std::array<unsigned char, 64 * 64 * 4> pixels = {255};
+    std::fill(pixels.begin(), pixels.end(), 255);
+    VkDeviceSize imageSize = pixels.size();
+
+
+    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    stagingBuffer.Map();
+    stagingBuffer.From(pixels.data(), imageSize);
+    stagingBuffer.Unmap();
+
+
+    m_MipLevelCount = 1;
+    m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT,
+                                       VK_FORMAT_R8G8B8A8_SRGB,
+                                       VK_IMAGE_TILING_OPTIMAL,
+                                       VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                       VK_IMAGE_USAGE_SAMPLED_BIT,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    m_Image->CopyBufferData(stagingBuffer);
+    m_Image->TransitionLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    CreateSampler();
+
+    stagingBuffer.Destroy();
 }
 
 void VulkanTexture::Destroy() {
@@ -14,9 +48,9 @@ void VulkanTexture::Destroy() {
     m_Image->Destroy();
 }
 
-void VulkanTexture::LoadFromFile(const std::string &path) {
+void VulkanTexture::LoadFromFile(const std::filesystem::path &path) {
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc *pixels = stbi_load(path.string().c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     // TODO: Enable loading of textures with precalculated mipmaps (KTX file format)
@@ -27,7 +61,8 @@ void VulkanTexture::LoadFromFile(const std::string &path) {
     }
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     stagingBuffer.Map();
     stagingBuffer.From(pixels, (size_t) imageSize);
@@ -35,9 +70,11 @@ void VulkanTexture::LoadFromFile(const std::string &path) {
 
     stbi_image_free(pixels);
 
-    m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB,
+    m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT,
+                                       VK_FORMAT_R8G8B8A8_SRGB,
                                        VK_IMAGE_TILING_OPTIMAL,
-                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                       VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                       VK_IMAGE_USAGE_SAMPLED_BIT,
                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     m_Image->CopyBufferData(stagingBuffer);

@@ -10,7 +10,9 @@
 class VulkanTexture {
 public:
     VulkanTexture() = default;
-    VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::string &path);
+    VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &path);
+    VulkanTexture(std::shared_ptr<VulkanDevice> device);
+
     void Destroy();
 
     [[nodiscard]] uint32_t GetWidth() const { return m_Image->GetWidth(); }
@@ -19,7 +21,7 @@ public:
     [[nodiscard]] std::shared_ptr<VulkanImage> GetImage() const { return m_Image; }
 
 private:
-    void LoadFromFile(const std::string &path);
+    void LoadFromFile(const std::filesystem::path &path);
     void CreateSampler();
 
     uint32_t m_MipLevelCount;
