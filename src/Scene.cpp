@@ -388,7 +388,8 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
                 // Get the texture index for this primitive
-                auto textureIndex = m_Materials[primitive.materialIndex].baseColorTextureIndex;
+                auto textureIndex =
+                        primitive.materialIndex == -1 ? -1 : m_Materials[primitive.materialIndex].baseColorTextureIndex;
                 // Bind the descriptor for the current primitive's texture
                 if (textureIndex == -1) {
                     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
