@@ -286,7 +286,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     vert.normal = glm::normalize(
                             glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                     vert.texCoord = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
-                    vert.color = colorBuffer ? glm::make_vec4(&colorBuffer[v * 3]) : glm::vec3(1.0f);
+                    vert.color = colorBuffer ? glm::make_vec4(&colorBuffer[v * 4]) : glm::vec4(1.0f);
                     vertexBuffer.push_back(vert);
                 }
             }

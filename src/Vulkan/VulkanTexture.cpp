@@ -12,10 +12,9 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::fi
 // Load white texture
 VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device) : m_Device(device) {
 
-    const int texHeight = 64;
-    const int texWidth = 64;
-    std::array<unsigned char, 64 * 64 * 4> pixels = {255};
-    std::fill(pixels.begin(), pixels.end(), 255);
+    const int texHeight = 1;
+    const int texWidth = 1;
+    std::array<unsigned char, 1 * 1 * 4> pixels = {128, 128, 128, 255};
     VkDeviceSize imageSize = pixels.size();
 
 

@@ -43,8 +43,8 @@ static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT 
 }
 
 void Application::Run() {
-    m_Camera = Camera(glm::vec3(2.0f, -2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-//    m_Camera = Camera(glm::vec3(300.0f, 300.0f, 300.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+//    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
 //    PrintAvailableVulkanExtensions();
     InitWindow();
@@ -62,10 +62,15 @@ void Application::InitVulkan() {
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat());
 
-    m_Scene = Scene(m_Device, "models/BoxVertexColors/BoxVertexColors.gltf");
+//    m_Scene = Scene(m_Device, "models/OrientationTest/OrientationTest.gltf");
+//    m_Scene = Scene(m_Device, "models/VertexColorTest/VertexColorTest.gltf");
+//    m_Scene = Scene(m_Device, "models/BoxVertexColors/BoxVertexColors.gltf");
 //    m_Scene = Scene(m_Device, "models/2CylinderEngine/2CylinderEngine.gltf");
 //    m_Scene = Scene(m_Device, "models/Sponza/Sponza.gltf");
 //    m_Scene = Scene(m_Device, "models/BoxTextured/BoxTextured.gltf");
+//    m_Scene = Scene(m_Device, "models/minimal.gltf");
+    m_Scene = Scene(m_Device, "models/Box/Box.gltf");
+
 
     CreateColorResources();
     CreateDepthResources();
