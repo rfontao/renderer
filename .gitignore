@@ -2,6 +2,7 @@ external/**
 external/vcpkg
 !external/.keep
 
+models
 
 # Created by https://www.toptal.com/developers/gitignore/api/clion,c++
 # Edit at https://www.toptal.com/developers/gitignore?templates=clion,c++
