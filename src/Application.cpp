@@ -68,9 +68,9 @@ void Application::InitVulkan() {
 //    m_Scene = Scene(m_Device, "models/VertexColorTest/VertexColorTest.gltf");
 //    m_Scene = Scene(m_Device, "models/BoxVertexColors/BoxVertexColors.gltf");
 //    m_Scene = Scene(m_Device, "models/2CylinderEngine/2CylinderEngine.gltf");
-//    m_Scene = Scene(m_Device, "models/Sponza/Sponza.gltf");
+    m_Scene = Scene(m_Device, "models/Sponza/Sponza.gltf");
 //    m_Scene = Scene(m_Device, "models/BoxTextured/BoxTextured.gltf");
-    m_Scene = Scene(m_Device, "models/minimal.gltf");
+//    m_Scene = Scene(m_Device, "models/minimal.gltf");
 //    m_Scene = Scene(m_Device, "models/Box/Box.gltf");
 
 

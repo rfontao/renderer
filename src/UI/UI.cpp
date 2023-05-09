@@ -74,7 +74,16 @@ void UI::Draw(VkCommandBuffer cmd) {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
+
+    ImGui::Begin("General information");
+
+    ImGuiIO &io = ImGui::GetIO();
+
+    ImGui::Text("Frame time: %.3f ms", 1000.0f / io.Framerate);
+    ImGui::Text("FPS: %.1f", io.Framerate);
+
+    ImGui::End();
+
     ImGui::EndFrame();
     ImGui::Render();
 
