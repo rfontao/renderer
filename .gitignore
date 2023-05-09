@@ -4,6 +4,8 @@ external/vcpkg
 
 models
 
+imgui.ini
+
 # Created by https://www.toptal.com/developers/gitignore/api/clion,c++
 # Edit at https://www.toptal.com/developers/gitignore?templates=clion,c++
 
