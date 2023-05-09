@@ -36,6 +36,7 @@ public:
     [[nodiscard]] VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
     [[nodiscard]] VkCommandPool GetCommandPool() const { return m_CommandPool; }
     [[nodiscard]] VkDescriptorPool GetDescriptorPool() const { return m_DescriptorPool; }
+//    [[nodiscard]] QueueFamilyIndices GetFamilyIndices() const { return m_QueueFamilyProperties; }
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);

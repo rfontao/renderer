@@ -115,6 +115,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
         writeDescriptorSet.descriptorCount = 1;
 
         vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
+
+        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
     }
 
     m_DefaultImage.texture = VulkanTexture(m_Device);
@@ -167,6 +169,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
     writeDescriptorSet.descriptorCount = 1;
 
     vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
+
+    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
 
 void Scene::LoadTextures(tinygltf::Model &input) {
