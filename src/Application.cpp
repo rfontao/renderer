@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Application.h"
+#include "imgui_impl_vulkan.h"
 #include "spirv_reflect.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -61,6 +62,7 @@ void Application::InitVulkan() {
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat());
+    m_UI = UI(m_Device, m_Instance, m_Window);
 
 //    m_Scene = Scene(m_Device, "models/OrientationTest/OrientationTest.gltf");
 //    m_Scene = Scene(m_Device, "models/VertexColorTest/VertexColorTest.gltf");
@@ -89,6 +91,7 @@ void Application::MainLoop() {
 }
 
 void Application::Cleanup() {
+    m_UI.Destroy();
     m_Swapchain->Destroy();
 
     colorImage->Destroy();
@@ -316,8 +319,30 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &descriptorSets[currentFrame], 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
+    m_UI.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
+
+    VkRenderingAttachmentInfo attachmentInfo = {};
+    attachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    attachmentInfo.imageView = colorImage->GetImageView();
+    attachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
+    attachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingInfo renderingInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+            .layerCount = 1,
+            .viewMask = 0,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachment,
+    };
+
+//    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+//    m_UI.Draw(commandBuffer);
+//    vkCmdEndRendering(commandBuffer);
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -331,6 +356,11 @@ void Application::DrawFrame() {
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
+//        ImGui_ImplVulkan_SetMinImageCount(2);
+//        ImGui_ImplVulkanH_CreateOrResizeWindow(m_Instance, m_Device->GetPhysicalDevice(), m_Device->GetDevice(),
+//                                               &g_MainWindowData, 0, nullptr, m_Swapchain->GetWidth(),
+//                                               m_Swapchain->GetHeight(), 2);
+//        g_MainWindowData.FrameIndex = 0;
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();

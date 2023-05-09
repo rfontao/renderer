@@ -9,6 +9,7 @@
 #include "vulkan/VulkanBuffer.h"
 #include "vulkan/Utils.h"
 #include "Scene.h"
+#include "UI/UI.h"
 
 struct UniformBufferObject {
     glm::mat4 view;
@@ -65,6 +66,7 @@ public:
     uint32_t currentFrame = 0;
 
     Scene m_Scene;
+    UI m_UI;
 
     Camera m_Camera;
     GLFWwindow *m_Window;

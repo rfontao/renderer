@@ -6,6 +6,13 @@
     "glfw3",
     "stb",
     "spirv-reflect",
-    "tinygltf"
+    "tinygltf",
+    {
+      "name": "imgui",
+      "features": [
+        "vulkan-binding",
+        "glfw-binding"
+      ]
+    }
   ]
 }
