@@ -51,7 +51,7 @@ public:
     };
 
     Scene() = default;
-    Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &filePath);
+    Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
     void Destroy();
 
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);

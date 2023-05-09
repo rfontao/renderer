@@ -58,21 +58,14 @@ void Application::InitVulkan() {
     CreateInstance();
     SetupDebugMessenger();
 
+    FindScenePaths("models");
+
     VkSurfaceKHR surface = CreateSurface();
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat());
-    m_UI = UI(m_Device, m_Instance, m_Window);
-
-//    m_Scene = Scene(m_Device, "models/OrientationTest/OrientationTest.gltf");
-//    m_Scene = Scene(m_Device, "models/VertexColorTest/VertexColorTest.gltf");
-//    m_Scene = Scene(m_Device, "models/BoxVertexColors/BoxVertexColors.gltf");
-//    m_Scene = Scene(m_Device, "models/2CylinderEngine/2CylinderEngine.gltf");
-    m_Scene = Scene(m_Device, "models/Sponza/Sponza.gltf");
-//    m_Scene = Scene(m_Device, "models/BoxTextured/BoxTextured.gltf");
-//    m_Scene = Scene(m_Device, "models/minimal.gltf");
-//    m_Scene = Scene(m_Device, "models/Box/Box.gltf");
-
+    m_UI = UI(m_Device, m_Instance, m_Window, this);
+    m_Scene = Scene(m_Device, m_ScenePaths[0]);
 
     CreateColorResources();
     CreateDepthResources();
@@ -88,6 +81,8 @@ void Application::MainLoop() {
     }
 
     vkDeviceWaitIdle(m_Device->GetDevice());
+
+
 }
 
 void Application::Cleanup() {
@@ -323,27 +318,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
-    VkRenderingAttachmentInfo attachmentInfo = {};
-    attachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    attachmentInfo.imageView = colorImage->GetImageView();
-    attachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachmentInfo.resolveMode = VK_RESOLVE_MODE_NONE;
-    attachmentInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachmentInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
-    VkRenderingInfo renderingInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
-            .layerCount = 1,
-            .viewMask = 0,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment,
-    };
-
-//    vkCmdBeginRendering(commandBuffer, &renderingInfo);
-//    m_UI.Draw(commandBuffer);
-//    vkCmdEndRendering(commandBuffer);
-
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
@@ -356,11 +330,6 @@ void Application::DrawFrame() {
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-//        ImGui_ImplVulkan_SetMinImageCount(2);
-//        ImGui_ImplVulkanH_CreateOrResizeWindow(m_Instance, m_Device->GetPhysicalDevice(), m_Device->GetDevice(),
-//                                               &g_MainWindowData, 0, nullptr, m_Swapchain->GetWidth(),
-//                                               m_Swapchain->GetHeight(), 2);
-//        g_MainWindowData.FrameIndex = 0;
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -401,6 +370,9 @@ void Application::DrawFrame() {
         CreateDepthResources();
     }
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    if (m_ShouldChangeScene)
+        ChangeScene();
 }
 
 void Application::CreateUniformBuffers() {
@@ -492,8 +464,26 @@ void Application::CreateColorResources() {
                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-Camera &Application::GetCamera() {
-    return m_Camera;
+void Application::SetScene(const std::filesystem::path &scenePath) {
+    m_ShouldChangeScene = true;
+    m_NextScenePath = scenePath;
+}
+
+void Application::ChangeScene() {
+    m_ShouldChangeScene = false;
+    vkDeviceWaitIdle(m_Device->GetDevice());
+    m_Scene.Destroy();
+    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    m_Scene = Scene(m_Device, m_NextScenePath);
+}
+
+void Application::FindScenePaths(const std::filesystem::path &basePath) {
+    for (const auto &dirEntry: std::filesystem::recursive_directory_iterator(basePath)) {
+        if (dirEntry.is_regular_file() &&
+            (dirEntry.path().extension() == ".gltf" || dirEntry.path().extension() == ".glb")) {
+            m_ScenePaths.push_back(dirEntry.path());
+        }
+    }
 }
 
 

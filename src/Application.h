@@ -16,18 +16,24 @@ struct UniformBufferObject {
     glm::mat4 proj;
 };
 
+class UI;
 class Application {
 public:
     Application() = default;
 
     void Run();
 
-    Camera &GetCamera();
+    Camera &GetCamera() { return m_Camera; }
 
     void InitWindow();
     void InitVulkan();
     void MainLoop();
     void Cleanup();
+
+    void FindScenePaths(const std::filesystem::path& basePath);
+    void SetScene(const std::filesystem::path& scenePath);
+    void ChangeScene();
+    const std::vector<std::filesystem::path>& GetScenePaths() const { return m_ScenePaths; };
 
     void CreateInstance();
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
@@ -65,17 +71,17 @@ public:
 
     uint32_t currentFrame = 0;
 
+    std::vector<std::filesystem::path> m_ScenePaths;
+    std::filesystem::path m_NextScenePath;
+    bool m_ShouldChangeScene = false;
     Scene m_Scene;
     UI m_UI;
 
     Camera m_Camera;
     GLFWwindow *m_Window;
 
-    const uint32_t WIDTH = 800;
-    const uint32_t HEIGHT = 600;
-
-    const std::string MODEL_PATH = "models/viking_room.obj";
-    const std::string TEXTURE_PATH = "textures/viking_room.png";
+    const uint32_t WIDTH = 1280;
+    const uint32_t HEIGHT = 800;
 
     const std::vector<const char *> validationLayers = {
             "VK_LAYER_KHRONOS_validation"

@@ -1,16 +1,24 @@
 #include "pch.h"
 #include "Scene.h"
 
-Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &filePath) : m_Device(device) {
+Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath) : m_Device(device) {
     tinygltf::TinyGLTF gltfContext;
     tinygltf::Model glTFInput;
     std::string error, warning;
-    bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filePath.string());
-    if (!fileLoaded) {
-        throw std::runtime_error("Could not open " + filePath.string() + " gltf file. Exiting...");
+
+    bool fileLoaded = false;
+    if (scenePath.extension() == ".glb") {
+        fileLoaded = gltfContext.LoadBinaryFromFile(&glTFInput, &error, &warning, scenePath.string());
+    } else if (scenePath.extension() == ".gltf") {
+        fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, scenePath.string());
     }
 
-    m_ResourcePath = filePath.parent_path();
+    if (!fileLoaded) {
+        throw std::runtime_error(
+                "Could not open " + scenePath.string() + " scene file. Exiting... \n" + warning + error);
+    }
+
+    m_ResourcePath = scenePath.parent_path();
 
     std::vector<uint32_t> indexBuffer;
     std::vector<Vertex> vertexBuffer;
@@ -65,8 +73,36 @@ void Scene::LoadImages(tinygltf::Model &input) {
     m_Images.resize(input.images.size());
     for (size_t i = 0; i < input.images.size(); i++) {
         tinygltf::Image &glTFImage = input.images[i];
-        m_Images[i].texture = VulkanTexture(m_Device, m_ResourcePath / glTFImage.uri);
 
+        // Load from disk
+        if (!glTFImage.uri.empty()) {
+            m_Images[i].texture = VulkanTexture(m_Device, m_ResourcePath / glTFImage.uri);
+        } else { // https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfloading/gltfloading.cpp
+            unsigned char *buffer;
+            VkDeviceSize bufferSize;
+            bool deleteBuffer = false;
+            // We convert RGB-only images to RGBA, as most devices don't support RGB-formats in Vulkan
+            if (glTFImage.component == 3) {
+                bufferSize = glTFImage.width * glTFImage.height * 4;
+                buffer = new unsigned char[bufferSize];
+                unsigned char *rgba = buffer;
+                unsigned char *rgb = &glTFImage.image[0];
+                for (size_t j = 0; j < glTFImage.width * glTFImage.height; ++j) {
+                    memcpy(rgba, rgb, sizeof(unsigned char) * 3);
+                    rgba += 4;
+                    rgb += 3;
+                }
+                deleteBuffer = true;
+            } else {
+                buffer = &glTFImage.image[0];
+                bufferSize = glTFImage.image.size();
+            }
+
+            m_Images[i].texture = VulkanTexture(m_Device, buffer, bufferSize, glTFImage.width, glTFImage.height);
+            if (deleteBuffer) {
+                delete[] buffer;
+            }
+        }
 
         VkDescriptorSetLayoutBinding samplerLayoutBinding{
                 .binding = 0,

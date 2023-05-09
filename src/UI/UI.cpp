@@ -1,10 +1,12 @@
 #include "pch.h"
 #include "UI.h"
 
+#include "Application.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window) : m_Device(device) {
+UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app) : m_Device(
+        device), m_App(app) {
 
     VkDescriptorPoolSize pool_sizes[] =
             {
@@ -71,6 +73,8 @@ void UI::Destroy() {
 }
 
 void UI::Draw(VkCommandBuffer cmd) {
+    static std::string selectedSceneName;
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -81,6 +85,25 @@ void UI::Draw(VkCommandBuffer cmd) {
 
     ImGui::Text("Frame time: %.3f ms", 1000.0f / io.Framerate);
     ImGui::Text("FPS: %.1f", io.Framerate);
+
+    ImGui::Separator();
+
+    if (ImGui::BeginCombo("Scene", selectedSceneName.c_str(), 0)) {
+        auto paths = m_App->GetScenePaths();
+        for (const auto &path: paths) {
+            auto pathString = path.filename().string();
+            auto filename = pathString.c_str();
+            bool is_selected = selectedSceneName == filename;
+            if (ImGui::Selectable(filename, is_selected)) {
+                selectedSceneName = filename;
+                m_App->SetScene(path);
+            }
+            if (is_selected){
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
 
     ImGui::End();
 

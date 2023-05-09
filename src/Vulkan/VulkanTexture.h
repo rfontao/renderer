@@ -10,8 +10,11 @@
 class VulkanTexture {
 public:
     VulkanTexture() = default;
+    explicit VulkanTexture(std::shared_ptr<VulkanDevice> device);
     VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &path);
-    VulkanTexture(std::shared_ptr<VulkanDevice> device);
+    VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels, VkDeviceSize imageSize, int texWidth,
+                  int texHeight);
+
 
     void Destroy();
 
