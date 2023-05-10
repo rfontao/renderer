@@ -44,7 +44,8 @@ static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT 
 }
 
 void Application::Run() {
-    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                      (double) WIDTH / (double) HEIGHT);
 //    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
 //    PrintAvailableVulkanExtensions();
@@ -77,12 +78,11 @@ void Application::InitVulkan() {
 void Application::MainLoop() {
     while (!glfwWindowShouldClose(m_Window)) {
         glfwPollEvents();
+        HandleKeys();
         DrawFrame();
     }
 
     vkDeviceWaitIdle(m_Device->GetDevice());
-
-
 }
 
 void Application::Cleanup() {
@@ -141,9 +141,27 @@ void Application::InitWindow() {
     glfwSetCursorPosCallback(m_Window,
                              [](GLFWwindow *w, double xPosIn, double yPosIn) {
                                  auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-                                 app->GetCamera().HandleMouseMovement((float) xPosIn, (float) yPosIn);
+                                 app->GetCamera().HandleMouseMovement(xPosIn, yPosIn);
                              }
     );
+
+    glfwSetScrollCallback(m_Window,
+                          [](GLFWwindow *w, double xScroll, double yScroll) {
+                              auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+                              app->GetCamera().HandleMouseScroll(yScroll);
+                          }
+    );
+}
+
+void Application::HandleKeys() {
+    if (glfwGetKey(m_Window, GLFW_KEY_W) == GLFW_PRESS)
+        m_Camera.HandleMovement(Camera::MovementDirection::FRONT);
+    if (glfwGetKey(m_Window, GLFW_KEY_A) == GLFW_PRESS)
+        m_Camera.HandleMovement(Camera::MovementDirection::LEFT);
+    if (glfwGetKey(m_Window, GLFW_KEY_S) == GLFW_PRESS)
+        m_Camera.HandleMovement(Camera::MovementDirection::BACK);
+    if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
+        m_Camera.HandleMovement(Camera::MovementDirection::RIGHT);
 }
 
 void Application::CreateInstance() {
@@ -330,6 +348,7 @@ void Application::DrawFrame() {
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
+        m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -364,6 +383,7 @@ void Application::DrawFrame() {
 
     bool resourceNeedResizing = m_Swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
+        m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -396,11 +416,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 
     UniformBufferObject ubo{};
     ubo.view = m_Camera.GetViewMatrix();
-    ubo.proj = glm::perspective(glm::radians(45.0f), (float) m_Swapchain->GetWidth() / (float) m_Swapchain->GetHeight(),
-                                0.1f,
-                                500.0f);
-
-    ubo.proj[1][1] *= -1;
+    ubo.proj = m_Camera.GetProjectionMatrix();
 
     uniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 }
@@ -473,7 +489,8 @@ void Application::ChangeScene() {
     m_ShouldChangeScene = false;
     vkDeviceWaitIdle(m_Device->GetDevice());
     m_Scene.Destroy();
-    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                      (double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
     m_Scene = Scene(m_Device, m_NextScenePath);
 }
 
@@ -485,5 +502,3 @@ void Application::FindScenePaths(const std::filesystem::path &basePath) {
         }
     }
 }
-
-

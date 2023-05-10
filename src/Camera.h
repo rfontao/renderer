@@ -2,19 +2,27 @@
 
 class Camera {
 public:
-    Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint);
+    enum CameraMode {LOOKAT, FREE};
+    enum MovementDirection {FRONT, BACK, LEFT, RIGHT};
 
-    Camera() : Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f)) {}
+    Camera() = default;
+    Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
+           double yFov = 45.0f);
 
-public:
-    glm::mat4 GetViewMatrix();
+    glm::mat4 GetViewMatrix() const;
+    glm::mat4 GetProjectionMatrix() const;
+
+    void SetAspectRatio(double aspectRatio) { m_AspectRatio = aspectRatio; }
 
     void SetMove(bool move);
-
-    void HandleMouseMovement(float xPos, float yPos);
+    void HandleMouseMovement(double xPos, double yPos);
+    void HandleMouseScroll(double scrollAmount);
+    void HandleMovement(MovementDirection direction);
 
 private:
     void UpdateVectors();
+
+    CameraMode m_Mode = FREE;
 
     glm::vec3 m_Position;
     glm::vec3 m_Up;
@@ -22,10 +30,13 @@ private:
     glm::vec3 m_WorldUp;
     glm::vec3 m_FocusPoint;
 
-    bool  m_FirstMouse = true;
-    float m_LastMouseX = 0.0f;
-    float m_LastMouseY = 0.0f;
+    double m_AspectRatio;
+    double m_YFov;
+
+    bool m_FirstMouse = true;
+    double m_LastMouseX = 0.0f;
+    double m_LastMouseY = 0.0f;
     bool m_MoveCamera = false; // Right mouse button is pressed
 
-    float m_MouseSensitivity = 0.005f;
+    double m_MouseSensitivity = 0.005f;
 };

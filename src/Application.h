@@ -93,4 +93,5 @@ public:
     const bool enableValidationLayers = true;
 #endif
 
+    void HandleKeys();
 };
