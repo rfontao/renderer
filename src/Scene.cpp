@@ -24,8 +24,8 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
     std::vector<Vertex> vertexBuffer;
 
     LoadImages(glTFInput);
-    LoadMaterials(glTFInput);
     LoadTextures(glTFInput);
+    LoadMaterials(glTFInput);
     const tinygltf::Scene &scene = glTFInput.scenes[0];
     for (int i: scene.nodes) {
         const tinygltf::Node node = glTFInput.nodes[i];
@@ -103,110 +103,9 @@ void Scene::LoadImages(tinygltf::Model &input) {
                 delete[] buffer;
             }
         }
-
-        VkDescriptorSetLayoutBinding samplerLayoutBinding{
-                .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .pImmutableSamplers = nullptr,
-        };
-
-        // TODO: Create all pipelines in advance and store setlayouts on device??
-        std::array<VkDescriptorSetLayoutBinding, 1> bindings = {samplerLayoutBinding};
-        VkDescriptorSetLayoutCreateInfo layoutInfo{
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .bindingCount = 1,
-                .pBindings = bindings.data(),
-        };
-
-        VkDescriptorSetLayout layout;
-        VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
-                 "Failed to create descriptor set layout!");
-
-        std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
-        VkDescriptorSetAllocateInfo setCreateInfo{
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorPool = m_Device->GetDescriptorPool(),
-                .descriptorSetCount = 1,
-                .pSetLayouts = setLayouts.data(),
-        };
-
-        VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_Images[i].descriptorSet),
-                 "Failed to allocate descriptor sets");
-
-
-        VkDescriptorImageInfo imageInfo{
-                .sampler = m_Images[i].texture.GetSampler(),
-                .imageView = m_Images[i].texture.GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        VkWriteDescriptorSet writeDescriptorSet{};
-        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSet.dstSet = m_Images[i].descriptorSet;
-        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSet.dstBinding = 0;
-        writeDescriptorSet.pImageInfo = &imageInfo;
-        writeDescriptorSet.descriptorCount = 1;
-
-        vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
     }
 
     m_DefaultImage.texture = VulkanTexture(m_Device);
-
-
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{
-            .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .pImmutableSamplers = nullptr,
-    };
-
-    // TODO: Create all pipelines in advance and store setlayouts on device??
-    std::array<VkDescriptorSetLayoutBinding, 1> bindings = {samplerLayoutBinding};
-    VkDescriptorSetLayoutCreateInfo layoutInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = 1,
-            .pBindings = bindings.data(),
-    };
-
-    VkDescriptorSetLayout layout;
-    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
-             "Failed to create descriptor set layout!");
-
-    std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
-    VkDescriptorSetAllocateInfo setCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = 1,
-            .pSetLayouts = setLayouts.data(),
-    };
-
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_DefaultImage.descriptorSet),
-             "Failed to allocate descriptor sets");
-
-
-    VkDescriptorImageInfo imageInfo{
-            .sampler = m_DefaultImage.texture.GetSampler(),
-            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    VkWriteDescriptorSet writeDescriptorSet{};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.dstSet = m_DefaultImage.descriptorSet;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pImageInfo = &imageInfo;
-    writeDescriptorSet.descriptorCount = 1;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
 
 void Scene::LoadTextures(tinygltf::Model &input) {
@@ -221,18 +120,158 @@ void Scene::LoadTextures(tinygltf::Model &input) {
 void Scene::LoadMaterials(tinygltf::Model &input) {
     m_Materials.resize(input.materials.size());
     for (size_t i = 0; i < input.materials.size(); i++) {
+        MaterialUBO material{}; // Must have a different name than below or it doesnt work
+
+        m_Materials[i].info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_Materials[i].info.Map();
+
         tinygltf::Material glTFMaterial = input.materials[i];
         if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
-            m_Materials[i].baseColorFactor = glm::make_vec4(
+            material.baseColorFactor = glm::make_vec4(
                     glTFMaterial.values["baseColorFactor"].ColorFactor().data());
         }
 
         if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
-            m_Materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
-        } else {
-            m_Materials[i].baseColorTextureIndex = -1;
+            material.baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
         }
+
+        m_Materials[i].info.From(&material, sizeof(material));
+        m_Materials[i].ubo = material;
+
+        std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
+                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+        };
+
+        // TODO: Create all pipelines in advance and store setlayouts on device??
+        VkDescriptorSetLayoutCreateInfo layoutInfo{
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .bindingCount = static_cast<uint32_t>(materialSetLayout.size()),
+                .pBindings = materialSetLayout.data(),
+        };
+
+        VkDescriptorSetLayout layout;
+        VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
+                 "Failed to create descriptor set layout!");
+
+        std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
+        VkDescriptorSetAllocateInfo setCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                .descriptorPool = m_Device->GetDescriptorPool(),
+                .descriptorSetCount = 1,
+                .pSetLayouts = setLayouts.data(),
+        };
+
+        VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_Materials[i].descriptorSet),
+                 "Failed to allocate descriptor sets");
+
+
+        auto &tex = material.baseColorTextureIndex != -1
+                    ? m_Images[m_Textures[material.baseColorTextureIndex].imageIndex].texture
+                    : m_DefaultImage.texture;
+        VkDescriptorImageInfo imageInfo{
+                .sampler = tex.GetSampler(),
+                .imageView = tex.GetImage()->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+
+        VkDescriptorBufferInfo bufferInfo{
+                .buffer = m_Materials[i].info.GetBuffer(),
+                .offset = 0,
+                .range = sizeof(MaterialUBO),
+        };
+
+        std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+        writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSets[0].dstSet = m_Materials[i].descriptorSet;
+        writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writeDescriptorSets[0].dstBinding = 0;
+        writeDescriptorSets[0].pImageInfo = &imageInfo;
+        writeDescriptorSets[0].descriptorCount = 1;
+
+        writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSets[1].dstSet = m_Materials[i].descriptorSet;
+        writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptorSets[1].dstBinding = 1;
+        writeDescriptorSets[1].pBufferInfo = &bufferInfo;
+        writeDescriptorSets[1].descriptorCount = 1;
+
+        vkUpdateDescriptorSets(m_Device->GetDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
+                               nullptr);
+
+        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
     }
+
+    m_DefaultMaterial.info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    m_DefaultMaterial.info.Map();
+
+    MaterialUBO mat{};
+    m_DefaultMaterial.info.From(&mat, sizeof(mat));
+    m_DefaultMaterial.ubo = mat;
+
+    std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
+            {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+    };
+
+    // TODO: Create all pipelines in advance and store setlayouts on device??
+    VkDescriptorSetLayoutCreateInfo layoutInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = static_cast<uint32_t>(materialSetLayout.size()),
+            .pBindings = materialSetLayout.data(),
+    };
+
+    VkDescriptorSetLayout layout;
+    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
+             "Failed to create descriptor set layout!");
+
+    std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
+    VkDescriptorSetAllocateInfo setCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = 1,
+            .pSetLayouts = setLayouts.data(),
+    };
+
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_DefaultMaterial.descriptorSet),
+             "Failed to allocate descriptor sets");
+
+
+    VkDescriptorImageInfo imageInfo{
+            .sampler = m_DefaultImage.texture.GetSampler(),
+            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    VkDescriptorBufferInfo bufferInfo{
+            .buffer = m_DefaultMaterial.info.GetBuffer(),
+            .offset = 0,
+            .range = sizeof(MaterialUBO),
+    };
+
+    std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+    writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSets[0].dstSet = m_DefaultMaterial.descriptorSet;
+    writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptorSets[0].dstBinding = 0;
+    writeDescriptorSets[0].pImageInfo = &imageInfo;
+    writeDescriptorSets[0].descriptorCount = 1;
+
+    writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSets[1].dstSet = m_DefaultMaterial.descriptorSet;
+    writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSets[1].dstBinding = 1;
+    writeDescriptorSets[1].pBufferInfo = &bufferInfo;
+    writeDescriptorSets[1].descriptorCount = 1;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
+                           nullptr);
+
+    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
 
 void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Scene::Node *parent,
@@ -394,6 +433,11 @@ void Scene::Destroy() {
         delete node;
     }
 
+    m_DefaultMaterial.info.Destroy();
+    for (auto &material: m_Materials) {
+        material.info.Destroy();
+    }
+
     m_DefaultImage.texture.Destroy();
     for (auto &image: m_Images) {
         image.texture.Destroy();
@@ -428,16 +472,21 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
                 // Get the texture index for this primitive
-                auto textureIndex =
-                        primitive.materialIndex == -1 ? -1 : m_Materials[primitive.materialIndex].baseColorTextureIndex;
-                // Bind the descriptor for the current primitive's texture
-                if (textureIndex == -1) {
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
-                                            &m_DefaultImage.descriptorSet, 0, nullptr);
-                } else {
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
-                                            &m_Images[m_Textures[textureIndex].imageIndex].descriptorSet, 0, nullptr);
-                }
+
+                auto &material =
+                        primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+                                        &material.descriptorSet, 0, nullptr);
+//                auto textureIndex =
+//                        primitive.materialIndex == -1 ? -1 : m_Materials[primitive.materialIndex].baseColorTextureIndex;
+//                // Bind the descriptor for the current primitive's texture
+//                if (textureIndex == -1) {
+//                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+//                                            &m_Materials[i].descriptorSet, 0, nullptr);
+//                } else {
+//                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+//                                            &m_Images[m_Textures[textureIndex].imageIndex].descriptorSet, 0, nullptr);
+//                }
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
             }
         }

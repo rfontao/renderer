@@ -16,21 +16,26 @@ public:
     struct Primitive {
         uint32_t firstIndex;
         uint32_t indexCount;
-        int32_t materialIndex;
+        int32_t materialIndex = -1;
     };
 
     struct Mesh {
         std::vector<Primitive> primitives;
     };
 
-    struct Material {
+    struct MaterialUBO {
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
-        int32_t baseColorTextureIndex;
+        int32_t baseColorTextureIndex = -1;
+    };
+
+    struct Material {
+        VulkanBuffer info;
+        MaterialUBO ubo;
+        VkDescriptorSet descriptorSet;
     };
 
     struct Image {
         VulkanTexture texture;
-        VkDescriptorSet descriptorSet;
     };
 
     struct Texture {
@@ -75,6 +80,7 @@ private:
 
     Texture m_DefaultTexture;
     Image m_DefaultImage;
+    Material m_DefaultMaterial;
 
     VulkanBuffer m_VertexBuffer;
     VulkanBuffer m_IndexBuffer;
