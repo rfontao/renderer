@@ -55,6 +55,10 @@ public:
         }
     };
 
+    struct SceneInfo {
+        glm::vec3 lightPos;
+    };
+
     Scene() = default;
     Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
     void Destroy();
@@ -72,6 +76,7 @@ private:
     void LoadMaterials(tinygltf::Model &input);
     void LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Node *parent,
                   std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer);
+    void CreateLights();
 
     std::vector<Texture> m_Textures;
     std::vector<Image> m_Images;
@@ -84,6 +89,9 @@ private:
 
     VulkanBuffer m_VertexBuffer;
     VulkanBuffer m_IndexBuffer;
+
+    VulkanBuffer m_SceneInfo;
+    VkDescriptorSet m_SceneInfoDescriptorSet;
 
     std::filesystem::path m_ResourcePath;
 

@@ -34,6 +34,7 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
 
     CreateVertexBuffer(vertexBuffer);
     CreateIndexBuffer(indexBuffer);
+    CreateLights();
 }
 
 void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
@@ -429,6 +430,8 @@ void Scene::Destroy() {
     m_IndexBuffer.Destroy();
     m_VertexBuffer.Destroy();
 
+    m_SceneInfo.Destroy();
+
     for (auto node: m_Nodes) {
         delete node;
     }
@@ -449,6 +452,8 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
     VkBuffer vertexBuffers[] = {m_VertexBuffer.GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+                            &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (auto &node: m_Nodes) {
         DrawNode(commandBuffer, pipelineLayout, node);
@@ -472,21 +477,11 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
                 // Get the texture index for this primitive
-
                 auto &material =
                         primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
                                         &material.descriptorSet, 0, nullptr);
-//                auto textureIndex =
-//                        primitive.materialIndex == -1 ? -1 : m_Materials[primitive.materialIndex].baseColorTextureIndex;
-//                // Bind the descriptor for the current primitive's texture
-//                if (textureIndex == -1) {
-//                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
-//                                            &m_Materials[i].descriptorSet, 0, nullptr);
-//                } else {
-//                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
-//                                            &m_Images[m_Textures[textureIndex].imageIndex].descriptorSet, 0, nullptr);
-//                }
+
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
             }
         }
@@ -495,5 +490,59 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
         DrawNode(commandBuffer, pipelineLayout, child);
     }
 
+}
+
+void Scene::CreateLights() {
+    SceneInfo sceneInfo{
+            .lightPos = glm::vec3(5.0f, 5.0f, 5.0f)
+    };
+
+    VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+                                                       VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = 1,
+            .pBindings = &sceneInfoSetLayout,
+    };
+
+    VkDescriptorSetLayout layout;
+    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
+             "Failed to create descriptor set layout!");
+
+    std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
+    VkDescriptorSetAllocateInfo setCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = 1,
+            .pSetLayouts = setLayouts.data(),
+    };
+
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_SceneInfoDescriptorSet),
+             "Failed to allocate descriptor sets");
+
+
+    m_SceneInfo = VulkanBuffer(m_Device, sizeof(SceneInfo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    m_SceneInfo.Map();
+    m_SceneInfo.From(&sceneInfo, sizeof(sceneInfo));
+
+    VkDescriptorBufferInfo bufferInfo{
+            .buffer = m_SceneInfo.GetBuffer(),
+            .offset = 0,
+            .range = sizeof(SceneInfo),
+    };
+
+    VkWriteDescriptorSet writeDescriptorSet{};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.dstSet = m_SceneInfoDescriptorSet;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.pBufferInfo = &bufferInfo;
+    writeDescriptorSet.descriptorCount = 1;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
+
+    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
 
