@@ -417,6 +417,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject ubo{};
     ubo.view = m_Camera.GetViewMatrix();
     ubo.proj = m_Camera.GetProjectionMatrix();
+    ubo.viewPos = glm::vec4(m_Camera.GetPosition(), 1.0f);
 
     uniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 }

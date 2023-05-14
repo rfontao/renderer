@@ -511,6 +511,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         }
     }
 
+    // TODO: Handle repeated sets across shaders
     m_DescriptorSetLayouts.resize(setLayouts.size());
     for (int i = 0; i < setLayouts.size(); ++i) {
 //        std::vector<VkDescriptorSetLayoutBinding> bindings;

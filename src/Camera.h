@@ -11,6 +11,7 @@ public:
 
     glm::mat4 GetViewMatrix() const;
     glm::mat4 GetProjectionMatrix() const;
+    glm::vec3 GetPosition() const { return m_Position; }
 
     void SetAspectRatio(double aspectRatio) { m_AspectRatio = aspectRatio; }
 

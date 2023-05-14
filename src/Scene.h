@@ -10,6 +10,7 @@ public:
         glm::vec3 normal;
         glm::vec2 texCoord;
         glm::vec3 color;
+        glm::vec4 tangent;
     };
 
     // A primitive contains the data for a single draw call
@@ -26,6 +27,7 @@ public:
     struct MaterialUBO {
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
         int32_t baseColorTextureIndex = -1;
+        int32_t normalTextureIndex = -1;
     };
 
     struct Material {

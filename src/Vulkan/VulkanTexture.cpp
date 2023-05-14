@@ -57,7 +57,7 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels,
 
     m_MipLevelCount = 1;
     m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT,
-                                       VK_FORMAT_R8G8B8A8_SRGB,
+                                       VK_FORMAT_R8G8B8A8_UNORM,
                                        VK_IMAGE_TILING_OPTIMAL,
                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                        VK_IMAGE_USAGE_SAMPLED_BIT,
