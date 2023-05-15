@@ -356,7 +356,6 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                 const float *normalsBuffer = nullptr;
                 const float *texCoordsBuffer = nullptr;
                 const float *colorBuffer = nullptr;
-                const float *tangentsBuffer = nullptr;
                 size_t vertexCount = 0;
 
                 // Get buffer data for vertex positions
@@ -396,14 +395,6 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
 
                 }
 
-                if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "TANGENT")->second];
-                    const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    tangentsBuffer = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
-                }
-
                 // Append data to model's vertex buffer
                 for (size_t v = 0; v < vertexCount; v++) {
                     Vertex vert{};
@@ -413,7 +404,6 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     vert.texCoord = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
                     vert.color = colorBuffer ? glm::make_vec4(&colorBuffer[v * 4]) : glm::vec4(1.0f);
                     vertexBuffer.push_back(vert);
-                    vert.tangent = tangentsBuffer ? glm::make_vec4(&tangentsBuffer[v * 4]) : glm::vec4(0.0f);
                 }
             }
 

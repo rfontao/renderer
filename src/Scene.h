@@ -10,7 +10,6 @@ public:
         glm::vec3 normal;
         glm::vec2 texCoord;
         glm::vec3 color;
-        glm::vec4 tangent;
     };
 
     // A primitive contains the data for a single draw call

@@ -5,8 +5,10 @@
 #include "Utils.h"
 #include "VulkanBuffer.h"
 
-VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-                         uint32_t mipLevelCount) : m_Device(device), m_Image(image), m_IsSwapchainImage(true) {
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format,
+                         VkImageAspectFlags aspectFlags,
+                         uint32_t mipLevelCount) : m_Device(device), m_Image(image), m_IsSwapchainImage(true),
+                                                   m_Format(format) {
 
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
@@ -28,7 +30,8 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, Vk
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
                          VkSampleCountFlagBits numSamples, VkFormat format,
                          VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                         VkImageAspectFlags aspectFlags) : m_Device(device), m_Width(width), m_Height(height) {
+                         VkImageAspectFlags aspectFlags) : m_Device(device), m_Width(width), m_Height(height),
+                                                           m_Format(format) {
     // VkImage creation
     VkImageCreateInfo imageInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,

@@ -13,61 +13,43 @@ layout (set = 2, binding = 2) uniform Material {
     int normalTextureSet;
 } material;
 
-layout (location = 0) in vec3 fragColor;
-layout (location = 1) in vec3 normal;
-layout (location = 2) in vec2 fragTexCoord;
-layout (location = 3) in vec3 viewVec;
-layout (location = 4) in vec3 lightVec;
-layout (location = 5) in vec4 tangent;
-layout (location = 6) in vec3 fragPos;
+layout (location = 0) in vec3 i_FragColor;
+layout (location = 1) in vec3 i_Mormal;
+layout (location = 2) in vec2 i_UV;
+layout (location = 3) in vec3 i_ViewVec;
+layout (location = 4) in vec3 i_LightVec;
+layout (location = 5) in vec3 i_FragPos;
 
 
 layout (location = 0) out vec4 outColor;
 
 void main() {
-    vec4 color = texture(baseColorTexture, fragTexCoord) * vec4(fragColor, 1.0f) * material.baseColorFactor;
+    vec4 color = texture(baseColorTexture, i_UV) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
-    vec3 N = normalize(normal);
+    vec3 N = normalize(i_Mormal);
 
     if (material.normalTextureSet != -1) {
+        // https://github.com/KhronosGroup/Vulkan-Samples/blob/main/shaders/pbr.frag
+        vec3 q1 = dFdx(i_FragPos);
+        vec3 q2 = dFdy(i_FragPos);
+        vec2 st1 = dFdx(i_UV);
+        vec2 st2 = dFdy(i_UV);
 
-        vec3 q1 = dFdx(fragPos);
-        vec3 q2 = dFdy(fragPos);
-        vec2 st1 = dFdx(fragTexCoord);
-        vec2 st2 = dFdy(fragTexCoord);
-
-        vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-        vec3 B = -normalize(cross(N, T));
+        vec3 T = (q1 * st2.t - q2 * st1.t) / (st1.s * st2.t - st2.s * st1.t);
+        T = normalize(T - N * dot(N, T));
+        vec3 B = normalize(cross(N, T));
         mat3 TBN = mat3(T, B, N);
 
-
-        //        vec3 T = normalize(tangent.xyz);
-        //        vec3 B = cross(normal, tangent.xyz) * tangent.w;
-        //        mat3 TBN = mat3(T, B, N);
-        N = TBN * normalize(texture(normalMapTexture, fragTexCoord).xyz * 2.0 - vec3(1.0));
-        //        outColor = vec4(N, 1.0f);
-        //        N = normalize(texture(normalMapTexture, fragTexCoord).xyz);
-        //        outColor = vec4(N, 1.0f);
+        N = TBN * normalize(texture(normalMapTexture, i_UV).xyz * 2.0 - 1.0);
+        outColor = vec4(N, 1.0f);
     }
 
     const float ambient = 0.1;
-    vec3 L = normalize(lightVec);
-    vec3 V = normalize(viewVec);
+    vec3 L = normalize(i_LightVec);
+    vec3 V = normalize(i_ViewVec);
     vec3 R = reflect(-L, N);
     vec3 diffuse = max(dot(N, L), ambient).rrr;
     float specular = pow(max(dot(R, V), 0.0), 32.0);
 
     outColor = vec4(diffuse * color.rgb + specular, color.a);
-
-    //    float ambientStrength = 0.1f;
-    //    vec3 ambient = ambientStrength * vec3(1.0f);
-    //
-    //    vec3 norm = normalize(normal);
-    //    vec3 lightDir = normalize(sceneInfo.lightPos);
-    //    //    vec3 lightDir = normalize(LightPos - FragPos);
-    //    float diff = max(dot(norm, lightDir), 0.0);
-    //    vec3 diffuse = diff * vec3(1.0f, 1.0f, 1.0f);
-
-    //    vec4 color = material.baseColorFactor * vec4(ambient + diffuse, 1.0f);
-    //    outColor = color * vec4(fragColor, 1.0f) * texture(baseColorTexture, fragTexCoord);
 }

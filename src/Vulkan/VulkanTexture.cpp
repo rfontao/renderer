@@ -30,7 +30,7 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device) : m_Device(de
 
     m_MipLevelCount = 1;
     m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT,
-                                       VK_FORMAT_R8G8B8A8_SRGB,
+                                       VK_FORMAT_R8G8B8A8_UNORM,
                                        VK_IMAGE_TILING_OPTIMAL,
                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                        VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -98,14 +98,14 @@ void VulkanTexture::LoadFromFile(const std::filesystem::path &path) {
     stbi_image_free(pixels);
 
     m_Image = make_shared<VulkanImage>(m_Device, texWidth, texHeight, m_MipLevelCount, VK_SAMPLE_COUNT_1_BIT,
-                                       VK_FORMAT_R8G8B8A8_SRGB,
+                                       VK_FORMAT_R8G8B8A8_UNORM,
                                        VK_IMAGE_TILING_OPTIMAL,
                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                        VK_IMAGE_USAGE_SAMPLED_BIT,
                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     m_Image->CopyBufferData(stagingBuffer);
-    m_Image->GenerateMipMaps(VK_FORMAT_R8G8B8A8_SRGB, m_MipLevelCount);
+    m_Image->GenerateMipMaps(VK_FORMAT_R8G8B8A8_UNORM, m_MipLevelCount);
     CreateSampler();
 
     stagingBuffer.Destroy();

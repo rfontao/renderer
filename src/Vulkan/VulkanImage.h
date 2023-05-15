@@ -33,6 +33,7 @@ private:
     VkImage m_Image = VK_NULL_HANDLE;
     VkImageView m_View = VK_NULL_HANDLE;
     VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    VkFormat m_Format;
 
     std::shared_ptr<VulkanDevice> m_Device;
 };
