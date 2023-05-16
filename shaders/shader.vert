@@ -16,22 +16,25 @@ layout (push_constant) uniform PushConsts {
 
 layout (location = 0) in vec3 i_Position;
 layout (location = 1) in vec3 i_Normal;
-layout (location = 2) in vec2 i_UV;
-layout (location = 3) in vec3 i_Color;
+layout (location = 2) in vec3 i_Color;
+layout (location = 3) in vec2 i_UV0;
+layout (location = 4) in vec2 i_UV1;
 
 layout (location = 0) out vec3 o_Color;
 layout (location = 1) out vec3 o_Normal;
-layout (location = 2) out vec2 o_UV;
-layout (location = 3) out vec3 o_ViewVec;
-layout (location = 4) out vec3 o_LightVec;
-layout (location = 5) out vec3 o_FragPos;
+layout (location = 2) out vec2 o_UV0;
+layout (location = 3) out vec2 o_UV1;
+layout (location = 4) out vec3 o_ViewVec;
+layout (location = 5) out vec3 o_LightVec;
+layout (location = 6) out vec3 o_FragPos;
 
 
 // https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
     gl_Position = ubo.proj * ubo.view * primitive.model * vec4(i_Position, 1.0);
     o_Color = i_Color;
-    o_UV = i_UV;
+    o_UV0 = i_UV0;
+    o_UV1 = i_UV1;
 
     //    outNormal = mat3(transpose(inverse(primitive.model))) * inNormal;
     o_Normal = mat3(primitive.model) * i_Normal;

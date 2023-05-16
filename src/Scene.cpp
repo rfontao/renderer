@@ -136,11 +136,13 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
 
         if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
             material.baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
+            material.baseColorTextureUV = glTFMaterial.values["baseColorTexture"].TextureTexCoord();
         }
 
         // Get the normal map texture index
         if (glTFMaterial.additionalValues.find("normalTexture") != glTFMaterial.additionalValues.end()) {
             material.normalTextureIndex = glTFMaterial.additionalValues["normalTexture"].TextureIndex();
+            material.normalTextureUV = glTFMaterial.additionalValues["normalTexture"].TextureTexCoord();
         }
 
         m_Materials[i].info.From(&material, sizeof(material));
@@ -354,7 +356,8 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
             {
                 const float *positionBuffer = nullptr;
                 const float *normalsBuffer = nullptr;
-                const float *texCoordsBuffer = nullptr;
+                const float *texCoordsBuffer0 = nullptr;
+                const float *texCoordsBuffer1 = nullptr;
                 const float *colorBuffer = nullptr;
                 size_t vertexCount = 0;
 
@@ -381,7 +384,15 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
                             "TEXCOORD_0")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    texCoordsBuffer = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
+                    texCoordsBuffer0 = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
+                            accessor.byteOffset + view.byteOffset]));
+                }
+
+                if (glTFPrimitive.attributes.find("TEXCOORD_1") != glTFPrimitive.attributes.end()) {
+                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
+                            "TEXCOORD_1")->second];
+                    const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
+                    texCoordsBuffer1 = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
                             accessor.byteOffset + view.byteOffset]));
                 }
 
@@ -401,8 +412,9 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     vert.pos = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]), 1.0f);
                     vert.normal = glm::normalize(
                             glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
-                    vert.texCoord = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
                     vert.color = colorBuffer ? glm::make_vec4(&colorBuffer[v * 4]) : glm::vec4(1.0f);
+                    vert.texCoord0 = texCoordsBuffer0 ? glm::make_vec2(&texCoordsBuffer0[v * 2]) : glm::vec3(0.0f);
+                    vert.texCoord1 = texCoordsBuffer1 ? glm::make_vec2(&texCoordsBuffer1[v * 2]) : glm::vec3(0.0f);
                     vertexBuffer.push_back(vert);
                 }
             }

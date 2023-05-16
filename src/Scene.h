@@ -8,8 +8,9 @@ public:
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 normal;
-        glm::vec2 texCoord;
         glm::vec3 color;
+        glm::vec2 texCoord0;
+        glm::vec2 texCoord1;
     };
 
     // A primitive contains the data for a single draw call
@@ -27,6 +28,9 @@ public:
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
         int32_t baseColorTextureIndex = -1;
         int32_t normalTextureIndex = -1;
+
+        int32_t baseColorTextureUV = -1;
+        int32_t normalTextureUV = -1;
     };
 
     struct Material {

@@ -472,6 +472,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 // TODO: Change
                 // uint32_t format_size = FormatSize(attribute.format);
                 uint32_t format_size = 16;
+                if (attribute.format == VK_FORMAT_R32G32_SFLOAT)
+                    format_size = 8;
 
                 attribute.offset = bindingDescription.stride;
                 bindingDescription.stride += format_size;
