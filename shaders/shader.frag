@@ -127,7 +127,7 @@ void main() {
     vec3 N = GetNormal();
     vec3 L = normalize(i_LightVec);
     vec3 V = normalize(i_ViewVec);
-    outColor = vec4(BRDF(L, V, N, roughness, metallic, color.rgb), 1.0f) + color * ambient;
+    outColor = vec4(BRDF(L, V, N, metallic, roughness, color.rgb), 1.0f) + color * ambient;
 
     //    const float ambient = 0.1;
     //
