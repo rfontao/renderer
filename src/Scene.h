@@ -26,11 +26,16 @@ public:
 
     struct MaterialUBO {
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
+        float metallicFactor = 1.0f;
+        float roughnessFactor = 1.0f;
+
         int32_t baseColorTextureIndex = -1;
         int32_t normalTextureIndex = -1;
+        int32_t metallicRoughnessTextureIndex = -1;
 
         int32_t baseColorTextureUV = -1;
         int32_t normalTextureUV = -1;
+        int32_t metallicRoughnessTextureUV = -1;
     };
 
     struct Material {

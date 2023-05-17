@@ -485,9 +485,9 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
             DescriptorSetLayoutData layout;
             layout.bindings.resize(reflSet.binding_count);
-            for (uint32_t i_binding = 0; i_binding < reflSet.binding_count; ++i_binding) {
-                const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[i_binding]);
-                VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[i_binding];
+            for (uint32_t iBinding = 0; iBinding < reflSet.binding_count; ++iBinding) {
+                const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[iBinding]);
+                VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[iBinding];
                 layoutBinding.binding = reflBinding.binding;
                 layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
                 layoutBinding.descriptorCount = 1;
