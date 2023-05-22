@@ -60,6 +60,13 @@ vec3 GetNormal() {
     return N;
 }
 
+// https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr_khr.frag
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+    vec3 linOut = pow(srgbIn.xyz, vec3(2.2));
+    return vec4(linOut, srgbIn.w);
+}
+
 // https://google.github.io/filament/Filament.html#materialsystem/specularbrdf
 // Specular D
 float NormalDistributionFunction(float NoH, float roughness) {
@@ -108,8 +115,8 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
         vec3 F = F_Schlick(dotNV, metallic, albedo);
 
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#specular-brdf
-        vec3 specular = D * F * G / (4.0 * dotNL * dotNV);
-        vec3 diffuse = (1.0 - F) * (1.0 / PI) * (1.0 - metallic);
+        vec3 specular = D * F * G / (4.0 * dotNL * dotNV + 0.0001);
+        vec3 diffuse = (1.0 - F) * (1.0 / PI) * (1.0 - metallic) * albedo;
         color += (specular + diffuse) * dotNL * radiance;
     }
 
@@ -118,7 +125,7 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 
 void main() {
     // TODO: Too much light color
-    vec3 lightPos = vec3(0.0f);
+    vec3 lightPos = vec3(0.5f);
     float distance = length(lightPos - i_FragPos);
     float attenuation = 1.0 / (distance * distance);
 
@@ -126,7 +133,7 @@ void main() {
     vec3 radiance = vec3(1.0f) * attenuation;
 
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
-    vec4 color = texture(baseColorTexture, colorUV) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
+    vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
     float metallic = material.metallicFactor;
     float roughness = material.roughnessFactor;
@@ -144,7 +151,7 @@ void main() {
 
     o_Color = vec4(BRDF(L, V, N, radiance, metallic, roughness, color.rgb), 1.0f) + color * ambient;
 
-    //    o_Color = vec4(pow(vec3(o_Color), vec3(1.0 / 2.2)), 1.0f);
+    o_Color = vec4(pow(vec3(o_Color), vec3(1.0 / 2.2)), 1.0f);
 
     //    const float ambient = 0.1;
     //
