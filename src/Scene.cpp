@@ -586,7 +586,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
 void Scene::CreateLights() {
     SceneInfo sceneInfo{
-            .lightPos = glm::vec3(-3.0f, 3.0f, -3.0f)
+            .lightPos = glm::vec3(0.0f)
     };
 
 //    VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
@@ -594,7 +594,7 @@ void Scene::CreateLights() {
 //                                                       nullptr};
 
     VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
-                                                       VK_SHADER_STAGE_VERTEX_BIT,
+                                                       VK_SHADER_STAGE_VERTEX_BIT ,
                                                        nullptr};
 
 

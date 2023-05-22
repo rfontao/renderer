@@ -36,10 +36,11 @@ void main() {
     o_UV0 = i_UV0;
     o_UV1 = i_UV1;
 
-    //    outNormal = mat3(transpose(inverse(primitive.model))) * inNormal;
-    o_Normal = mat3(primitive.model) * i_Normal;
-    vec4 pos = primitive.model * vec4(i_Position, 1.0);
-    o_LightVec = sceneInfo.lightPos.xyz - pos.xyz;
-    o_ViewVec = ubo.viewPos.xyz - pos.xyz;
-    o_FragPos = vec3(pos);
+    //    o_Normal = normalize(transpose(inverse(mat3(primitive.model))) * i_Normal);
+        o_Normal = mat3(transpose(inverse(primitive.model))) * i_Normal;
+//    o_Normal = mat3(primitive.model) * i_Normal;
+    o_FragPos = vec3(primitive.model * vec4(i_Position, 1.0));
+    o_LightVec = sceneInfo.lightPos.xyz - o_FragPos;
+    o_ViewVec = ubo.viewPos.xyz - o_FragPos;
+
 }

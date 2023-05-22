@@ -9,6 +9,8 @@ public:
         uint32_t setNumber;
         VkDescriptorSetLayoutCreateInfo createInfo;
         std::vector<VkDescriptorSetLayoutBinding> bindings;
+
+        bool operator==(const DescriptorSetLayoutData& other) const { return setNumber == other.setNumber; }
     };
 
     VulkanPipeline() = default;

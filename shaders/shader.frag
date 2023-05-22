@@ -1,5 +1,9 @@
 #version 460
 
+//layout (set = 1, binding = 0) uniform PerScene {
+//    vec3 lightPos;
+//} sceneInfo;
+
 layout (set = 2, binding = 0) uniform sampler2D baseColorTexture;
 layout (set = 2, binding = 1) uniform sampler2D normalMapTexture;
 layout (set = 2, binding = 2) uniform sampler2D metallicRoughnessTexture;
@@ -24,7 +28,7 @@ layout (location = 4) in vec3 i_ViewVec;
 layout (location = 5) in vec3 i_LightVec;
 layout (location = 6) in vec3 i_FragPos;
 
-layout (location = 0) out vec4 outColor;
+layout (location = 0) out vec4 o_Color;
 
 const float PI = 3.1415926535897932384626433832795;
 
@@ -39,9 +43,15 @@ vec3 GetNormal() {
         vec2 st1 = dFdx(normalUV);
         vec2 st2 = dFdy(normalUV);
 
-        vec3 T = (q1 * st2.t - q2 * st1.t) / (st1.s * st2.t - st2.s * st1.t);
-        T = normalize(T - N * dot(N, T));
-        vec3 B = normalize(cross(N, T));
+        // Makes sponza not work correctly
+        //        vec3 T = (q1 * st2.t - q2 * st1.t) / (st1.s * st2.t - st2.s * st1.t);
+        //        T = normalize(T - N * dot(N, T));
+        //        vec3 B = normalize(cross(N, T));
+        //        mat3 TBN = mat3(T, B, N);
+
+        // Makes helmet not look correctly
+        vec3 T = normalize(q1 * st2.t - q2 * st1.t);
+        vec3 B = -normalize(cross(N, T));
         mat3 TBN = mat3(T, B, N);
 
         N = TBN * normalize(texture(normalMapTexture, normalUV).xyz * 2.0 - 1.0);
@@ -78,7 +88,7 @@ vec3 F_Schlick(float cosTheta, float metallic, vec3 albedo)
     return F;
 }
 
-vec3 BRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 albedo)
+vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness, vec3 albedo)
 {
     // Precalculate vectors and dot products
     vec3 H = normalize(V + L);
@@ -86,9 +96,6 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 albedo)
     float dotNL = clamp(dot(N, L), 0.0, 1.0);
     float dotLH = clamp(dot(L, H), 0.0, 1.0);
     float dotNH = clamp(dot(N, H), 0.0, 1.0);
-
-    // Light color fixed
-    vec3 lightColor = vec3(1.0);
 
     vec3 color = vec3(0.0);
     if (dotNL > 0.0)
@@ -103,13 +110,20 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, float metallic, float roughness, vec3 albedo)
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#specular-brdf
         vec3 specular = D * F * G / (4.0 * dotNL * dotNV);
         vec3 diffuse = (1.0 - F) * (1.0 / PI) * (1.0 - metallic);
-        color += (specular + diffuse) * dotNL * lightColor;
+        color += (specular + diffuse) * dotNL * radiance;
     }
 
     return color;
 }
 
 void main() {
+    // TODO: Too much light color
+    vec3 lightPos = vec3(0.0f);
+    float distance = length(lightPos - i_FragPos);
+    float attenuation = 1.0 / (distance * distance);
+
+    // White light
+    vec3 radiance = vec3(1.0f) * attenuation;
 
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
     vec4 color = texture(baseColorTexture, colorUV) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
@@ -127,7 +141,10 @@ void main() {
     vec3 N = GetNormal();
     vec3 L = normalize(i_LightVec);
     vec3 V = normalize(i_ViewVec);
-    outColor = vec4(BRDF(L, V, N, metallic, roughness, color.rgb), 1.0f) + color * ambient;
+
+    o_Color = vec4(BRDF(L, V, N, radiance, metallic, roughness, color.rgb), 1.0f) + color * ambient;
+
+    //    o_Color = vec4(pow(vec3(o_Color), vec3(1.0 / 2.2)), 1.0f);
 
     //    const float ambient = 0.1;
     //

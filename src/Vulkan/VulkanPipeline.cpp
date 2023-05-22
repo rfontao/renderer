@@ -480,6 +480,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             }
         }
 
+        // TODO: Handle sets and binding defined in different shader files
         for (auto &set: sets) {
             const SpvReflectDescriptorSet &reflSet = *set;
 
@@ -512,6 +513,10 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             pushConstantRanges.push_back(pushConstant);
         }
     }
+
+    // Remove duplicate set layouts defined in multiple shaders
+    auto last = std::unique(setLayouts.begin(), setLayouts.end());
+    setLayouts.erase(last, setLayouts.end());
 
     // TODO: Handle repeated sets across shaders
     m_DescriptorSetLayouts.resize(setLayouts.size());
