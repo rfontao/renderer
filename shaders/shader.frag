@@ -1,7 +1,7 @@
 #version 460
 
 layout (set = 1, binding = 0) uniform PerScene {
-    vec3 lightPos[4];
+    vec3 lightPos[128];
     int lightCount;
 } sceneInfo;
 
