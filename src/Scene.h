@@ -66,7 +66,8 @@ public:
     };
 
     struct SceneInfo {
-        glm::vec3 lightPos;
+        glm::vec3 lightPos[4];
+        int32_t lightCount;
     };
 
     Scene() = default;

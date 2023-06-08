@@ -1,8 +1,9 @@
 #version 460
 
-//layout (set = 1, binding = 0) uniform PerScene {
-//    vec3 lightPos;
-//} sceneInfo;
+layout (set = 1, binding = 0) uniform PerScene {
+    vec3 lightPos[4];
+    int lightCount;
+} sceneInfo;
 
 layout (set = 2, binding = 0) uniform sampler2D baseColorTexture;
 layout (set = 2, binding = 1) uniform sampler2D normalMapTexture;
@@ -25,8 +26,7 @@ layout (location = 1) in vec3 i_Mormal;
 layout (location = 2) in vec2 i_UV0;
 layout (location = 3) in vec2 i_UV1;
 layout (location = 4) in vec3 i_ViewVec;
-layout (location = 5) in vec3 i_LightVec;
-layout (location = 6) in vec3 i_FragPos;
+layout (location = 5) in vec3 i_FragPos;
 
 layout (location = 0) out vec4 o_Color;
 
@@ -99,8 +99,8 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 {
     // Precalculate vectors and dot products
     vec3 H = normalize(V + L);
-    float dotNV = clamp(dot(N, V), 0.0, 1.0);
-    float dotNL = clamp(dot(N, L), 0.0, 1.0);
+    float dotNV = clamp(abs(dot(N, V)), 0.001, 1.0);
+    float dotNL = clamp(dot(N, L), 0.001, 1.0);
     float dotLH = clamp(dot(L, H), 0.0, 1.0);
     float dotNH = clamp(dot(N, H), 0.0, 1.0);
 
@@ -124,13 +124,9 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 }
 
 void main() {
-    // TODO: Too much light color
-    vec3 lightPos = vec3(0.5f);
-    float distance = length(lightPos - i_FragPos);
-    float attenuation = 1.0 / (distance * distance);
+
 
     // White light
-    vec3 radiance = vec3(1.0f) * attenuation;
 
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
     vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
@@ -146,12 +142,19 @@ void main() {
 
     const float ambient = 0.02;
     vec3 N = GetNormal();
-    vec3 L = normalize(i_LightVec);
     vec3 V = normalize(i_ViewVec);
 
-    o_Color = vec4(BRDF(L, V, N, radiance, metallic, roughness, color.rgb), 1.0f) + color * ambient;
+    vec3 Lo = vec3(0.0);
+    for (int i = 0; i < sceneInfo.lightCount; i++) {
+        vec3 L = normalize(sceneInfo.lightPos[i] - i_FragPos);
+        float distance = length(sceneInfo.lightPos[i] - i_FragPos);
+        float attenuation = 1.0 / (distance * distance);
+        vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb * attenuation;
 
-    o_Color = vec4(pow(vec3(o_Color), vec3(1.0 / 2.2)), 1.0f);
+        Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
+    }
+
+    o_Color = vec4(Lo, 1.0f) + color * ambient;
 
     //    const float ambient = 0.1;
     //
