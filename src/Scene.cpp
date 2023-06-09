@@ -585,7 +585,9 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 }
 
 void Scene::CreateLights() {
+
     SceneInfo sceneInfo{};
+    sceneInfo.lightDir = glm::vec3(1.0f, 0.0f, 0.0f);
     sceneInfo.lightCount = 2;
     sceneInfo.lightPos[0] = glm::vec3(0.0f);
     sceneInfo.lightPos[1] = glm::vec3(1.5f);

@@ -1,6 +1,7 @@
 #version 460
 
 layout (set = 1, binding = 0) uniform PerScene {
+    vec3 lightDir;
     vec3 lightPos[128];
     int lightCount;
 } sceneInfo;
@@ -125,9 +126,6 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 
 void main() {
 
-
-    // White light
-
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
     vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
@@ -145,11 +143,17 @@ void main() {
     vec3 V = normalize(i_ViewVec);
 
     vec3 Lo = vec3(0.0);
+    // Directional light -> Attenuation is 1.0 (no attenuation)
+    vec3 L = normalize(sceneInfo.lightDir);
+    vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb;
+    Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
+
+    // Spotlights
     for (int i = 0; i < sceneInfo.lightCount; i++) {
-        vec3 L = normalize(sceneInfo.lightPos[i] - i_FragPos);
+        L = normalize(sceneInfo.lightPos[i] - i_FragPos);
         float distance = length(sceneInfo.lightPos[i] - i_FragPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb * attenuation;
+        radiance = SRGBtoLINEAR(vec4(1.0f)).rgb * attenuation;
 
         Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
     }

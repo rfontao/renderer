@@ -66,6 +66,7 @@ public:
     };
 
     struct SceneInfo {
+        glm::vec3 lightDir; // 1 directional light
         glm::vec3 lightPos[128];
         int32_t lightCount;
     };
