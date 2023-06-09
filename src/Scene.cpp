@@ -140,10 +140,16 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
         }
 
         if (glTFMaterial.values.find("roughnessFactor") != glTFMaterial.values.end()) {
-            material.roughnessFactor = static_cast<float>(glTFMaterial.values["roughnessFactor"].Factor());
+            material.roughnessFactor = glm::vec4(static_cast<float>(glTFMaterial.values["roughnessFactor"].Factor()));
         }
+
         if (glTFMaterial.values.find("metallicFactor") != glTFMaterial.values.end()) {
-            material.metallicFactor = static_cast<float>(glTFMaterial.values["metallicFactor"].Factor());
+            material.metallicFactor = glm::vec4(static_cast<float>(glTFMaterial.values["metallicFactor"].Factor()));
+        }
+
+        if (glTFMaterial.additionalValues.find("emissiveFactor") != glTFMaterial.additionalValues.end()) {
+            material.emissiveFactor = glm::vec4(
+                    glm::make_vec3(glTFMaterial.additionalValues["emissiveFactor"].ColorFactor().data()), 1.0);
         }
 
         if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
@@ -157,6 +163,11 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
             material.normalTextureUV = glTFMaterial.additionalValues["normalTexture"].TextureTexCoord();
         }
 
+        if (glTFMaterial.additionalValues.find("emissiveTexture") != glTFMaterial.additionalValues.end()) {
+            material.emissiveTextureIndex = glTFMaterial.additionalValues["emissiveTexture"].TextureIndex();
+            material.emissiveTextureUV = glTFMaterial.additionalValues["emissiveTexture"].TextureTexCoord();
+        }
+
         m_Materials[i].info.From(&material, sizeof(material));
         m_Materials[i].ubo = material;
 
@@ -164,7 +175,8 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
                 {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
         };
 
         // TODO: Create all pipelines in advance and store setlayouts on device??
@@ -217,6 +229,15 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
+        auto &tex3 = material.emissiveTextureIndex != -1
+                     ? m_Images[m_Textures[material.emissiveTextureIndex].imageIndex].texture
+                     : m_DefaultImage.texture;
+        VkDescriptorImageInfo emissiveImageInfo{
+                .sampler = tex3.GetSampler(),
+                .imageView = tex3.GetImage()->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+
 
         VkDescriptorBufferInfo bufferInfo{
                 .buffer = m_Materials[i].info.GetBuffer(),
@@ -224,7 +245,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 .range = sizeof(MaterialUBO),
         };
 
-        std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
+        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
         writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptorSets[0].dstSet = m_Materials[i].descriptorSet;
         writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -248,10 +269,17 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
 
         writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptorSets[3].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writeDescriptorSets[3].dstBinding = 3;
-        writeDescriptorSets[3].pBufferInfo = &bufferInfo;
+        writeDescriptorSets[3].pImageInfo = &emissiveImageInfo;
         writeDescriptorSets[3].descriptorCount = 1;
+
+        writeDescriptorSets[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSets[4].dstSet = m_Materials[i].descriptorSet;
+        writeDescriptorSets[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptorSets[4].dstBinding = 4;
+        writeDescriptorSets[4].pBufferInfo = &bufferInfo;
+        writeDescriptorSets[4].descriptorCount = 1;
 
         vkUpdateDescriptorSets(m_Device->GetDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
                                nullptr);

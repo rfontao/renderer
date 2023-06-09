@@ -9,17 +9,23 @@ layout (set = 1, binding = 0) uniform PerScene {
 layout (set = 2, binding = 0) uniform sampler2D baseColorTexture;
 layout (set = 2, binding = 1) uniform sampler2D normalMapTexture;
 layout (set = 2, binding = 2) uniform sampler2D metallicRoughnessTexture;
+layout (set = 2, binding = 3) uniform sampler2D emissiveMapTexture;
 
-layout (set = 2, binding = 3) uniform Material {
+layout (set = 2, binding = 4) uniform Material {
     vec4 baseColorFactor;
-    float metallicFactor;
-    float roughnessFactor;
+    vec4 metallicFactor;
+    vec4 roughnessFactor;
+    vec4 emissiveFactor;
+
     int baseColorTextureSet;
     int normalTextureSet;
     int metallicRoughnessTextureSet;
+    int emissiveTextureSet;
+
     int baseColorTextureUV;
     int normalTextureUV;
     int metallicRoughnessTextureUV;
+    int emissiveTextureUV;
 } material;
 
 layout (location = 0) in vec3 i_FragColor;
@@ -129,8 +135,8 @@ void main() {
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
     vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
-    float metallic = material.metallicFactor;
-    float roughness = material.roughnessFactor;
+    float metallic = material.metallicFactor.x;
+    float roughness = material.roughnessFactor.x;
     if (material.metallicRoughnessTextureSet != -1) {
         vec2 metallicRoughnessUV = material.metallicRoughnessTextureUV == 0 ? i_UV0 : i_UV1;
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#metallic-roughness-material
@@ -148,7 +154,7 @@ void main() {
     vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb;
     Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
 
-    // Spotlights
+    // Lights
     for (int i = 0; i < sceneInfo.lightCount; i++) {
         L = normalize(sceneInfo.lightPos[i] - i_FragPos);
         float distance = length(sceneInfo.lightPos[i] - i_FragPos);
@@ -159,6 +165,13 @@ void main() {
     }
 
     o_Color = vec4(Lo, 1.0f) + color * ambient;
+
+    // Emissive texture
+    if (material.emissiveTextureSet != -1) {
+        vec2 emissiveUV = material.emissiveTextureUV == 0 ? i_UV0 : i_UV1;
+        vec3 emissive = SRGBtoLINEAR(texture(emissiveMapTexture, emissiveUV)).rgb * material.emissiveFactor.rgb;
+        o_Color += vec4(emissive, 0.0f);
+    }
 
     //    const float ambient = 0.1;
     //
