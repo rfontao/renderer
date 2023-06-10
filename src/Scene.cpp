@@ -168,6 +168,20 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
             material.emissiveTextureUV = glTFMaterial.additionalValues["emissiveTexture"].TextureTexCoord();
         }
 
+        if (glTFMaterial.additionalValues.find("alphaMode") != glTFMaterial.additionalValues.end()) {
+            tinygltf::Parameter param = glTFMaterial.additionalValues["alphaMode"];
+            if (param.string_value == "BLEND") {
+                material.alphaMask = 0.0f;
+            }
+            if (param.string_value == "MASK") {
+                material.alphaCutoff = 0.5f;
+                material.alphaMask = 1.0f;
+            }
+        }
+        if (glTFMaterial.additionalValues.find("alphaCutoff") != glTFMaterial.additionalValues.end()) {
+            material.alphaCutoff = static_cast<float>(glTFMaterial.additionalValues["alphaCutoff"].Factor());
+        }
+
         m_Materials[i].info.From(&material, sizeof(material));
         m_Materials[i].ubo = material;
 

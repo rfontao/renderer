@@ -26,6 +26,9 @@ layout (set = 2, binding = 4) uniform Material {
     int normalTextureUV;
     int metallicRoughnessTextureUV;
     int emissiveTextureUV;
+
+    float alphaMask;
+    float alphaMaskCutoff;
 } material;
 
 layout (location = 0) in vec3 i_FragColor;
@@ -135,6 +138,11 @@ void main() {
     vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
     vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
+    if (color.a < material.alphaMaskCutoff) {
+        discard;
+    }
+
+
     float metallic = material.metallicFactor.x;
     float roughness = material.roughnessFactor.x;
     if (material.metallicRoughnessTextureSet != -1) {
@@ -164,7 +172,7 @@ void main() {
         Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
     }
 
-    o_Color = vec4(Lo, 1.0f) + color * ambient;
+    o_Color = vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
 
     // Emissive texture
     if (material.emissiveTextureSet != -1) {

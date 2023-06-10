@@ -39,6 +39,9 @@ public:
         int32_t normalTextureUV = -1;
         int32_t metallicRoughnessTextureUV = -1;
         int32_t emissiveTextureUV = -1;
+
+        float alphaMask = 0.0f;
+        float alphaCutoff = 1.0f;
     };
 
     struct Material {
