@@ -14,7 +14,8 @@ public:
     };
 
     VulkanPipeline() = default;
-    VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat);
+    VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat,
+                   const std::pair<std::string, std::string>& shaderPaths, bool skybox = false);
     void Destroy();
 
     [[nodiscard]] VkPipeline GetPipeline() const { return m_Pipeline; }

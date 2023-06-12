@@ -581,20 +581,22 @@ void Scene::Destroy() {
     }
 }
 
-void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox) {
     VkDeviceSize offsets[] = {0};
     VkBuffer vertexBuffers[] = {m_VertexBuffer.GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
-                            &m_SceneInfoDescriptorSet, 0, nullptr);
+    if (!isSkybox)
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+                                &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node);
+        DrawNode(commandBuffer, pipelineLayout, node, isSkybox);
     }
 }
 
-void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node) {
+void
+Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, bool isSkybox) {
     if (!node->mesh.primitives.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -606,22 +608,24 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
             currentParent = currentParent->parent;
         }
         // Pass the final matrix to the vertex shader using push constants
-        vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                           &nodeMatrix);
+        if (!isSkybox)
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                               &nodeMatrix);
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
                 // Get the texture index for this primitive
                 auto &material =
                         primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
-                                        &material.descriptorSet, 0, nullptr);
+                if (!isSkybox)
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
+                                            &material.descriptorSet, 0, nullptr);
 
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
             }
         }
     }
     for (auto &child: node->children) {
-        DrawNode(commandBuffer, pipelineLayout, child);
+        DrawNode(commandBuffer, pipelineLayout, child, isSkybox);
     }
 
 }
@@ -629,7 +633,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 void Scene::CreateLights() {
 
     SceneInfo sceneInfo{};
-    sceneInfo.lightDir = glm::vec3(1.0f, 0.0f, 0.0f);
+    sceneInfo.lightDir = glm::vec3(1.0f, 1.0f, 1.0f);
     sceneInfo.lightCount = 2;
     sceneInfo.lightPos[0] = glm::vec3(0.0f);
     sceneInfo.lightPos[1] = glm::vec3(1.5f);

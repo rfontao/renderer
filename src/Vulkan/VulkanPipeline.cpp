@@ -386,10 +386,11 @@ static uint32_t FormatSize(VkFormat format) {
     return result;
 }
 
-VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat)
+VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat,
+                               const std::pair<std::string, std::string> &shaderPaths, bool skybox)
         : m_Device(device) {
-    auto vertShaderCode = ReadFile("shaders/vert.spv");
-    auto fragShaderCode = ReadFile("shaders/frag.spv");
+    auto vertShaderCode = ReadFile(shaderPaths.first);
+    auto fragShaderCode = ReadFile(shaderPaths.second);
 
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
@@ -586,7 +587,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = VK_CULL_MODE_BACK_BIT,
+            .cullMode = static_cast<VkCullModeFlags>(skybox ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT),
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = VK_FALSE,
             .lineWidth = 1.0f,
@@ -594,7 +595,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineMultisampleStateCreateInfo multisampling{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-//            .rasterizationSamples = msaaSamples,
+//            .rasterizationSamples = m_MsaaSamples,
             .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
             .sampleShadingEnable = VK_FALSE,
     };
@@ -623,8 +624,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-            .depthTestEnable = VK_TRUE,
-            .depthWriteEnable = VK_TRUE,
+            .depthTestEnable = skybox ? VK_FALSE : VK_TRUE,
+            .depthWriteEnable = skybox ? VK_FALSE : VK_TRUE,
             .depthCompareOp = VK_COMPARE_OP_LESS,
             .depthBoundsTestEnable = VK_FALSE,
             .stencilTestEnable = VK_FALSE,

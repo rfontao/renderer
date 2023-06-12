@@ -16,6 +16,7 @@ public:
 
     // TODO: Make name more clear
     void From(void *src, VkDeviceSize srcSize);
+    void From(void *src, VkDeviceSize srcSize, uint32_t offset);
     void FromBuffer(VulkanBuffer& src);
 
     [[nodiscard]] VkBuffer GetBuffer() const { return m_Buffer; };
@@ -28,4 +29,5 @@ private:
     void *m_Data = nullptr; // Must be mapped
 
     std::shared_ptr<VulkanDevice> m_Device;
+
 };

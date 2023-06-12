@@ -12,9 +12,9 @@ public:
     VulkanTexture() = default;
     explicit VulkanTexture(std::shared_ptr<VulkanDevice> device);
     VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &path);
+    VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::vector<std::filesystem::path> &paths);
     VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels, VkDeviceSize imageSize, int texWidth,
                   int texHeight);
-
 
     void Destroy();
 
@@ -23,8 +23,11 @@ public:
     [[nodiscard]] VkSampler GetSampler() const { return m_Sampler; }
     [[nodiscard]] std::shared_ptr<VulkanImage> GetImage() const { return m_Image; }
 
-private:
+public:
     void LoadFromFile(const std::filesystem::path &path);
+    // Used for cubemaps
+    void LoadFromFile(const std::vector<std::filesystem::path> &paths);
+
     void CreateSampler();
 
     uint32_t m_MipLevelCount;
@@ -34,5 +37,5 @@ private:
     VkSampler m_Sampler;
 
     std::shared_ptr<VulkanDevice> m_Device;
-};
 
+};

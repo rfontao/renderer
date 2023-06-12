@@ -81,10 +81,10 @@ public:
     Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
     void Destroy();
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false);
 
 private:
-    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node);
+    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, bool isSkybox = false);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);

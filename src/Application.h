@@ -57,25 +57,27 @@ public:
     std::shared_ptr<VulkanDevice> m_Device;
     VkInstance m_Instance;
 
-    std::shared_ptr<VulkanImage> depthImage;
-    std::shared_ptr<VulkanImage> colorImage;
+    std::shared_ptr<VulkanImage> m_DepthImage;
+    std::shared_ptr<VulkanImage> m_ColorImage;
 
     std::shared_ptr<VulkanSwapchain> m_Swapchain;
     std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
+    std::shared_ptr<VulkanPipeline> m_SkyboxPipeline;
 
-    std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkDescriptorSet> m_DescriptorSets;
+    VkDescriptorSet m_SkyboxDescriptorSet;
+    std::vector<std::shared_ptr<VulkanBuffer>> m_UniformBuffers;
 
-    VkDebugUtilsMessengerEXT debugMessenger;
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+    VkDebugUtilsMessengerEXT m_DebugMessenger;
+    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    std::vector<std::shared_ptr<VulkanBuffer>> uniformBuffers;
-
-    uint32_t currentFrame = 0;
+    uint32_t m_CurrentFrame = 0;
 
     std::vector<std::filesystem::path> m_ScenePaths;
     std::filesystem::path m_NextScenePath;
     bool m_ShouldChangeScene = false;
     Scene m_Scene;
+    Scene m_Skybox;
     UI m_UI;
 
     Camera m_Camera;

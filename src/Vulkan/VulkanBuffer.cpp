@@ -48,6 +48,12 @@ void VulkanBuffer::From(void *src, VkDeviceSize srcSize) {
     memcpy(m_Data, src, srcSize);
 }
 
+void VulkanBuffer::From(void *src, VkDeviceSize srcSize, uint32_t offset) {
+    if (m_Data == nullptr)
+        throw std::runtime_error("Tried to copy to unmapped buffer");
+    memcpy(static_cast<uint8_t*>(m_Data) + offset, src, srcSize);
+}
+
 // TODO: Maybe receive size??
 void VulkanBuffer::FromBuffer(VulkanBuffer &src) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();

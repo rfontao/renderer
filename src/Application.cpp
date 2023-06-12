@@ -64,9 +64,18 @@ void Application::InitVulkan() {
     VkSurfaceKHR surface = CreateSurface();
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
-    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat());
+
+    std::pair<std::string, std::string> pbrShaders = {"shaders/pbr.vert.spv", "shaders/pbr.frag.spv"};
+    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), pbrShaders);
+
+    std::pair<std::string, std::string> skyboxShaders = {"shaders/skybox.vert.spv", "shaders/skybox.frag.spv"};
+    m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
+
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[0]);
+
+    // Taken from https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
+    m_Skybox = Scene(m_Device, "models/cube.gltf");
 
     CreateColorResources();
     CreateDepthResources();
@@ -89,21 +98,22 @@ void Application::Cleanup() {
     m_UI.Destroy();
     m_Swapchain->Destroy();
 
-    colorImage->Destroy();
-    depthImage->Destroy();
+    m_ColorImage->Destroy();
+    m_DepthImage->Destroy();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        uniformBuffers[i]->Destroy();
+        m_UniformBuffers[i]->Destroy();
     }
 
     m_GraphicsPipeline->Destroy();
+    m_SkyboxPipeline->Destroy();
     m_Scene.Destroy();
 
     vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
     m_Device->Destroy();
 
     if (enableValidationLayers) {
-        DestroyDebugUtilsMessengerEXT(m_Instance, debugMessenger, nullptr);
+        DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
     }
 
     vkDestroyInstance(m_Instance, nullptr);
@@ -253,7 +263,7 @@ void Application::SetupDebugMessenger() {
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     PopulateDebugMessengerCreateInfo(createInfo);
 
-    VK_CHECK(CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &debugMessenger),
+    VK_CHECK(CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger),
              "Failed to set up debug messenger!");
 }
 
@@ -265,10 +275,10 @@ VkSurfaceKHR Application::CreateSurface() const {
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 
-    bool msaaEnabled = msaaSamples != VK_SAMPLE_COUNT_1_BIT;
+    bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = msaaEnabled ? colorImage->GetImageView() : m_Swapchain->GetImageView(imageIndex),
+            .imageView = msaaEnabled ? m_ColorImage->GetImageView() : m_Swapchain->GetImageView(imageIndex),
             .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .resolveMode = msaaEnabled ? VK_RESOLVE_MODE_AVERAGE_BIT : VK_RESOLVE_MODE_NONE,
             .resolveImageView = m_Swapchain->GetImageView(imageIndex),
@@ -280,7 +290,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingAttachmentInfo depthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = depthImage->GetImageView(),
+            .imageView = m_DepthImage->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -307,11 +317,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    depthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    m_DepthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
-
     VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
@@ -328,10 +336,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
+    // TODO: Investigate why this is needed: should be retained from previous pipeline
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
+                            &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 1, 1,
+                            &m_SkyboxDescriptorSet, 0, nullptr);
+    m_Skybox.Draw(commandBuffer, m_SkyboxPipeline->GetLayout(), true);
+
+
+    // TODO: Move to Scene class
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
     // Bind camera matrices
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
-                            &descriptorSets[currentFrame], 0, nullptr);
+                            &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
+
+
     m_UI.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
@@ -343,53 +364,53 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 }
 
 void Application::DrawFrame() {
-    vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
-    uint32_t imageIndex = m_Swapchain->AcquireNextImage(currentFrame);
+    uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
         m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
-        colorImage->Destroy();
+        m_ColorImage->Destroy();
         CreateColorResources();
-        depthImage->Destroy();
+        m_DepthImage->Destroy();
         CreateDepthResources();
         return;
     }
 
-    UpdateUniformBuffer(currentFrame);
-    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[currentFrame]);
+    UpdateUniformBuffer(m_CurrentFrame);
+    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame]);
 
-    vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[currentFrame], 0);
-    RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[currentFrame], imageIndex);
+    vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], 0);
+    RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     };
 
-    VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[currentFrame]};
+    VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[m_CurrentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_Swapchain->GetCommandBuffers()[currentFrame];
+    submitInfo.pCommandBuffers = &m_Swapchain->GetCommandBuffers()[m_CurrentFrame];
 
-    VkSemaphore signalSemaphores[] = {m_Swapchain->GetRenderFinishedSemaphores()[currentFrame]};
+    VkSemaphore signalSemaphores[] = {m_Swapchain->GetRenderFinishedSemaphores()[m_CurrentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain->GetWaitFences()[currentFrame]),
+    VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain->GetWaitFences()[m_CurrentFrame]),
              "Failed to submit draw command buffer!");
 
-    bool resourceNeedResizing = m_Swapchain->Present(imageIndex, currentFrame);
+    bool resourceNeedResizing = m_Swapchain->Present(imageIndex, m_CurrentFrame);
     if (resourceNeedResizing) {
         m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
-        colorImage->Destroy();
+        m_ColorImage->Destroy();
         CreateColorResources();
-        depthImage->Destroy();
+        m_DepthImage->Destroy();
         CreateDepthResources();
     }
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     if (m_ShouldChangeScene)
         ChangeScene();
@@ -398,12 +419,12 @@ void Application::DrawFrame() {
 void Application::CreateUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        uniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        uniformBuffers[i]->Map();
+        m_UniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_UniformBuffers[i]->Map();
     }
 
 }
@@ -419,7 +440,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     ubo.proj = m_Camera.GetProjectionMatrix();
     ubo.viewPos = glm::vec4(m_Camera.GetPosition(), 1.0f);
 
-    uniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
+    m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 }
 
 
@@ -432,20 +453,20 @@ void Application::CreateDescriptorSets() {
             .pSetLayouts = layouts.data(),
     };
 
-    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocInfo, descriptorSets.data()),
+    m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocInfo, m_DescriptorSets.data()),
              "Failed to allocate descriptor sets!");
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{
-                .buffer = uniformBuffers[i]->GetBuffer(),
+                .buffer = m_UniformBuffers[i]->GetBuffer(),
                 .offset = 0,
                 .range = sizeof(UniformBufferObject),
         };
 
         std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstSet = m_DescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -455,30 +476,68 @@ void Application::CreateDescriptorSets() {
         vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) descriptorWrites.size(), descriptorWrites.data(), 0,
                                nullptr);
     }
+
+    VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[1];
+    VkDescriptorSetAllocateInfo allocskyboxInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = (uint32_t) 1,
+            .pSetLayouts = &skyboxLayouts,
+    };
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocskyboxInfo, &m_SkyboxDescriptorSet),
+             "Failed to allocate descriptor sets!");
+
+
+    std::vector<std::filesystem::path> paths = {
+            "textures/uv_grid.jpg",
+            "textures/uv_grid.jpg",
+            "textures/uv_grid.jpg",
+            "textures/uv_grid.jpg",
+            "textures/uv_grid.jpg",
+            "textures/uv_grid.jpg",
+    };
+    auto texture = std::make_shared<VulkanTexture>(m_Device, paths);
+    VkDescriptorImageInfo imageInfo{
+            .sampler = texture->GetSampler(),
+            .imageView = texture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    std::array<VkWriteDescriptorSet, 1> skyboxDescriptorWrites{};
+    skyboxDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    skyboxDescriptorWrites[0].dstSet = m_SkyboxDescriptorSet;
+    skyboxDescriptorWrites[0].dstBinding = 0;
+    skyboxDescriptorWrites[0].dstArrayElement = 0;
+    skyboxDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    skyboxDescriptorWrites[0].descriptorCount = 1;
+    skyboxDescriptorWrites[0].pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) skyboxDescriptorWrites.size(),
+                           skyboxDescriptorWrites.data(), 0, nullptr);
 }
 
 void Application::CreateDepthResources() {
     VkFormat depthFormat = m_Device->FindDepthFormat();
 
-    depthImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
-                                               msaaSamples,
-                                               depthFormat,
-                                               VK_IMAGE_TILING_OPTIMAL,
-                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                               VK_IMAGE_ASPECT_DEPTH_BIT);
+    m_DepthImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
+                                                 m_MsaaSamples,
+                                                 depthFormat,
+                                                 VK_IMAGE_TILING_OPTIMAL,
+                                                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                                 VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Application::CreateColorResources() {
     VkFormat colorFormat = m_Swapchain->GetImageFormat();
 
-    colorImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
-                                               msaaSamples,
-                                               colorFormat,
-                                               VK_IMAGE_TILING_OPTIMAL,
-                                               VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
-                                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_ColorImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
+                                                 m_MsaaSamples,
+                                                 colorFormat,
+                                                 VK_IMAGE_TILING_OPTIMAL,
+                                                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
+                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Application::SetScene(const std::filesystem::path &scenePath) {

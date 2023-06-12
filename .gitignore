@@ -3,6 +3,7 @@ external/vcpkg
 !external/.keep
 
 models
+!models/cube.gltf
 
 imgui.ini
 
