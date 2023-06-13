@@ -69,7 +69,8 @@ public:
     std::vector<std::shared_ptr<VulkanBuffer>> m_UniformBuffers;
 
     VkDebugUtilsMessengerEXT m_DebugMessenger;
-    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_1_BIT;
+//    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_1_BIT;
+    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_8_BIT;
 
     uint32_t m_CurrentFrame = 0;
 
@@ -79,6 +80,8 @@ public:
     Scene m_Scene;
     Scene m_Skybox;
     UI m_UI;
+
+    std::shared_ptr<VulkanTexture> m_CubemapTexture;
 
     Camera m_Camera;
     GLFWwindow *m_Window;

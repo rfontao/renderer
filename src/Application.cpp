@@ -77,6 +77,17 @@ void Application::InitVulkan() {
     // Taken from https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
     m_Skybox = Scene(m_Device, "models/cube.gltf");
 
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
+    std::vector<std::filesystem::path> cubemapPaths = {"textures/cubemaps/vindelalven/posx.jpg",
+                                                       "textures/cubemaps/vindelalven/negx.jpg",
+                                                       "textures/cubemaps/vindelalven/posy.jpg",
+                                                       "textures/cubemaps/vindelalven/negy.jpg",
+                                                       "textures/cubemaps/vindelalven/posz.jpg",
+                                                       "textures/cubemaps/vindelalven/negz.jpg",
+    };
+
+    m_CubemapTexture = std::make_shared<VulkanTexture>(m_Device, cubemapPaths);
+
     CreateColorResources();
     CreateDepthResources();
 
@@ -101,6 +112,8 @@ void Application::Cleanup() {
     m_ColorImage->Destroy();
     m_DepthImage->Destroy();
 
+    m_CubemapTexture->Destroy();
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_UniformBuffers[i]->Destroy();
     }
@@ -108,6 +121,7 @@ void Application::Cleanup() {
     m_GraphicsPipeline->Destroy();
     m_SkyboxPipeline->Destroy();
     m_Scene.Destroy();
+    m_Skybox.Destroy();
 
     vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
     m_Device->Destroy();
@@ -487,19 +501,9 @@ void Application::CreateDescriptorSets() {
     VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocskyboxInfo, &m_SkyboxDescriptorSet),
              "Failed to allocate descriptor sets!");
 
-
-    std::vector<std::filesystem::path> paths = {"textures/yokohama3/posx.jpg", // Right
-                                                "textures/yokohama3/negx.jpg", // Left
-                                                "textures/yokohama3/posy.jpg", // Top
-                                                "textures/yokohama3/negy.jpg", // Bottom
-                                                "textures/yokohama3/posz.jpg", // Back
-                                                "textures/yokohama3/negz.jpg", // Front
-    };
-
-    auto texture = std::make_shared<VulkanTexture>(m_Device, paths);
     VkDescriptorImageInfo imageInfo{
-            .sampler = texture->GetSampler(),
-            .imageView = texture->GetImage()->GetImageView(),
+            .sampler = m_CubemapTexture->GetSampler(),
+            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 

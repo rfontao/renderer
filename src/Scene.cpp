@@ -114,10 +114,12 @@ void Scene::LoadTextures(tinygltf::Model &input) {
     m_Textures.resize(input.textures.size());
     for (size_t i = 0; i < input.textures.size(); i++) {
         m_Textures[i].imageIndex = input.textures[i].source;
-        TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
-        m_Images[m_Textures[i].imageIndex].texture.SetSampler(sampler.magFilter, sampler.minFilter,
-                                                              sampler.addressModeU, sampler.addressModeV,
-                                                              sampler.addressModeW);
+        if (input.textures[i].sampler != -1) {
+            TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
+            m_Images[m_Textures[i].imageIndex].texture.SetSampler(sampler.magFilter, sampler.minFilter,
+                                                                  sampler.addressModeU, sampler.addressModeV,
+                                                                  sampler.addressModeW);
+        }
     }
 
     m_DefaultTexture.imageIndex = -1;

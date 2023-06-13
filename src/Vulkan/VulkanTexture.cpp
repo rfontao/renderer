@@ -131,8 +131,6 @@ void VulkanTexture::CreateSampler() {
             .mipLodBias = 0.0f,
             .anisotropyEnable = VK_TRUE,
             .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
-//            .compareEnable = VK_FALSE,
-//            .compareOp = VK_COMPARE_OP_ALWAYS,
             .compareOp = VK_COMPARE_OP_NEVER,
             .minLod = 0.0f, // (float) mipLevels / 2, <- Force enable low mip maps
             .maxLod = (float) m_MipLevelCount,
@@ -173,6 +171,7 @@ void VulkanTexture::SetSampler(VkFilter magFilter, VkFilter minFilter, VkSampler
              "Failed to create texture sampler!");
 }
 
+// Cubemap loading
 void VulkanTexture::LoadFromFile(const std::vector<std::filesystem::path> &paths) {
 
     int width, height, channels;
