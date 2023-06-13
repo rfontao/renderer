@@ -131,8 +131,38 @@ void VulkanTexture::CreateSampler() {
             .mipLodBias = 0.0f,
             .anisotropyEnable = VK_TRUE,
             .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
-            .compareEnable = VK_FALSE,
-            .compareOp = VK_COMPARE_OP_ALWAYS,
+//            .compareEnable = VK_FALSE,
+//            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .compareOp = VK_COMPARE_OP_NEVER,
+            .minLod = 0.0f, // (float) mipLevels / 2, <- Force enable low mip maps
+            .maxLod = (float) m_MipLevelCount,
+            .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+            .unnormalizedCoordinates = VK_FALSE,
+    };
+
+    VK_CHECK(vkCreateSampler(m_Device->GetDevice(), &samplerInfo, nullptr, &m_Sampler),
+             "Failed to create texture sampler!");
+}
+
+void VulkanTexture::SetSampler(VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode addressModeU,
+                               VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW) {
+    vkDestroySampler(m_Device->GetDevice(), m_Sampler, nullptr);
+
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(m_Device->GetPhysicalDevice(), &properties);
+
+    VkSamplerCreateInfo samplerInfo{
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = magFilter,
+            .minFilter = minFilter,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .addressModeU = addressModeU,
+            .addressModeV = addressModeV,
+            .addressModeW = addressModeW,
+            .mipLodBias = 0.0f,
+            .anisotropyEnable = VK_TRUE,
+            .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
+            .compareOp = VK_COMPARE_OP_NEVER,
             .minLod = 0.0f, // (float) mipLevels / 2, <- Force enable low mip maps
             .maxLod = (float) m_MipLevelCount,
             .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,

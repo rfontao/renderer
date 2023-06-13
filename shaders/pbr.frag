@@ -135,13 +135,19 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 
 void main() {
 
-    vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
-    vec4 color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
+    vec4 color;
+    if (material.alphaMask == 1.0f || material.alphaMask == 0.0f) {
+        vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
+        color = SRGBtoLINEAR(texture(baseColorTexture, colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
-    if (color.a < material.alphaMaskCutoff) {
-        discard;
+        if (material.alphaMask == 1.0f) {
+            if (color.a < material.alphaMaskCutoff) {
+                discard;
+            }
+        } else {
+            color.a = 1.0f;
+        }
     }
-
 
     float metallic = material.metallicFactor.x;
     float roughness = material.roughnessFactor.x;

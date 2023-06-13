@@ -24,6 +24,7 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
     std::vector<Vertex> vertexBuffer;
 
     LoadImages(glTFInput);
+    LoadTextureSamplers(glTFInput);
     LoadTextures(glTFInput);
     LoadMaterials(glTFInput);
     const tinygltf::Scene &scene = glTFInput.scenes[0];
@@ -113,9 +114,57 @@ void Scene::LoadTextures(tinygltf::Model &input) {
     m_Textures.resize(input.textures.size());
     for (size_t i = 0; i < input.textures.size(); i++) {
         m_Textures[i].imageIndex = input.textures[i].source;
+        TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
+        m_Images[m_Textures[i].imageIndex].texture.SetSampler(sampler.magFilter, sampler.minFilter,
+                                                              sampler.addressModeU, sampler.addressModeV,
+                                                              sampler.addressModeW);
     }
 
     m_DefaultTexture.imageIndex = -1;
+}
+
+static VkSamplerAddressMode GetVkWrapMode(int32_t wrapMode) {
+    switch (wrapMode) {
+        case -1:
+        case 10497:
+            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        case 33071:
+            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        case 33648:
+            return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        default:
+            std::cerr << "Unknown wrap mode for getVkWrapMode: " << wrapMode << std::endl;
+            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    }
+}
+
+static VkFilter GetVkFilterMode(int32_t filterMode) {
+    switch (filterMode) {
+        case -1:
+        case 9728:
+        case 9984:
+        case 9985:
+            return VK_FILTER_NEAREST;
+        case 9986:
+        case 9987:
+        case 9729:
+            return VK_FILTER_LINEAR;
+        default:
+            std::cerr << "Unknown filter mode for getVkFilterMode: " << filterMode << std::endl;
+            return VK_FILTER_NEAREST;
+    }
+}
+
+void Scene::LoadTextureSamplers(tinygltf::Model &input) {
+    for (const tinygltf::Sampler &smpl: input.samplers) {
+        TextureSampler sampler{};
+        sampler.minFilter = GetVkFilterMode(smpl.minFilter);
+        sampler.magFilter = GetVkFilterMode(smpl.magFilter);
+        sampler.addressModeU = GetVkWrapMode(smpl.wrapS);
+        sampler.addressModeV = GetVkWrapMode(smpl.wrapT);
+        sampler.addressModeW = sampler.addressModeV;
+        m_TextureSamplers.push_back(sampler);
+    }
 }
 
 void Scene::LoadMaterials(tinygltf::Model &input) {
@@ -171,7 +220,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
         if (glTFMaterial.additionalValues.find("alphaMode") != glTFMaterial.additionalValues.end()) {
             tinygltf::Parameter param = glTFMaterial.additionalValues["alphaMode"];
             if (param.string_value == "BLEND") {
-                material.alphaMask = 0.0f;
+                material.alphaMask = 2.0f;
             }
             if (param.string_value == "MASK") {
                 material.alphaCutoff = 0.5f;
@@ -224,6 +273,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 .imageView = tex.GetImage()->GetImageView(),
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
+
 
         auto &tex1 = material.normalTextureIndex != -1
                      ? m_Images[m_Textures[material.normalTextureIndex].imageIndex].texture
@@ -591,13 +641,20 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
                                 &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node, isSkybox);
+        DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox);
+    }
+
+    for (auto &node: m_Nodes) {
+        DrawNode(commandBuffer, pipelineLayout, node, MASK, isSkybox);
     }
 }
 
 void
-Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, bool isSkybox) {
+Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
+                bool isSkybox) {
     if (!node->mesh.primitives.empty()) {
+
+
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
         // TODO: Inefficient? -> Search for different scene graph implementations
@@ -616,6 +673,13 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
                 // Get the texture index for this primitive
                 auto &material =
                         primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
+
+                if (alphaMode == OPAQUE && material.ubo.alphaMask != 0.0f)
+                    continue;
+
+                if (alphaMode == MASK && material.ubo.alphaMask != 1.0f)
+                    continue;
+
                 if (!isSkybox)
                     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
                                             &material.descriptorSet, 0, nullptr);
@@ -625,7 +689,7 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
         }
     }
     for (auto &child: node->children) {
-        DrawNode(commandBuffer, pipelineLayout, child, isSkybox);
+        DrawNode(commandBuffer, pipelineLayout, child, alphaMode, isSkybox);
     }
 
 }
@@ -634,7 +698,7 @@ void Scene::CreateLights() {
 
     SceneInfo sceneInfo{};
     sceneInfo.lightDir = glm::vec3(1.0f, 1.0f, 1.0f);
-    sceneInfo.lightCount = 2;
+    sceneInfo.lightCount = 0;
     sceneInfo.lightPos[0] = glm::vec3(0.0f);
     sceneInfo.lightPos[1] = glm::vec3(1.5f);
 

@@ -601,7 +601,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
     };
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{
-            .blendEnable = VK_TRUE,
+            .blendEnable = skybox ? VK_FALSE : VK_TRUE,
             .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
             .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
             .colorBlendOp = VK_BLEND_OP_ADD,

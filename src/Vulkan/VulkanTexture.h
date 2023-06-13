@@ -23,8 +23,12 @@ public:
     [[nodiscard]] VkSampler GetSampler() const { return m_Sampler; }
     [[nodiscard]] std::shared_ptr<VulkanImage> GetImage() const { return m_Image; }
 
-public:
+    void SetSampler(VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode addressModeU,
+                    VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW);
+
+private:
     void LoadFromFile(const std::filesystem::path &path);
+
     // Used for cubemaps
     void LoadFromFile(const std::vector<std::filesystem::path> &paths);
 

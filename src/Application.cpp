@@ -488,14 +488,14 @@ void Application::CreateDescriptorSets() {
              "Failed to allocate descriptor sets!");
 
 
-    std::vector<std::filesystem::path> paths = {
-            "textures/uv_grid.jpg",
-            "textures/uv_grid.jpg",
-            "textures/uv_grid.jpg",
-            "textures/uv_grid.jpg",
-            "textures/uv_grid.jpg",
-            "textures/uv_grid.jpg",
+    std::vector<std::filesystem::path> paths = {"textures/yokohama3/posx.jpg", // Right
+                                                "textures/yokohama3/negx.jpg", // Left
+                                                "textures/yokohama3/posy.jpg", // Top
+                                                "textures/yokohama3/negy.jpg", // Bottom
+                                                "textures/yokohama3/posz.jpg", // Back
+                                                "textures/yokohama3/negz.jpg", // Front
     };
+
     auto texture = std::make_shared<VulkanTexture>(m_Device, paths);
     VkDescriptorImageInfo imageInfo{
             .sampler = texture->GetSampler(),

@@ -5,6 +5,13 @@
 
 class Scene {
 public:
+
+    enum AlphaMode {
+        OPAQUE,
+        MASK,
+        BLEND
+    };
+
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 normal;
@@ -58,6 +65,14 @@ public:
         int32_t imageIndex;
     };
 
+    struct TextureSampler {
+        VkFilter magFilter;
+        VkFilter minFilter;
+        VkSamplerAddressMode addressModeU;
+        VkSamplerAddressMode addressModeV;
+        VkSamplerAddressMode addressModeW;
+    };
+
     struct Node {
         Node *parent;
         std::vector<Node *> children;
@@ -84,19 +99,21 @@ public:
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false);
 
 private:
-    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, bool isSkybox = false);
+    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode, bool isSkybox = false);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);
 
     void LoadImages(tinygltf::Model &input);
     void LoadTextures(tinygltf::Model &input);
+    void LoadTextureSamplers(tinygltf::Model &input);
     void LoadMaterials(tinygltf::Model &input);
     void LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Node *parent,
                   std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer);
     void CreateLights();
 
     std::vector<Texture> m_Textures;
+    std::vector<TextureSampler> m_TextureSamplers;
     std::vector<Image> m_Images;
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
