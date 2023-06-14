@@ -701,8 +701,8 @@ void Scene::CreateLights() {
     SceneInfo sceneInfo{};
     sceneInfo.lightDir = glm::vec3(1.0f, 1.0f, 1.0f);
     sceneInfo.lightCount = 0;
-    sceneInfo.lightPos[0] = glm::vec3(0.0f);
-    sceneInfo.lightPos[1] = glm::vec3(1.5f);
+    sceneInfo.lightPos[0] = glm::vec3(-11.0f, 0.1f, -0.3f);
+    sceneInfo.lightPos[1] = glm::vec3(-6.5f, 1.0f, -1.5f);
 
     VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                                        VK_SHADER_STAGE_FRAGMENT_BIT,

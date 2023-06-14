@@ -168,7 +168,7 @@ void main() {
     vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb;
     Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
 
-    // Lights
+    // Point Lights
     for (int i = 0; i < sceneInfo.lightCount; i++) {
         L = normalize(sceneInfo.lightPos[i] - i_FragPos);
         float distance = length(sceneInfo.lightPos[i] - i_FragPos);
