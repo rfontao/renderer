@@ -254,7 +254,7 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
 
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
-    for (size_t i = 0; i < (cube ? 6 : 1); i++) {
+    for (size_t face = 0; face < (cube ? 6 : 1); face++) {
 
         VkImageMemoryBarrier barrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -263,15 +263,15 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
                 .image = m_Image,
         };
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseArrayLayer = i;
+        barrier.subresourceRange.baseArrayLayer = face;
         barrier.subresourceRange.layerCount = 1;
         barrier.subresourceRange.levelCount = 1;
 
         auto mipWidth = (int32_t) m_Width;
         auto mipHeight = (int32_t) m_Height;
 
-        for (uint32_t i = 1; i < mipLevelCount; i++) {
-            barrier.subresourceRange.baseMipLevel = i - 1;
+        for (uint32_t mipLevel = 1; mipLevel < mipLevelCount; mipLevel++) {
+            barrier.subresourceRange.baseMipLevel = mipLevel - 1;
             barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -287,14 +287,14 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
             blit.srcOffsets[0] = {0, 0, 0};
             blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
             blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            blit.srcSubresource.mipLevel = i - 1;
-            blit.srcSubresource.baseArrayLayer = i;
+            blit.srcSubresource.mipLevel = mipLevel - 1;
+            blit.srcSubresource.baseArrayLayer = face;
             blit.srcSubresource.layerCount = 1;
             blit.dstOffsets[0] = {0, 0, 0};
             blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
             blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            blit.dstSubresource.mipLevel = i;
-            blit.dstSubresource.baseArrayLayer = i;
+            blit.dstSubresource.mipLevel = mipLevel;
+            blit.dstSubresource.baseArrayLayer = face;
             blit.dstSubresource.layerCount = 1;
 
             vkCmdBlitImage(commandBuffer,
