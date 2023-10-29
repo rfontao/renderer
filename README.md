@@ -30,6 +30,11 @@ Damaged helmet:
 - Vulkan Dynamic Rendering
 - Scene selector UI with Imgui
 
+## TODO
+
+- Shadows
+- Fix max memory allocation (possibly with VMA)
+
 ## Dependencies
 
 - Imgui (https://github.com/ocornut/imgui)
