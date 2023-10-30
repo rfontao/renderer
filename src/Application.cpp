@@ -72,7 +72,7 @@ void Application::InitVulkan() {
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
-    m_Scene = Scene(m_Device, m_ScenePaths[0]);
+    m_Scene = Scene(m_Device, m_ScenePaths[14]);
 
     // Taken from https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
     m_Skybox = Scene(m_Device, "models/cube.gltf");
@@ -436,8 +436,7 @@ void Application::CreateUniformBuffers() {
     m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_UniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                             VMA_MEMORY_USAGE_CPU_ONLY);
         m_UniformBuffers[i]->Map();
     }
 

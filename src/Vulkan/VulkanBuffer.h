@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pch.h"
 #include "VulkanDevice.h"
 
 class VulkanDevice;
@@ -8,7 +9,7 @@ class VulkanBuffer {
 public:
     VulkanBuffer() = default;
     VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize size, VkBufferUsageFlags usage,
-                 VkMemoryPropertyFlags properties);
+                 VmaMemoryUsage vmaUsage);
     void Destroy();
 
     void Map();
@@ -23,10 +24,11 @@ public:
 
 private:
     VkBuffer m_Buffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
-    VkDeviceSize m_Size = VK_NULL_HANDLE;
-    VkBufferUsageFlags m_Usage = VK_NULL_HANDLE;
+    VkDeviceSize m_Size;
+    VmaAllocation m_Allocation;
     void *m_Data = nullptr; // Must be mapped
+
+    bool m_Mapped = false;
 
     std::shared_ptr<VulkanDevice> m_Device;
 

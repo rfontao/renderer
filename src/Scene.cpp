@@ -42,7 +42,7 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                               VMA_MEMORY_USAGE_CPU_ONLY);
 
     stagingBuffer.Map();
     stagingBuffer.From(vertices.data(), (size_t) bufferSize);
@@ -50,7 +50,7 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
 
     m_VertexBuffer = VulkanBuffer(m_Device, bufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                  VMA_MEMORY_USAGE_GPU_ONLY);
     m_VertexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -59,14 +59,14 @@ void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
     VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                               VMA_MEMORY_USAGE_CPU_ONLY);
     stagingBuffer.Map();
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
     stagingBuffer.Unmap();
 
     m_IndexBuffer = VulkanBuffer(m_Device, bufferSize,
                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                 VMA_MEMORY_USAGE_GPU_ONLY);
     m_IndexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -175,8 +175,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
         MaterialUBO material{}; // Must have a different name than below, or it doesn't work
 
         m_Materials[i].info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
         m_Materials[i].info.Map();
 
         tinygltf::Material glTFMaterial = input.materials[i];
@@ -354,8 +353,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
     }
 
     m_DefaultMaterial.info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                          VMA_MEMORY_USAGE_CPU_TO_GPU);
     m_DefaultMaterial.info.Map();
 
     MaterialUBO mat{};
@@ -732,7 +730,7 @@ void Scene::CreateLights() {
 
 
     m_SceneInfo = VulkanBuffer(m_Device, sizeof(SceneInfo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                               VMA_MEMORY_USAGE_CPU_ONLY);
     m_SceneInfo.Map();
     m_SceneInfo.From(&sceneInfo, sizeof(sceneInfo));
 

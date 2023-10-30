@@ -25,8 +25,7 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device) : m_Device(de
 
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                              VMA_MEMORY_USAGE_CPU_ONLY);
 
     stagingBuffer.Map();
     stagingBuffer.From(pixels.data(), imageSize);
@@ -52,8 +51,7 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels,
                              int texHeight) : m_Device(device) {
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                              VMA_MEMORY_USAGE_CPU_ONLY);
 
     stagingBuffer.Map();
     stagingBuffer.From(pixels, imageSize);
@@ -93,8 +91,7 @@ void VulkanTexture::LoadFromFile(const std::filesystem::path &path) {
     }
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                              VMA_MEMORY_USAGE_CPU_ONLY);
 
     stagingBuffer.Map();
     stagingBuffer.From(pixels, (size_t) imageSize);
@@ -182,8 +179,7 @@ void VulkanTexture::LoadFromFile(const std::vector<std::filesystem::path> &paths
 
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                              VMA_MEMORY_USAGE_CPU_ONLY);
     stagingBuffer.Map();
 
     uint32_t offset = 0;
