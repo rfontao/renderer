@@ -44,6 +44,7 @@ Damaged helmet:
 - VulkanSDK (https://vulkan.lunarg.com/)
 - glfw (https://github.com/glfw/glfw)
 - glm (https://github.com/g-truc/glm)
+- VMA (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 ## Relevant resources
 
