@@ -2,8 +2,8 @@
 #include "VulkanImage.h"
 
 #include "VulkanDevice.h"
-#include "Utils.h"
 #include "VulkanBuffer.h"
+#include "Utils.h"
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format,
                          VkImageAspectFlags aspectFlags,
@@ -49,20 +49,9 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, u
     imageInfo.extent.width = (uint32_t) m_Width;
     imageInfo.extent.depth = 1;
 
-    VK_CHECK(vkCreateImage(m_Device->GetDevice(), &imageInfo, nullptr, &m_Image), "Failed to create image!");
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(m_Device->GetDevice(), m_Image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .allocationSize = memRequirements.size,
-            .memoryTypeIndex = m_Device->FindMemoryType(memRequirements.memoryTypeBits, properties),
-    };
-    VK_CHECK(vkAllocateMemory(m_Device->GetDevice(), &allocInfo, nullptr, &m_Memory),
-             "Failed to allocate image memory!");
-
-    vkBindImageMemory(m_Device->GetDevice(), m_Image, m_Memory, 0);
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
 
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
@@ -105,20 +94,9 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, u
     imageInfo.extent.width = (uint32_t) m_Width;
     imageInfo.extent.depth = 1;
 
-    VK_CHECK(vkCreateImage(m_Device->GetDevice(), &imageInfo, nullptr, &m_Image), "Failed to create image!");
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(m_Device->GetDevice(), m_Image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .allocationSize = memRequirements.size,
-            .memoryTypeIndex = m_Device->FindMemoryType(memRequirements.memoryTypeBits, properties),
-    };
-    VK_CHECK(vkAllocateMemory(m_Device->GetDevice(), &allocInfo, nullptr, &m_Memory),
-             "Failed to allocate image memory!");
-
-    vkBindImageMemory(m_Device->GetDevice(), m_Image, m_Memory, 0);
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
 
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
@@ -142,8 +120,9 @@ void VulkanImage::Destroy() {
 
     // Image should only be destroyed if it doesn't belong to swapchain
     if (!m_IsSwapchainImage) {
-        vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
-        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
+        vmaDestroyImage(m_Device->GetAllocator(), m_Image, m_Allocation);
+//        vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
+//        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
     }
 }
 

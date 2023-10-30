@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../pch.h"
 #include "VulkanDevice.h"
 #include "VulkanBuffer.h"
 
@@ -35,10 +36,12 @@ public:
     bool m_IsSwapchainImage = false;
 private:
     uint32_t m_Width, m_Height;
-    VkImage m_Image = VK_NULL_HANDLE;
-    VkImageView m_View = VK_NULL_HANDLE;
-    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    VkImage m_Image             { VK_NULL_HANDLE };
+    VkImageView m_View          { VK_NULL_HANDLE };
+    VkDeviceMemory m_Memory     { VK_NULL_HANDLE };
     VkFormat m_Format;
+
+    VmaAllocation m_Allocation;
 
     std::shared_ptr<VulkanDevice> m_Device;
 };

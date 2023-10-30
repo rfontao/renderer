@@ -22,6 +22,7 @@
 #include <tiny_gltf.h>
 
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 #include <stdexcept>
 #include <vector>

@@ -30,9 +30,19 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface) : m_Surfac
     CreateLogicalDevice();
     CreateCommandPool();
     CreateDescriptorPool();
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
+    allocatorCreateInfo.device = m_Device;
+    allocatorCreateInfo.instance = instance;
+//    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+    vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator);
 }
 
 void VulkanDevice::Destroy() {
+
+    vmaDestroyAllocator(m_Allocator);
     vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
     vkDestroyDevice(m_Device, nullptr);

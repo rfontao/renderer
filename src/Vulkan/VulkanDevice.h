@@ -1,5 +1,4 @@
 #pragma once
-
 #include "../pch.h"
 
 #include "Utils.h"
@@ -36,6 +35,7 @@ public:
     [[nodiscard]] VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
     [[nodiscard]] VkCommandPool GetCommandPool() const { return m_CommandPool; }
     [[nodiscard]] VkDescriptorPool GetDescriptorPool() const { return m_DescriptorPool; }
+    [[nodiscard]] VmaAllocator GetAllocator() const { return m_Allocator; }
 //    [[nodiscard]] QueueFamilyIndices GetFamilyIndices() const { return m_QueueFamilyProperties; }
 
     VkCommandBuffer BeginSingleTimeCommands();
@@ -74,6 +74,7 @@ private:
     VkCommandPool m_CommandPool;
     VkDescriptorPool m_DescriptorPool;
 
+    VmaAllocator m_Allocator;
 
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
