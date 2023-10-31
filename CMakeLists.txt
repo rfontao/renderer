@@ -1,5 +1,6 @@
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
+set(VCPKG_DEFAULT_TRIPLET "x64-windows")
 
 cmake_minimum_required(VERSION 3.24)
 project(renderer)

@@ -72,7 +72,7 @@ void Application::InitVulkan() {
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
-    m_Scene = Scene(m_Device, m_ScenePaths[14]);
+    m_Scene = Scene(m_Device, m_ScenePaths[0]);
 
     // Taken from https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
     m_Skybox = Scene(m_Device, "models/cube.gltf");
