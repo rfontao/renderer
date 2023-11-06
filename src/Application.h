@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Camera.h"
-#include "Vulkan/VulkanPipeline.h"
+#include "Vulkan/VulkanMaterial.h"
 #include "vulkan/VulkanTexture.h"
 #include "vulkan/VulkanDevice.h"
 #include "vulkan/VulkanSwapchain.h"
@@ -61,8 +61,8 @@ public:
     std::shared_ptr<VulkanImage> m_ColorImage;
 
     std::shared_ptr<VulkanSwapchain> m_Swapchain;
-    std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
-    std::shared_ptr<VulkanPipeline> m_SkyboxPipeline;
+    std::shared_ptr<VulkanMaterial> m_GraphicsPipeline;
+    std::shared_ptr<VulkanMaterial> m_SkyboxPipeline;
 
     std::vector<VkDescriptorSet> m_DescriptorSets;
     VkDescriptorSet m_SkyboxDescriptorSet;

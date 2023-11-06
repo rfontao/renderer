@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "VulkanPipeline.h"
+#include "VulkanMaterial.h"
 
 #include "spirv_reflect.h"
 
@@ -386,9 +386,8 @@ static uint32_t FormatSize(VkFormat format) {
     return result;
 }
 
-VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat,
-                               const std::pair<std::string, std::string> &shaderPaths, bool skybox)
-        : m_Device(device) {
+VulkanMaterial::VulkanMaterial(std::shared_ptr<VulkanDevice> device, std::shared_ptr<VulkanShader> shader, bool skybox)
+        : m_Device(device), m_Shader(shader) {
     auto vertShaderCode = ReadFile(shaderPaths.first);
     auto fragShaderCode = ReadFile(shaderPaths.second);
 
@@ -677,23 +676,14 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
     vkDestroyShaderModule(m_Device->GetDevice(), vertShaderModule, nullptr);
 }
 
-VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<char> &code) const {
-    VkShaderModuleCreateInfo createInfo{
-            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = code.size(),
-            .pCode = reinterpret_cast<const uint32_t *>(code.data()),
-    };
+//void VulkanMaterial::Destroy() {
+//    for (auto m_DescriptorSetLayout: m_DescriptorSetLayouts) {
+//        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), m_DescriptorSetLayout, nullptr);
+//    }
+//    vkDestroyPipeline(m_Device->GetDevice(), m_Pipeline, nullptr);
+//    vkDestroyPipelineLayout(m_Device->GetDevice(), m_Layout, nullptr);
+//}
 
-    VkShaderModule shaderModule;
-    VK_CHECK(vkCreateShaderModule(m_Device->GetDevice(), &createInfo, nullptr, &shaderModule),
-             "Failed to create shader module!");
-    return shaderModule;
-}
+VulkanMaterial::VulkanMaterial(std::shared_ptr<VulkanDevice> device, std::shared<VulkanShader> shader, bool skybox) {
 
-void VulkanPipeline::Destroy() {
-    for (auto m_DescriptorSetLayout: m_DescriptorSetLayouts) {
-        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), m_DescriptorSetLayout, nullptr);
-    }
-    vkDestroyPipeline(m_Device->GetDevice(), m_Pipeline, nullptr);
-    vkDestroyPipelineLayout(m_Device->GetDevice(), m_Layout, nullptr);
 }

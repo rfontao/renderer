@@ -66,10 +66,10 @@ void Application::InitVulkan() {
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
     std::pair<std::string, std::string> pbrShaders = {"shaders/pbr.vert.spv", "shaders/pbr.frag.spv"};
-    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), pbrShaders);
+    m_GraphicsPipeline = std::make_shared<VulkanMaterial>(m_Device, m_Swapchain->GetImageFormat(), pbrShaders);
 
     std::pair<std::string, std::string> skyboxShaders = {"shaders/skybox.vert.spv", "shaders/skybox.frag.spv"};
-    m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
+    m_SkyboxPipeline = std::make_shared<VulkanMaterial>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[0]);
