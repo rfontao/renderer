@@ -42,15 +42,16 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VMA_MEMORY_USAGE_CPU_ONLY);
+                               VMA_MEMORY_USAGE_AUTO, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                      VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
-    stagingBuffer.Map();
+//    stagingBuffer.Map();
     stagingBuffer.From(vertices.data(), (size_t) bufferSize);
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
     m_VertexBuffer = VulkanBuffer(m_Device, bufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                  VMA_MEMORY_USAGE_GPU_ONLY);
+                                  VMA_MEMORY_USAGE_AUTO);
     m_VertexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -58,15 +59,15 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                               VMA_MEMORY_USAGE_CPU_ONLY);
-    stagingBuffer.Map();
+    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT , VMA_MEMORY_USAGE_AUTO, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
+//    stagingBuffer.Map();
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
     m_IndexBuffer = VulkanBuffer(m_Device, bufferSize,
                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                 VMA_MEMORY_USAGE_GPU_ONLY);
+                                 VMA_MEMORY_USAGE_AUTO);
     m_IndexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }

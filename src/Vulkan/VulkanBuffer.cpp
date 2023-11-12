@@ -4,7 +4,7 @@
 #include "Utils.h"
 
 VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize size, VkBufferUsageFlags usage,
-                           VmaMemoryUsage vmaUsage) : m_Device(device), m_Size(size) {
+                           VmaMemoryUsage vmaUsage, VmaAllocationCreateFlags vmaFlags) : m_Device(device), m_Size(size) {
 
     VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -15,7 +15,8 @@ VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize si
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = vmaUsage;
-    vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo, &m_Buffer, &m_Allocation, nullptr);
+    allocInfo.flags = vmaFlags;
+    vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo, &m_Buffer, &m_Allocation, &m_AllocationInfo);
 
 //    VK_CHECK(vkCreateBuffer(m_Device->GetDevice(), &bufferInfo, nullptr, &m_Buffer),
 //             "Failed to create staging buffer!");
@@ -44,7 +45,7 @@ void VulkanBuffer::Destroy() {
 }
 
 void VulkanBuffer::Map() {
-    vmaMapMemory(m_Device->GetAllocator(), m_Allocation, &m_Data);
+    vmaMapMemory(m_Device->GetAllocator(), m_Allocation, &m_AllocationInfo.pMappedData);
     m_Mapped = true;
 //    vkMapMemory(m_Device->GetDevice(), m_Memory, 0, m_Size, 0, &m_Data);
 }
@@ -56,15 +57,15 @@ void VulkanBuffer::Unmap() {
 }
 
 void VulkanBuffer::From(void *src, VkDeviceSize srcSize) {
-    if (m_Data == nullptr)
+    if (m_AllocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    memcpy(m_Data, src, srcSize);
+    memcpy(m_AllocationInfo.pMappedData, src, srcSize);
 }
 
 void VulkanBuffer::From(void *src, VkDeviceSize srcSize, uint32_t offset) {
-    if (m_Data == nullptr)
+    if (m_AllocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    memcpy(static_cast<uint8_t *>(m_Data) + offset, src, srcSize);
+    memcpy(static_cast<uint8_t *>(m_AllocationInfo.pMappedData) + offset, src, srcSize);
 }
 
 // TODO: Maybe receive size??

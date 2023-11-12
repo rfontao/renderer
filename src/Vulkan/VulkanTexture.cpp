@@ -24,12 +24,15 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device) : m_Device(de
     VkDeviceSize imageSize = pixels.size();
 
 
-    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_CPU_ONLY);
+    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize,
+                                              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                              VMA_MEMORY_USAGE_AUTO,
+                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
-    stagingBuffer.Map();
+//    stagingBuffer.Map();
     stagingBuffer.From(pixels.data(), imageSize);
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
 
     m_MipLevelCount = 1;
@@ -51,11 +54,13 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels,
                              int texHeight) : m_Device(device) {
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_CPU_ONLY);
+                                              VMA_MEMORY_USAGE_AUTO,
+                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
-    stagingBuffer.Map();
+//    stagingBuffer.Map();
     stagingBuffer.From(pixels, imageSize);
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
 
     m_MipLevelCount = 1;
@@ -91,11 +96,13 @@ void VulkanTexture::LoadFromFile(const std::filesystem::path &path) {
     }
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_CPU_ONLY);
+                                              VMA_MEMORY_USAGE_AUTO,
+                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
-    stagingBuffer.Map();
+//    stagingBuffer.Map();
     stagingBuffer.From(pixels, (size_t) imageSize);
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
     stbi_image_free(pixels);
 
@@ -179,8 +186,10 @@ void VulkanTexture::LoadFromFile(const std::vector<std::filesystem::path> &paths
 
 
     VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_CPU_ONLY);
-    stagingBuffer.Map();
+                                              VMA_MEMORY_USAGE_AUTO,
+                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
+//    stagingBuffer.Map();
 
     uint32_t offset = 0;
     for (const auto &path: paths) { // Should be 6
@@ -196,7 +205,7 @@ void VulkanTexture::LoadFromFile(const std::vector<std::filesystem::path> &paths
 
         stbi_image_free(pixels);
     }
-    stagingBuffer.Unmap();
+//    stagingBuffer.Unmap();
 
     // TODO: Enable loading of textures with precalculated mipmaps (KTX file format)
 //    m_MipLevelCount = (uint32_t) (std::floor(std::log2(std::max(width, height))) + 1);
