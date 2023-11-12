@@ -54,6 +54,9 @@ public:
     void CreateDepthResources();
     void CreateColorResources();
 
+    void HandleKeys();
+    void GenerateIndirectCommands();
+
     std::shared_ptr<VulkanDevice> m_Device;
     VkInstance m_Instance;
 
@@ -98,6 +101,4 @@ public:
 #else
     const bool enableValidationLayers = true;
 #endif
-
-    void HandleKeys();
 };

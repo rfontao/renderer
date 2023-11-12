@@ -287,6 +287,12 @@ VkSurfaceKHR Application::CreateSurface() const {
     return surface;
 }
 
+void Application::GenerateIndirectCommands() {
+    for (auto& node : this.) {
+
+    }
+}
+
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 
     bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
