@@ -2,6 +2,8 @@ set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg/scripts/bui
         CACHE STRING "Vcpkg toolchain file")
 set(VCPKG_DEFAULT_TRIPLET "x64-windows")
 
+add_compile_definitions(TINYGLTF_ENABLE_DRACO)
+
 cmake_minimum_required(VERSION 3.24)
 project(renderer)
 
@@ -14,6 +16,7 @@ find_package(Stb REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(unofficial-spirv-reflect CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(draco CONFIG REQUIRED)
 
 file(GLOB_RECURSE SourceFiles "src/*.cpp")
 add_executable(renderer ${SourceFiles})
@@ -26,6 +29,7 @@ target_link_libraries(${PROJECT_NAME}
         unofficial::spirv-reflect::spirv-reflect
         imgui::imgui
         unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+        draco::draco
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
