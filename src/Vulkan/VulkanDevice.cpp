@@ -100,6 +100,8 @@ void VulkanDevice::CreateLogicalDevice() {
 
     VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
     descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
     descriptorIndexingFeatures.pNext = &dynamicRenderingFeature;
 
     VkPhysicalDeviceFeatures2 bindlessFeatures{};
@@ -118,10 +120,12 @@ void VulkanDevice::CreateLogicalDevice() {
     assert(descriptorIndexingFeatures.descriptorBindingUniformBufferUpdateAfterBind);
     assert(descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing);
     assert(descriptorIndexingFeatures.descriptorBindingStorageBufferUpdateAfterBind);
+    assert(descriptorIndexingFeatures.descriptorBindingPartiallyBound);
+    assert(descriptorIndexingFeatures.runtimeDescriptorArray);
 
     VkDeviceCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = &dynamicRenderingFeature,
+            .pNext = &descriptorIndexingFeatures,
             .queueCreateInfoCount = (uint32_t) queueCreateInfos.size(),
             .pQueueCreateInfos = queueCreateInfos.data(),
             .enabledExtensionCount = (uint32_t) (deviceExtensions.size()),
@@ -164,7 +168,6 @@ void VulkanDevice::CreateDescriptorPool() {
 
     VkDescriptorPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
             .maxSets = 1000,
             .poolSizeCount = (uint32_t) poolSizes.size(),
             .pPoolSizes = poolSizes.data(),

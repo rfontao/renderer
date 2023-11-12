@@ -59,8 +59,9 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT , VMA_MEMORY_USAGE_AUTO, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
+                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                               VMA_ALLOCATION_CREATE_MAPPED_BIT);
 //    stagingBuffer.Map();
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
 //    stagingBuffer.Unmap();
@@ -114,10 +115,10 @@ void Scene::LoadImages(tinygltf::Model &input) {
 void Scene::LoadTextures(tinygltf::Model &input) {
     m_Textures.resize(input.textures.size());
     for (size_t i = 0; i < input.textures.size(); i++) {
-        m_Textures[i].imageIndex = input.textures[i].source;
+        m_Textures[i].imageIndex = input.textures[i].source + 1;
         if (input.textures[i].sampler != -1) {
             TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
-            m_Images[m_Textures[i].imageIndex].texture.SetSampler(sampler.magFilter, sampler.minFilter,
+            m_Images[m_Textures[i].imageIndex - 1].texture.SetSampler(sampler.magFilter, sampler.minFilter,
                                                                   sampler.addressModeU, sampler.addressModeV,
                                                                   sampler.addressModeW);
         }
@@ -237,11 +238,11 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
         m_Materials[i].ubo = material;
 
         std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
-                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
         };
 
         // TODO: Create all pipelines in advance and store setlayouts on device??
@@ -267,42 +268,42 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                  "Failed to allocate descriptor sets");
 
 
-        auto &tex = material.baseColorTextureIndex != -1
-                    ? m_Images[m_Textures[material.baseColorTextureIndex].imageIndex].texture
-                    : m_DefaultImage.texture;
-        VkDescriptorImageInfo imageInfo{
-                .sampler = tex.GetSampler(),
-                .imageView = tex.GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-
-        auto &tex1 = material.normalTextureIndex != -1
-                     ? m_Images[m_Textures[material.normalTextureIndex].imageIndex].texture
-                     : m_DefaultImage.texture;
-        VkDescriptorImageInfo normalImageInfo{
-                .sampler = tex1.GetSampler(),
-                .imageView = tex1.GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        auto &tex2 = material.metallicRoughnessTextureIndex != -1
-                     ? m_Images[m_Textures[material.metallicRoughnessTextureIndex].imageIndex].texture
-                     : m_DefaultImage.texture;
-        VkDescriptorImageInfo metallicRoughnessImageInfo{
-                .sampler = tex2.GetSampler(),
-                .imageView = tex2.GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        auto &tex3 = material.emissiveTextureIndex != -1
-                     ? m_Images[m_Textures[material.emissiveTextureIndex].imageIndex].texture
-                     : m_DefaultImage.texture;
-        VkDescriptorImageInfo emissiveImageInfo{
-                .sampler = tex3.GetSampler(),
-                .imageView = tex3.GetImage()->GetImageView(),
-                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
+//        auto &tex = material.baseColorTextureIndex != -1
+//                    ? m_Images[m_Textures[material.baseColorTextureIndex].imageIndex].texture
+//                    : m_DefaultImage.texture;
+//        VkDescriptorImageInfo imageInfo{
+//                .sampler = tex.GetSampler(),
+//                .imageView = tex.GetImage()->GetImageView(),
+//                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//        };
+//
+//
+//        auto &tex1 = material.normalTextureIndex != -1
+//                     ? m_Images[m_Textures[material.normalTextureIndex].imageIndex].texture
+//                     : m_DefaultImage.texture;
+//        VkDescriptorImageInfo normalImageInfo{
+//                .sampler = tex1.GetSampler(),
+//                .imageView = tex1.GetImage()->GetImageView(),
+//                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//        };
+//
+//        auto &tex2 = material.metallicRoughnessTextureIndex != -1
+//                     ? m_Images[m_Textures[material.metallicRoughnessTextureIndex].imageIndex].texture
+//                     : m_DefaultImage.texture;
+//        VkDescriptorImageInfo metallicRoughnessImageInfo{
+//                .sampler = tex2.GetSampler(),
+//                .imageView = tex2.GetImage()->GetImageView(),
+//                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//        };
+//
+//        auto &tex3 = material.emissiveTextureIndex != -1
+//                     ? m_Images[m_Textures[material.emissiveTextureIndex].imageIndex].texture
+//                     : m_DefaultImage.texture;
+//        VkDescriptorImageInfo emissiveImageInfo{
+//                .sampler = tex3.GetSampler(),
+//                .imageView = tex3.GetImage()->GetImageView(),
+//                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//        };
 
 
         VkDescriptorBufferInfo bufferInfo{
@@ -311,44 +312,45 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 .range = sizeof(MaterialUBO),
         };
 
-        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
-        writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[0].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSets[0].dstBinding = 0;
-        writeDescriptorSets[0].pImageInfo = &imageInfo;
-        writeDescriptorSets[0].descriptorCount = 1;
+//        std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
+//        writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        writeDescriptorSets[0].dstSet = m_Materials[i].descriptorSet;
+//        writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//        writeDescriptorSets[0].dstBinding = 0;
+//        writeDescriptorSets[0].pImageInfo = &imageInfo;
+//        writeDescriptorSets[0].descriptorCount = 1;
+//
+//        writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        writeDescriptorSets[1].dstSet = m_Materials[i].descriptorSet;
+//        writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//        writeDescriptorSets[1].dstBinding = 1;
+//        writeDescriptorSets[1].pImageInfo = &normalImageInfo;
+//        writeDescriptorSets[1].descriptorCount = 1;
+//
+//        writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        writeDescriptorSets[2].dstSet = m_Materials[i].descriptorSet;
+//        writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//        writeDescriptorSets[2].dstBinding = 2;
+//        writeDescriptorSets[2].pImageInfo = &metallicRoughnessImageInfo;
+//        writeDescriptorSets[2].descriptorCount = 1;
+//
+//        writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//        writeDescriptorSets[3].dstSet = m_Materials[i].descriptorSet;
+//        writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//        writeDescriptorSets[3].dstBinding = 3;
+//        writeDescriptorSets[3].pImageInfo = &emissiveImageInfo;
+//        writeDescriptorSets[3].descriptorCount = 1;
 
-        writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[1].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSets[1].dstBinding = 1;
-        writeDescriptorSets[1].pImageInfo = &normalImageInfo;
-        writeDescriptorSets[1].descriptorCount = 1;
 
-        writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[2].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSets[2].dstBinding = 2;
-        writeDescriptorSets[2].pImageInfo = &metallicRoughnessImageInfo;
-        writeDescriptorSets[2].descriptorCount = 1;
+        VkWriteDescriptorSet writeDescriptorSet{};
+        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSet.dstSet = m_Materials[i].descriptorSet;
+        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        writeDescriptorSet.dstBinding = 0;
+        writeDescriptorSet.pBufferInfo = &bufferInfo;
+        writeDescriptorSet.descriptorCount = 1;
 
-        writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[3].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writeDescriptorSets[3].dstBinding = 3;
-        writeDescriptorSets[3].pImageInfo = &emissiveImageInfo;
-        writeDescriptorSets[3].descriptorCount = 1;
-
-        writeDescriptorSets[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSets[4].dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSets[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writeDescriptorSets[4].dstBinding = 4;
-        writeDescriptorSets[4].pBufferInfo = &bufferInfo;
-        writeDescriptorSets[4].descriptorCount = 1;
-
-        vkUpdateDescriptorSets(m_Device->GetDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
-                               nullptr);
+        vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
 
         vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
     }
@@ -362,10 +364,10 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
     m_DefaultMaterial.ubo = mat;
 
     std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
-            {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-            {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//            {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//            {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+//            {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
     };
 
     // TODO: Create all pipelines in advance and store setlayouts on device??
@@ -391,23 +393,23 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
              "Failed to allocate descriptor sets");
 
 
-    VkDescriptorImageInfo imageInfo{
-            .sampler = m_DefaultImage.texture.GetSampler(),
-            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    VkDescriptorImageInfo normalImageInfo{
-            .sampler = m_DefaultImage.texture.GetSampler(),
-            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    VkDescriptorImageInfo metallicRoughnessImageInfo{
-            .sampler = m_DefaultImage.texture.GetSampler(),
-            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
+//    VkDescriptorImageInfo imageInfo{
+//            .sampler = m_DefaultImage.texture.GetSampler(),
+//            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
+//            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//    };
+//
+//    VkDescriptorImageInfo normalImageInfo{
+//            .sampler = m_DefaultImage.texture.GetSampler(),
+//            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
+//            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//    };
+//
+//    VkDescriptorImageInfo metallicRoughnessImageInfo{
+//            .sampler = m_DefaultImage.texture.GetSampler(),
+//            .imageView = m_DefaultImage.texture.GetImage()->GetImageView(),
+//            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+//    };
 
     VkDescriptorBufferInfo bufferInfo{
             .buffer = m_DefaultMaterial.info.GetBuffer(),
@@ -415,37 +417,37 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
             .range = sizeof(MaterialUBO),
     };
 
-    std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
-    writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[0].dstSet = m_DefaultMaterial.descriptorSet;
-    writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeDescriptorSets[0].dstBinding = 0;
-    writeDescriptorSets[0].pImageInfo = &imageInfo;
-    writeDescriptorSets[0].descriptorCount = 1;
+//    std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
+//    writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//    writeDescriptorSets[0].dstSet = m_DefaultMaterial.descriptorSet;
+//    writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writeDescriptorSets[0].dstBinding = 0;
+//    writeDescriptorSets[0].pImageInfo = &imageInfo;
+//    writeDescriptorSets[0].descriptorCount = 1;
+//
+//    writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//    writeDescriptorSets[1].dstSet = m_DefaultMaterial.descriptorSet;
+//    writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writeDescriptorSets[1].dstBinding = 1;
+//    writeDescriptorSets[1].pImageInfo = &normalImageInfo;
+//    writeDescriptorSets[1].descriptorCount = 1;
+//
+//    writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//    writeDescriptorSets[2].dstSet = m_DefaultMaterial.descriptorSet;
+//    writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//    writeDescriptorSets[2].dstBinding = 2;
+//    writeDescriptorSets[2].pImageInfo = &metallicRoughnessImageInfo;
+//    writeDescriptorSets[2].descriptorCount = 1;
 
-    writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[1].dstSet = m_DefaultMaterial.descriptorSet;
-    writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeDescriptorSets[1].dstBinding = 1;
-    writeDescriptorSets[1].pImageInfo = &normalImageInfo;
-    writeDescriptorSets[1].descriptorCount = 1;
+    VkWriteDescriptorSet writeDescriptorSet{};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.dstSet = m_DefaultMaterial.descriptorSet;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.pBufferInfo = &bufferInfo;
+    writeDescriptorSet.descriptorCount = 1;
 
-    writeDescriptorSets[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[2].dstSet = m_DefaultMaterial.descriptorSet;
-    writeDescriptorSets[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeDescriptorSets[2].dstBinding = 2;
-    writeDescriptorSets[2].pImageInfo = &metallicRoughnessImageInfo;
-    writeDescriptorSets[2].descriptorCount = 1;
-
-    writeDescriptorSets[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSets[3].dstSet = m_DefaultMaterial.descriptorSet;
-    writeDescriptorSets[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSets[3].dstBinding = 3;
-    writeDescriptorSets[3].pBufferInfo = &bufferInfo;
-    writeDescriptorSets[3].descriptorCount = 1;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
-                           nullptr);
+    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
 
     vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
@@ -638,7 +640,7 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
     if (!isSkybox)
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1,
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
                                 &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (auto &node: m_Nodes) {
@@ -682,7 +684,7 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
                     continue;
 
                 if (!isSkybox)
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1,
                                             &material.descriptorSet, 0, nullptr);
 
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
