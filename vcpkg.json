@@ -8,6 +8,7 @@
     "spirv-reflect",
     "vulkan-memory-allocator",
     "tinygltf",
+    "draco",
     {
       "name": "imgui",
       "features": [

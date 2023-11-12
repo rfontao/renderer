@@ -93,10 +93,31 @@ void VulkanDevice::CreateLogicalDevice() {
             .samplerAnisotropy = VK_TRUE,
     };
 
-    constexpr VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeature{
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeature{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
             .dynamicRendering = VK_TRUE,
     };
+
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+    descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorIndexingFeatures.pNext = &dynamicRenderingFeature;
+
+    VkPhysicalDeviceFeatures2 bindlessFeatures{};
+    bindlessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    bindlessFeatures.pNext = &descriptorIndexingFeatures;
+
+    // Fetch all features from physical device
+    vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &bindlessFeatures);
+
+    // Non-uniform indexing and update after bind
+    // binding flags for textures, uniforms, and buffers
+    // are required for our extension
+    assert(descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing);
+    assert(descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind);
+    assert(descriptorIndexingFeatures.shaderUniformBufferArrayNonUniformIndexing);
+    assert(descriptorIndexingFeatures.descriptorBindingUniformBufferUpdateAfterBind);
+    assert(descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing);
+    assert(descriptorIndexingFeatures.descriptorBindingStorageBufferUpdateAfterBind);
 
     VkDeviceCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -143,6 +164,7 @@ void VulkanDevice::CreateDescriptorPool() {
 
     VkDescriptorPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
             .maxSets = 1000,
             .poolSizeCount = (uint32_t) poolSizes.size(),
             .pPoolSizes = poolSizes.data(),

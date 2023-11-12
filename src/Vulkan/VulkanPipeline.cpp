@@ -503,6 +503,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             layout.createInfo.bindingCount = reflSet.binding_count;
             layout.createInfo.pBindings = layout.bindings.data();
 
+            //TODO: Update after bind
+
             setLayouts.push_back(layout);
         }
 
