@@ -65,7 +65,7 @@ void Application::InitVulkan() {
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
-    std::pair<std::string, std::string> pbrShaders = {"shaders/pbr.vert.spv", "shaders/pbr.frag.spv"};
+    std::pair<std::string, std::string> pbrShaders = {"shaders/pbr.vert.spv", "shaders/pbr_bindless.frag.spv"};
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), pbrShaders);
 
     std::pair<std::string, std::string> skyboxShaders = {"shaders/skybox.vert.spv", "shaders/skybox.frag.spv"};
@@ -93,6 +93,7 @@ void Application::InitVulkan() {
 
     CreateUniformBuffers();
     CreateDescriptorSets();
+    CreateBindlessTexturesArray();
 }
 
 void Application::MainLoop() {
@@ -287,10 +288,94 @@ VkSurfaceKHR Application::CreateSurface() const {
     return surface;
 }
 
-void Application::GenerateIndirectCommands() {
-    for (auto& node : this.) {
+void Application::CreateBindlessTexturesArray() {
 
+    const uint32_t maxBindlessArrayTextureSize = 1000;
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+            .maxSets = 1000,
+            .poolSizeCount = (uint32_t) poolSizes.size(),
+            .pPoolSizes = poolSizes.data(),
+    };
+
+    VkDescriptorPool pool;
+    VK_CHECK(vkCreateDescriptorPool(m_Device->GetDevice(), &poolInfo, nullptr, &pool),
+             "Failed to create descriptor pool!");
+
+    VkDescriptorSetLayoutBinding bindingLayoutInfo{};
+    bindingLayoutInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindingLayoutInfo.descriptorCount = maxBindlessArrayTextureSize; // Specify other
+    bindingLayoutInfo.binding = 0;
+    bindingLayoutInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    bindingLayoutInfo.pImmutableSamplers = nullptr;
+
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+                                            VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extendedInfo{};
+    extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+            extendedInfo.pNext = nullptr;
+    extendedInfo.bindingCount = 1;
+    extendedInfo.pBindingFlags = &bindingFlags;
+
+    VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
+    setLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    setLayoutInfo.pNext = &extendedInfo;
+    setLayoutInfo.bindingCount = 1;
+    setLayoutInfo.pBindings = &bindingLayoutInfo;
+    setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+
+    VkDescriptorSetLayout layout;
+    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &setLayoutInfo, nullptr, &layout),
+             "Failed to allocate bindless textures array set layout");
+
+    VkDescriptorSetAllocateInfo allocationInfo{};
+    allocationInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocationInfo.descriptorPool = pool;
+    allocationInfo.descriptorSetCount = 1;
+    allocationInfo.pSetLayouts = &layout;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo countInfo{};
+    countInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    uint32_t max_binding = maxBindlessArrayTextureSize - 1;
+    countInfo.descriptorSetCount = 1;
+    countInfo.pDescriptorCounts = &max_binding; // This number is the max allocatable count
+
+    allocationInfo.pNext = &countInfo;
+
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocationInfo, &m_BindlessTexturesSet),
+             "Failed to allocate bindless textures array descriptor set");
+
+
+    m_TextureDescriptors.push_back(
+            {
+                    .sampler = m_Scene.m_DefaultImage.texture.GetSampler(),
+                    .imageView = m_Scene.m_DefaultImage.texture.GetImage()->GetImageView(),
+                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            });
+    for (auto &tex: m_Scene.m_Images) {
+        m_TextureDescriptors.push_back(
+                {
+                        .sampler = tex.texture.GetSampler(),
+                        .imageView = tex.texture.GetImage()->GetImageView(),
+                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                });
     }
+
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.dstBinding = 0;
+    write.dstSet = m_BindlessTexturesSet;
+    write.dstArrayElement = 0;
+    write.descriptorCount = static_cast<uint32_t>(m_TextureDescriptors.size());
+    write.pImageInfo = m_TextureDescriptors.data();
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -357,7 +442,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
-    // TODO: Investigate why this is needed: should be retained from previous pipeline
+    // TODO: Investigate why this is needed: should be retained from previous pipeline -> probably push constant mismatch
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
                             &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 1, 1,
@@ -370,6 +455,8 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     // Bind camera matrices
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 1, 1,
+                            &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
 
 
@@ -561,6 +648,9 @@ void Application::ChangeScene() {
     m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                       (double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
     m_Scene = Scene(m_Device, m_NextScenePath);
+
+    m_TextureDescriptors.clear();
+    CreateBindlessTexturesArray();
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {

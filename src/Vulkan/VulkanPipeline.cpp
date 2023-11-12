@@ -403,7 +403,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         SpvReflectShaderModule module = {};
         SpvReflectResult result = spvReflectCreateShaderModule(code.size(),
                                                                reinterpret_cast<const uint32_t *>(code.data()),
-        &module);
+                                                               &module);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
         uint32_t count = 0;
@@ -492,9 +492,13 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[iBinding];
                 layoutBinding.binding = reflBinding.binding;
                 layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
-                layoutBinding.descriptorCount = 1;
-                for (uint32_t iDim = 0; iDim < reflBinding.array.dims_count; ++iDim) {
-                    layoutBinding.descriptorCount *= reflBinding.array.dims[iDim];
+                if (set->set == 1 && iBinding == 0 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
+                    layoutBinding.descriptorCount = 1000;
+                } else {
+                    layoutBinding.descriptorCount = 1;
+                    for (uint32_t iDim = 0; iDim < reflBinding.array.dims_count; ++iDim) {
+                        layoutBinding.descriptorCount *= reflBinding.array.dims[iDim];
+                    }
                 }
                 layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
             }
@@ -532,6 +536,21 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 .bindingCount = (uint32_t) setLayouts[i].bindings.size(),
                 .pBindings = setLayouts[i].bindings.data(),
         };
+
+        if (i == 1 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
+
+            VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+                                             VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+
+            VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags{};
+            bindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+            bindingFlags.pNext = nullptr;
+            bindingFlags.pBindingFlags = &flags;
+            bindingFlags.bindingCount = 1;
+
+            layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+            layoutInfo.pNext = &bindingFlags;
+        }
 
         VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayouts[i]),
                  "Failed to create descriptor set layout!");

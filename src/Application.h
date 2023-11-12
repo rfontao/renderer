@@ -50,12 +50,13 @@ public:
     void CreateUniformBuffers();
     void UpdateUniformBuffer(uint32_t currentImage);
 
+    void CreateBindlessTexturesArray();
+
     void CreateDescriptorSets();
     void CreateDepthResources();
     void CreateColorResources();
 
     void HandleKeys();
-    void GenerateIndirectCommands();
 
     std::shared_ptr<VulkanDevice> m_Device;
     VkInstance m_Instance;
@@ -70,6 +71,9 @@ public:
     std::vector<VkDescriptorSet> m_DescriptorSets;
     VkDescriptorSet m_SkyboxDescriptorSet;
     std::vector<std::shared_ptr<VulkanBuffer>> m_UniformBuffers;
+
+    VkDescriptorSet m_BindlessTexturesSet;
+    std::vector<VkDescriptorImageInfo> m_TextureDescriptors;
 
     VkDebugUtilsMessengerEXT m_DebugMessenger;
 //    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -101,4 +105,5 @@ public:
 #else
     const bool enableValidationLayers = true;
 #endif
+
 };

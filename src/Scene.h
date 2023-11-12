@@ -97,6 +97,13 @@ public:
     void Destroy();
 
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false);
+    std::vector<Texture> m_Textures;
+    std::vector<TextureSampler> m_TextureSamplers;
+    std::vector<Image> m_Images;
+
+    Texture m_DefaultTexture;
+    Image m_DefaultImage;
+    Material m_DefaultMaterial;
 
 private:
     void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode, bool isSkybox = false);
@@ -112,15 +119,10 @@ private:
                   std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer);
     void CreateLights();
 
-    std::vector<Texture> m_Textures;
-    std::vector<TextureSampler> m_TextureSamplers;
-    std::vector<Image> m_Images;
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
 
-    Texture m_DefaultTexture;
-    Image m_DefaultImage;
-    Material m_DefaultMaterial;
+
 
     VulkanBuffer m_VertexBuffer;
     VulkanBuffer m_IndexBuffer;
