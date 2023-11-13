@@ -350,18 +350,11 @@ void Application::CreateBindlessTexturesArray() {
     VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocationInfo, &m_BindlessTexturesSet),
              "Failed to allocate bindless textures array descriptor set");
 
-
-//    m_TextureDescriptors.push_back(
-//            {
-//                    .sampler = m_Scene.m_DefaultImage.texture.GetSampler(),
-//                    .imageView = m_Scene.m_DefaultImage.texture.GetImage()->GetImageView(),
-//                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-//            });
-    for (auto &tex: m_Scene.m_Images) {
+    for (auto &tex: m_Scene.m_Textures) {
         m_TextureDescriptors.push_back(
                 {
-                        .sampler = tex.texture.GetSampler(),
-                        .imageView = tex.texture.GetImage()->GetImageView(),
+                        .sampler = m_Scene.m_Images[tex.imageIndex].texture.GetSampler(),
+                        .imageView = m_Scene.m_Images[tex.imageIndex].texture.GetImage()->GetImageView(),
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 });
     }
