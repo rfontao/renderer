@@ -62,7 +62,7 @@ vec3 GetNormal() {
         vec3 B = -normalize(cross(N, T));
         mat3 TBN = mat3(T, B, N);
 
-        N = TBN * normalize(texture(textures2D[nonuniformEXT(material.normalTextureIndex)], normalUV).xyz * 2.0 - 1.0);
+        N = TBN * normalize(texture(textures2D[material.normalTextureIndex], normalUV).xyz * 2.0 - 1.0);
     }
 
     return N;
@@ -136,7 +136,7 @@ void main() {
     vec4 color;
     if (material.alphaMask == 1.0f || material.alphaMask == 0.0f) {
         vec2 colorUV = material.baseColorTextureUV == 0 ? i_UV0 : i_UV1;
-        color = SRGBtoLINEAR(texture(textures2D[nonuniformEXT(material.baseColorTextureIndex)], colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
+        color = SRGBtoLINEAR(texture(textures2D[material.baseColorTextureIndex], colorUV)) * vec4(i_FragColor, 1.0f) * material.baseColorFactor;
 
         if (material.alphaMask == 1.0f) {
             if (color.a < material.alphaMaskCutoff) {
@@ -152,8 +152,8 @@ void main() {
     if (material.metallicRoughnessTextureIndex != -1) {
         vec2 metallicRoughnessUV = material.metallicRoughnessTextureUV == 0 ? i_UV0 : i_UV1;
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#metallic-roughness-material
-        metallic = metallic * texture(textures2D[nonuniformEXT(material.metallicRoughnessTextureIndex)], metallicRoughnessUV).b;
-        roughness = roughness * texture(textures2D[nonuniformEXT(material.metallicRoughnessTextureIndex)], metallicRoughnessUV).g;
+        metallic = metallic * texture(textures2D[material.metallicRoughnessTextureIndex], metallicRoughnessUV).b;
+        roughness = roughness * texture(textures2D[material.metallicRoughnessTextureIndex], metallicRoughnessUV).g;
     }
 
     const float ambient = 0.02;
@@ -181,7 +181,7 @@ void main() {
     // Emissive texture
     if (material.emissiveTextureIndex != -1) {
         vec2 emissiveUV = material.emissiveTextureUV == 0 ? i_UV0 : i_UV1;
-        vec3 emissive = SRGBtoLINEAR(texture(textures2D[nonuniformEXT(material.emissiveTextureIndex)], emissiveUV)).rgb * material.emissiveFactor.rgb;
+        vec3 emissive = SRGBtoLINEAR(texture(textures2D[material.emissiveTextureIndex], emissiveUV)).rgb * material.emissiveFactor.rgb;
         o_Color += vec4(emissive, 0.0f);
     }
 
