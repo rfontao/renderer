@@ -395,7 +395,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
 
-    std::vector<DescriptorSetLayoutData> setLayouts;
+    std::vector<DescriptorSetLayoutData> setLayouts{};
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     std::vector<VkPushConstantRange> pushConstantRanges;
     VkVertexInputBindingDescription bindingDescription{};
@@ -485,7 +485,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         for (auto &set: sets) {
             const SpvReflectDescriptorSet &reflSet = *set;
 
-            DescriptorSetLayoutData layout;
+            DescriptorSetLayoutData layout {};
             layout.bindings.resize(reflSet.binding_count);
             for (uint32_t iBinding = 0; iBinding < reflSet.binding_count; ++iBinding) {
                 const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[iBinding]);
@@ -537,17 +537,17 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 .pBindings = setLayouts[i].bindings.data(),
         };
 
+        VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+                                         VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+
+        // Must be outside if otherwise crashes :)
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags{};
+        bindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindingFlags.pNext = nullptr;
+        bindingFlags.pBindingFlags = &flags;
+        bindingFlags.bindingCount = 1;
+
         if (i == 1 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
-
-            VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-                                             VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
-
-            VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags{};
-            bindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-            bindingFlags.pNext = nullptr;
-            bindingFlags.pBindingFlags = &flags;
-            bindingFlags.bindingCount = 1;
-
             layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
             layoutInfo.pNext = &bindingFlags;
         }

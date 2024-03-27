@@ -100,8 +100,13 @@ void VulkanDevice::CreateLogicalDevice() {
 
     VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
     descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    // Enable non sized arrays
     descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    // Enable non bound descriptors slots
+    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    // Enable non uniform array indexing
+    // (#extension GL_EXT_nonuniform_qualifier : require)
+    descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     descriptorIndexingFeatures.pNext = &dynamicRenderingFeature;
 
     VkPhysicalDeviceFeatures2 bindlessFeatures{};

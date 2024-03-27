@@ -6,7 +6,7 @@ class VulkanPipeline {
 public:
 
     struct DescriptorSetLayoutData {
-        uint32_t setNumber;
+        uint32_t setNumber {};
         VkDescriptorSetLayoutCreateInfo createInfo;
         std::vector<VkDescriptorSetLayoutBinding> bindings;
 
