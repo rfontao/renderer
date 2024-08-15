@@ -15,7 +15,7 @@ find_package(glfw3 REQUIRED)
 find_package(Stb REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(unofficial-spirv-reflect CONFIG REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(draco CONFIG REQUIRED)
 
 file(GLOB_RECURSE SourceFiles "src/*.cpp")
@@ -26,9 +26,9 @@ target_link_libraries(${PROJECT_NAME}
         glfw
         Vulkan::Vulkan
         glm::glm
-        unofficial::spirv-reflect::spirv-reflect
+        unofficial::spirv-reflect
         imgui::imgui
-        unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+        GPUOpen::VulkanMemoryAllocator
         draco::draco
 )
 

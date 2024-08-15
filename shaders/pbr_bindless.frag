@@ -163,7 +163,7 @@ void main() {
     vec3 Lo = vec3(0.0);
     // Directional light -> Attenuation is 1.0 (no attenuation)
     vec3 L = normalize(sceneInfo.lightDir);
-    vec3 radiance = SRGBtoLINEAR(vec4(1.0f)).rgb;
+    vec3 radiance = SRGBtoLINEAR(vec4(3.0f)).rgb;
     Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
 
     // Point Lights
