@@ -52,17 +52,16 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = 2;
     initInfo.UseDynamicRendering = true;
-    initInfo.ColorAttachmentFormat = VK_FORMAT_B8G8R8A8_SRGB;
 //    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_8_BIT;
-    ImGui_ImplVulkan_Init(&initInfo, VK_NULL_HANDLE);
+    ImGui_ImplVulkan_Init(&initInfo);
 
 
     VkCommandBuffer cmd = m_Device->BeginSingleTimeCommands();
-    ImGui_ImplVulkan_CreateFontsTexture(cmd);
+    ImGui_ImplVulkan_CreateFontsTexture();
     m_Device->EndSingleTimeCommands(cmd);
 
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    ImGui_ImplVulkan_DestroyFontsTexture();
 }
 
 void UI::Destroy() {
