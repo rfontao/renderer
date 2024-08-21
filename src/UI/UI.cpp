@@ -1,3 +1,4 @@
+#include <span>
 #include "pch.h"
 #include "UI.h"
 
@@ -41,9 +42,26 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
 
+    // Washed out colors workaround due to sRGB issues
+    // (https://github.com/ocornut/imgui/issues/1927#issuecomment-937519584)
+    const auto ToLinear = [](float x) {
+        if (x <= 0.04045f)
+        {
+            return x / 12.92f;
+        }
+        else
+        {
+            return std::pow((x + 0.055f) / 1.055f, 2.4f);
+        }
+    };
+    for (auto& c : std::span{ ImGui::GetStyle().Colors, size_t(ImGuiCol_COUNT) })
+    {
+        c = { ToLinear(c.x), ToLinear(c.y), ToLinear(c.z), c.w };
+    }
+
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForVulkan(window, true);
-    ImGui_ImplVulkan_InitInfo initInfo = {};
+    ImGui_ImplVulkan_InitInfo initInfo {};
     initInfo.Instance = instance;
     initInfo.PhysicalDevice = m_Device->GetPhysicalDevice();
     initInfo.Device = m_Device->GetDevice();

@@ -27,7 +27,7 @@ public:
     [[nodiscard]] uint32_t GetHeight() const { return m_Extent.height; }
     [[nodiscard]] uint32_t GetWidth() const { return m_Extent.width; }
     [[nodiscard]] VkExtent2D GetExtent() const { return m_Extent; }
-    [[nodiscard]] const VkFormat& GetImageFormat() const { return m_ImageFormat; }
+    [[nodiscard]] VkFormat GetImageFormat() const { return m_ImageFormat; }
 
     int MAX_FRAMES_IN_FLIGHT = 2;
     bool m_NeedsResizing = false;
