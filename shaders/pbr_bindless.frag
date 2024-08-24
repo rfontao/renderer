@@ -157,7 +157,7 @@ float CalculateShadow(vec4 fragPosLightSpace) {
             vec2 PCFCoords = shadowMapCoords + vec2(x, y) * shadowMapTexelSize;
 
             // Check if the sample is in light or in the shadow
-            if (projCoords.z <= texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], shadowMapCoords).r) {
+            if (projCoords.z <= texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], PCFCoords).r) {
                 shadow += 1.0;
             }
         }
