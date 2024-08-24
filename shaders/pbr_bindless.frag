@@ -135,6 +135,16 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
     return color;
 }
 
+float CalculateShadow(vec4 fragPosLightSpace) {
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+
+    float closestDepth = texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], projCoords.xy).r;
+    float currentDepth = projCoords.z;
+    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+    return shadow;
+}
+
 void main() {
 
     vec4 color;
@@ -180,7 +190,8 @@ void main() {
         Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
     }
 
-    o_Color = vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
+    float shadow = CalculateShadow(i_FragPosLightSpace);
+    o_Color =  (1.0 - shadow) * vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
 
     // Emissive texture
     if (material.emissiveTextureIndex != -1) {

@@ -618,7 +618,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = static_cast<VkCullModeFlags>(skybox ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT),
+            .cullMode = static_cast<VkCullModeFlags>(skybox ? VK_CULL_MODE_FRONT_BIT : ((colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_CULL_MODE_BACK_BIT: VK_CULL_MODE_NONE)),
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = VK_FALSE,
             .lineWidth = 1.0f,
