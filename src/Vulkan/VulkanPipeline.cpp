@@ -584,7 +584,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_DEPTH_BIAS // NOTE: For shadow mapping
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{
@@ -620,7 +621,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             .polygonMode = VK_POLYGON_MODE_FILL,
             .cullMode = static_cast<VkCullModeFlags>(skybox ? VK_CULL_MODE_FRONT_BIT : ((colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_CULL_MODE_BACK_BIT: VK_CULL_MODE_NONE)),
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-            .depthBiasEnable = VK_FALSE,
+            .depthBiasEnable = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_FALSE : VK_TRUE,
             .lineWidth = 1.0f,
     };
 

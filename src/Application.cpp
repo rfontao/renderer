@@ -423,11 +423,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
 
-//    vkCmdSetDepthBias(
-//            commandBuffer,
-//            shadowDepthBias,
-//            0.0f,
-//            1.75f);
+    vkCmdSetDepthBias(
+            commandBuffer,
+            shadowDepthBias,
+            0.0f,
+            shadowDepthSlope);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
     // Bind camera matrices
@@ -621,10 +621,10 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 
     DirectionalLightUBO lightUBO{};
-    lightUBO.view = glm::lookAt(glm::vec3(1.0f, 1.0f, 0.0f),
+    lightUBO.view = glm::lookAt(glm::vec3(30.0f, 30.0f, 30.0f),
                            glm::vec3(0.0f, 0.0f, 0.0f),
-                           glm::vec3(0.0f, 1.0f, 0.0f));;
-    lightUBO.proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 100.0f);
+                           glm::vec3(0.0f, -1.0f, 0.0f));
+    lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
     m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
 }

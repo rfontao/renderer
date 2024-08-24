@@ -137,11 +137,14 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 
 float CalculateShadow(vec4 fragPosLightSpace) {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
 
-    float closestDepth = texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], projCoords.xy).r;
+    // https://blogs.igalia.com/itoral/2017/10/02/working-with-lights-and-shadows-part-iii-rendering-the-shadows/
+    // Translate from NDC to shadow map space (Vulkan's Z is already in [0..1])
+    vec2 shadowMapCoords = projCoords.xy * 0.5 + 0.5;
+
+    float closestDepth = texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], shadowMapCoords).r;
     float currentDepth = projCoords.z;
-    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+    float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
     return shadow;
 }
 
@@ -191,7 +194,7 @@ void main() {
     }
 
     float shadow = CalculateShadow(i_FragPosLightSpace);
-    o_Color =  (1.0 - shadow) * vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
+    o_Color = (1.0f - shadow) * vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
 
     // Emissive texture
     if (material.emissiveTextureIndex != -1) {
