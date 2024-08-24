@@ -437,6 +437,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
+    VkDescriptorImageInfo imageInfo{
+        .sampler = m_ShadowDepthTexture->GetSampler(),
+        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.dstBinding = 0;
+    write.dstSet = m_BindlessTexturesSet;
+    write.dstArrayElement = 800;
+    write.descriptorCount = 1;
+    write.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
+
     // Main scene render
     bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkRenderingAttachmentInfo colorAttachment{

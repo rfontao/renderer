@@ -485,13 +485,14 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         for (auto &set: sets) {
             const SpvReflectDescriptorSet &reflSet = *set;
 
-            DescriptorSetLayoutData layout {};
+            DescriptorSetLayoutData layout{};
             layout.bindings.resize(reflSet.binding_count);
             for (uint32_t iBinding = 0; iBinding < reflSet.binding_count; ++iBinding) {
                 const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[iBinding]);
                 VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[iBinding];
                 layoutBinding.binding = reflBinding.binding;
                 layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
+
                 if (set->set == 1 && iBinding == 0 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
                     layoutBinding.descriptorCount = 1000;
                 } else {
@@ -501,6 +502,10 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                     }
                 }
                 layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
+                //TODO: Martelo
+                if (set->set == 2 && iBinding == 0 && shaderPaths.first == "shaders/pbr.vert.spv") {
+                    layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+                }
             }
             layout.setNumber = reflSet.set;
             layout.createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -521,7 +526,12 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         }
     }
 
+    // TODO: Improve
     // Remove duplicate set layouts defined in multiple shaders
+    std::stable_sort(setLayouts.begin(), setLayouts.end(),
+                     [](const auto &a, const auto &b) {
+                         return a.setNumber < b.setNumber;
+                     });
     auto last = std::unique(setLayouts.begin(), setLayouts.end());
     setLayouts.erase(last, setLayouts.end());
 
@@ -616,7 +626,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineMultisampleStateCreateInfo multisampling{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_SAMPLE_COUNT_8_BIT : VK_SAMPLE_COUNT_1_BIT,
+            .rasterizationSamples = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_SAMPLE_COUNT_8_BIT
+                                                                                   : VK_SAMPLE_COUNT_1_BIT,
 //            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
             .sampleShadingEnable = VK_FALSE,
     };
@@ -664,7 +675,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
              "Failed to create pipeline layout!");
 
     // Dynamic rendering
-    VkPipelineRenderingCreateInfo pipelineRenderingInfo {};
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
     if (colorAttachmentFormat != VK_FORMAT_UNDEFINED) {
         pipelineRenderingInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,

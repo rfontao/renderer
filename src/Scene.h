@@ -90,6 +90,9 @@ public:
         glm::vec3 lightDir; // 1 directional light
         glm::vec3 lightPos[128];
         int32_t lightCount;
+        int32_t shadowMapTextureIndex;
+        glm::mat4 lightView;
+        glm::mat4 lightProj;
     };
 
     Scene() = default;

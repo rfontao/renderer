@@ -6,6 +6,15 @@ layout (set = 0, binding = 0) uniform UniformBufferObject {
     vec4 viewPos;
 } ubo;
 
+layout (set = 2, binding = 0) uniform PerScene {
+    vec3 lightDir;
+    vec3 lightPos[128];
+    int lightCount;
+    int shadowMapTextureIndex;
+    mat4 lightView;
+    mat4 lightProj;
+} sceneInfo;
+
 layout (push_constant) uniform PushConsts {
     mat4 model;
 } primitive;
@@ -22,6 +31,7 @@ layout (location = 2) out vec2 o_UV0;
 layout (location = 3) out vec2 o_UV1;
 layout (location = 4) out vec3 o_ViewVec;
 layout (location = 5) out vec3 o_FragPos;
+layout (location = 6) out vec4 o_FragPosLightSpace;
 
 // https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
@@ -36,4 +46,5 @@ void main() {
 
     o_FragPos = vec3(primitive.model * vec4(i_Position, 1.0));
     o_ViewVec = ubo.viewPos.xyz - o_FragPos;
+    o_FragPosLightSpace = sceneInfo.lightProj * sceneInfo.lightView * primitive.model * vec4(i_Position, 1.0);
 }

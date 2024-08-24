@@ -7,6 +7,9 @@ layout (set = 2, binding = 0) uniform PerScene {
     vec3 lightDir;
     vec3 lightPos[128];
     int lightCount;
+    int shadowMapTextureIndex;
+    mat4 lightView;
+    mat4 lightProj;
 } sceneInfo;
 
 layout (set = 3, binding = 0) uniform Material {
@@ -35,6 +38,7 @@ layout (location = 2) in vec2 i_UV0;
 layout (location = 3) in vec2 i_UV1;
 layout (location = 4) in vec3 i_ViewVec;
 layout (location = 5) in vec3 i_FragPos;
+layout (location = 6) in vec4 i_FragPosLightSpace;
 
 layout (location = 0) out vec4 o_Color;
 
