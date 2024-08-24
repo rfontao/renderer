@@ -71,6 +71,10 @@ void Application::InitVulkan() {
     std::pair<std::string, std::string> skyboxShaders = {"shaders/skybox.vert.spv", "shaders/skybox.frag.spv"};
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
 
+    // TODO: Rework image formats passing
+    std::pair<std::string, std::string> shadowMapShaders = {"shaders/shadowmap.vert.spv", "shaders/shadowmap.frag.spv"};
+    m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, VK_FORMAT_UNDEFINED, shadowMapShaders);
+
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[25]);
 
@@ -373,6 +377,66 @@ void Application::CreateBindlessTexturesArray() {
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 
+    VkCommandBufferBeginInfo beginInfo{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    };
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording command buffer!");
+    }
+
+    // Shadow rendering
+    VkRenderingAttachmentInfo shadowDepthAttachment{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_ShadowDepthImage->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
+
+    VkRenderingInfo shadowRenderInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, shadowSize, shadowSize},
+            .layerCount = 1,
+            .colorAttachmentCount = 0,
+            .pDepthAttachment = &shadowDepthAttachment,
+    };
+
+    m_ShadowDepthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
+    VkViewport shadowViewport{
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float) shadowSize,
+            .height = (float) shadowSize,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &shadowViewport);
+
+    VkRect2D shadowScissor{
+            .offset = {0, 0},
+            .extent = VkExtent2D(shadowSize, shadowSize),
+    };
+    vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
+
+//    vkCmdSetDepthBias(
+//            commandBuffer,
+//            shadowDepthBias,
+//            0.0f,
+//            1.75f);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
+    // Bind camera matrices
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetLayout(), 0, 1,
+                            &m_LightDescriptorSet, 0, nullptr);
+    m_Scene.Draw(commandBuffer, m_ShadowMapPipeline->GetLayout(), false, true);
+
+    vkCmdEndRendering(commandBuffer);
+
+
+    // Main scene render
     bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -404,14 +468,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .pDepthAttachment = &depthAttachment,
 //            .pStencilAttachment = &depthAttachment,
     };
-
-    VkCommandBufferBeginInfo beginInfo{
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    };
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin recording command buffer!");
-    }
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -526,6 +582,11 @@ void Application::CreateUniformBuffers() {
         m_UniformBuffers[i]->Map();
     }
 
+    VkDeviceSize shadowMapBufferSize = sizeof(DirectionalLightUBO);
+
+    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                             VMA_MEMORY_USAGE_CPU_ONLY);
+    m_ShadowMapUBOBuffer->Map();
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
@@ -540,6 +601,14 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     ubo.viewPos = glm::vec4(m_Camera.GetPosition(), 1.0f);
 
     m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
+
+    DirectionalLightUBO lightUBO{};
+    lightUBO.view = glm::lookAt(glm::vec3(-1.0f, -1.0f, -1.0f),
+                           glm::vec3(0.0f, 0.0f, 0.0f),
+                           glm::vec3(0.0f, 1.0f, 0.0f));;
+    lightUBO.proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 100.0f);
+
+    m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
 }
 
 
@@ -603,6 +672,35 @@ void Application::CreateDescriptorSets() {
 
     vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) skyboxDescriptorWrites.size(),
                            skyboxDescriptorWrites.data(), 0, nullptr);
+
+    VkDescriptorSetLayout shadowMapLayouts = m_ShadowMapPipeline->GetDescriptorSetLayouts()[0];
+    VkDescriptorSetAllocateInfo allocShadowmapInfo{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = (uint32_t) 1,
+            .pSetLayouts = &shadowMapLayouts,
+    };
+    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocShadowmapInfo, &m_LightDescriptorSet),
+             "Failed to allocate descriptor sets!");
+
+
+    VkDescriptorBufferInfo bufferInfo{
+            .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
+            .offset = 0,
+            .range = sizeof(DirectionalLightUBO),
+    };
+
+    std::array<VkWriteDescriptorSet, 1> shadowMapDescriptorWrites{};
+    shadowMapDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    shadowMapDescriptorWrites[0].dstSet = m_LightDescriptorSet;
+    shadowMapDescriptorWrites[0].dstBinding = 0;
+    shadowMapDescriptorWrites[0].dstArrayElement = 0;
+    shadowMapDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    shadowMapDescriptorWrites[0].descriptorCount = 1;
+    shadowMapDescriptorWrites[0].pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) shadowMapDescriptorWrites.size(),
+                           shadowMapDescriptorWrites.data(), 0, nullptr);
 }
 
 void Application::CreateDepthResources() {
@@ -615,6 +713,14 @@ void Application::CreateDepthResources() {
                                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                                  VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    m_ShadowDepthImage = std::make_shared<VulkanImage>(m_Device, shadowSize, shadowSize, 1,
+                                                       VK_SAMPLE_COUNT_1_BIT,
+                                                       VK_FORMAT_D16_UNORM, // TODO: Check later
+                                                       VK_IMAGE_TILING_OPTIMAL,
+                                                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                                       VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Application::CreateColorResources() {

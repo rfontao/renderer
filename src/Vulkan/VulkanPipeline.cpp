@@ -616,7 +616,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineMultisampleStateCreateInfo multisampling{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = VK_SAMPLE_COUNT_8_BIT,
+            .rasterizationSamples = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_SAMPLE_COUNT_8_BIT : VK_SAMPLE_COUNT_1_BIT,
 //            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
             .sampleShadingEnable = VK_FALSE,
     };
@@ -664,12 +664,21 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
              "Failed to create pipeline layout!");
 
     // Dynamic rendering
-    VkPipelineRenderingCreateInfo pipelineRenderingInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-            .colorAttachmentCount = 1,
-            .pColorAttachmentFormats = &colorAttachmentFormat,
-            .depthAttachmentFormat = device->FindDepthFormat(),
-    };
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo {};
+    if (colorAttachmentFormat != VK_FORMAT_UNDEFINED) {
+        pipelineRenderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats = &colorAttachmentFormat,
+                .depthAttachmentFormat = device->FindDepthFormat(),
+        };
+    } else { // Shadow map case
+        pipelineRenderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                .colorAttachmentCount = 0,
+                .depthAttachmentFormat = VK_FORMAT_D16_UNORM,
+        };
+    }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

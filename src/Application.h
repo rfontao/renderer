@@ -17,7 +17,13 @@ struct UniformBufferObject {
     glm::vec4 viewPos;
 };
 
+struct DirectionalLightUBO {
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 class UI;
+
 class Application {
 public:
     Application() = default;
@@ -27,33 +33,45 @@ public:
     Camera &GetCamera() { return m_Camera; }
 
     void InitWindow();
+
     void InitVulkan();
+
     void MainLoop();
+
     void Cleanup();
 
-    void FindScenePaths(const std::filesystem::path& basePath);
-    void SetScene(const std::filesystem::path& scenePath);
+    void FindScenePaths(const std::filesystem::path &basePath);
+
+    void SetScene(const std::filesystem::path &scenePath);
+
     void ChangeScene();
-    const std::vector<std::filesystem::path>& GetScenePaths() const { return m_ScenePaths; };
+
+    [[nodiscard]] std::vector<std::filesystem::path> GetScenePaths() const { return m_ScenePaths; };
 
     void CreateInstance();
+
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
 
     void SetupDebugMessenger();
+
     [[nodiscard]] std::vector<const char *> GetRequiredExtensions() const;
 
     bool CheckValidationLayerSupport();
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
     void DrawFrame();
 
     void CreateUniformBuffers();
+
     void UpdateUniformBuffer(uint32_t currentImage);
 
     void CreateBindlessTexturesArray();
 
     void CreateDescriptorSets();
+
     void CreateDepthResources();
+
     void CreateColorResources();
 
     void HandleKeys();
@@ -99,6 +117,19 @@ public:
     const std::vector<const char *> validationLayers = {
             "VK_LAYER_KHRONOS_validation"
     };
+
+    // TODO: Extract later -> probably when render graph is available
+    // shadow mapping things
+    constexpr static uint32_t shadowSize { 2048 };
+    constexpr static float shadowDepthBias { 1.25f };
+
+    std::shared_ptr<VulkanImage> m_ShadowDepthImage;
+
+    std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
+
+    VkDescriptorSet m_LightDescriptorSet;
+
+    std::shared_ptr<VulkanBuffer> m_ShadowMapUBOBuffer;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;

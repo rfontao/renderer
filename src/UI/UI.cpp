@@ -45,23 +45,27 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     // Washed out colors workaround due to sRGB issues
     // (https://github.com/ocornut/imgui/issues/1927#issuecomment-937519584)
     const auto ToLinear = [](float x) {
-        if (x <= 0.04045f)
-        {
+        if (x <= 0.04045f) {
             return x / 12.92f;
-        }
-        else
-        {
+        } else {
             return std::pow((x + 0.055f) / 1.055f, 2.4f);
         }
     };
-    for (auto& c : std::span{ ImGui::GetStyle().Colors, size_t(ImGuiCol_COUNT) })
-    {
-        c = { ToLinear(c.x), ToLinear(c.y), ToLinear(c.z), c.w };
+    for (auto &c: std::span{ImGui::GetStyle().Colors, size_t(ImGuiCol_COUNT)}) {
+        c = {ToLinear(c.x), ToLinear(c.y), ToLinear(c.z), c.w};
     }
+
+    std::array<VkFormat, 1> imageFormat { m_App->m_Swapchain->GetImageFormat() };
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = imageFormat.data(),
+            .depthAttachmentFormat = device->FindDepthFormat(),
+    };
 
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForVulkan(window, true);
-    ImGui_ImplVulkan_InitInfo initInfo {};
+    ImGui_ImplVulkan_InitInfo initInfo{};
     initInfo.Instance = instance;
     initInfo.PhysicalDevice = m_Device->GetPhysicalDevice();
     initInfo.Device = m_Device->GetDevice();
@@ -72,6 +76,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     initInfo.UseDynamicRendering = true;
 //    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_8_BIT;
+    initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
     ImGui_ImplVulkan_Init(&initInfo);
 
 
@@ -116,7 +121,7 @@ void UI::Draw(VkCommandBuffer cmd) {
                 selectedSceneName = filename;
                 m_App->SetScene(path);
             }
-            if (is_selected){
+            if (is_selected) {
                 ImGui::SetItemDefaultFocus();
             }
         }

@@ -96,7 +96,7 @@ public:
     Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
     void Destroy();
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false);
+    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false, bool isShadowMap = false);
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
     std::vector<Image> m_Images;
@@ -106,7 +106,7 @@ public:
     Material m_DefaultMaterial;
 
 private:
-    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode, bool isSkybox = false);
+    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode, bool isSkybox = false, bool isShadowMap = false);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);

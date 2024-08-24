@@ -518,27 +518,27 @@ void Scene::Destroy() {
     }
 }
 
-void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox) {
+void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox, bool isShadowMap) {
     VkDeviceSize offsets[] = {0};
     VkBuffer vertexBuffers[] = {m_VertexBuffer.GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-    if (!isSkybox)
+    if (!isSkybox && !isShadowMap)
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
                                 &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox);
+        DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox, isShadowMap);
     }
 
     for (auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node, MASK, isSkybox);
+        DrawNode(commandBuffer, pipelineLayout, node, MASK, isSkybox, isShadowMap);
     }
 }
 
 void
 Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
-                bool isSkybox) {
+                bool isSkybox, bool isShadowMap) {
     if (!node->mesh.primitives.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -565,7 +565,7 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
                 if (alphaMode == MASK && material.ubo.alphaMask != 1.0f)
                     continue;
 
-                if (!isSkybox)
+                if (!isSkybox && !isShadowMap)
                     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1,
                                             &material.descriptorSet, 0, nullptr);
 
@@ -574,7 +574,7 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
         }
     }
     for (auto &child: node->children) {
-        DrawNode(commandBuffer, pipelineLayout, child, alphaMode, isSkybox);
+        DrawNode(commandBuffer, pipelineLayout, child, alphaMode, isSkybox, isShadowMap);
     }
 
 }
