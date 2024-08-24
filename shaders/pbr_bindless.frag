@@ -43,6 +43,7 @@ layout (location = 6) in vec4 i_FragPosLightSpace;
 layout (location = 0) out vec4 o_Color;
 
 const float PI = 3.1415926535897932384626433832795;
+const int PCF_SIZE = 3;
 
 vec3 GetNormal() {
     vec3 N = normalize(i_Mormal);
@@ -138,14 +139,31 @@ vec3 BRDF(vec3 L, vec3 V, vec3 N, vec3 radiance, float metallic, float roughness
 float CalculateShadow(vec4 fragPosLightSpace) {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
+    if (abs(projCoords.x) > 1.0 ||
+        abs(projCoords.y) > 1.0 ||
+        abs(projCoords.z) > 1.0) {
+        return 0.0;
+    }
+
     // https://blogs.igalia.com/itoral/2017/10/02/working-with-lights-and-shadows-part-iii-rendering-the-shadows/
     // Translate from NDC to shadow map space (Vulkan's Z is already in [0..1])
     vec2 shadowMapCoords = projCoords.xy * 0.5 + 0.5;
 
-    float closestDepth = texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], shadowMapCoords).r;
-    float currentDepth = projCoords.z;
-    float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
-    return shadow;
+    // PCF Implementation
+    float shadow = 0.0f;
+    vec2 shadowMapTexelSize = 1.0f / textureSize(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], 0);
+    for (int x = -1; x <= 1; x++){
+        for (int y = -1; y <= 1; y++) {
+            vec2 PCFCoords = shadowMapCoords + vec2(x, y) * shadowMapTexelSize;
+
+            // Check if the sample is in light or in the shadow
+            if (projCoords.z <= texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], shadowMapCoords).r) {
+                shadow += 1.0;
+            }
+        }
+    }
+
+    return shadow / 9.0f;
 }
 
 void main() {
@@ -194,7 +212,7 @@ void main() {
     }
 
     float shadow = CalculateShadow(i_FragPosLightSpace);
-    o_Color = (1.0f - shadow) * vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
+    o_Color = shadow * vec4(Lo, 0.0f) + vec4(color.rgb * ambient, color.a);
 
     // Emissive texture
     if (material.emissiveTextureIndex != -1) {
