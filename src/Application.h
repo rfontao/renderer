@@ -123,7 +123,7 @@ public:
     constexpr static uint32_t shadowSize { 2048 };
     constexpr static float shadowDepthBias { 1.25f };
 
-    std::shared_ptr<VulkanImage> m_ShadowDepthImage;
+    std::shared_ptr<VulkanTexture> m_ShadowDepthTexture;
 
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
 

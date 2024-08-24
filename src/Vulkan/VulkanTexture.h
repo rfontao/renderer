@@ -15,6 +15,7 @@ public:
     VulkanTexture(std::shared_ptr<VulkanDevice> device, const std::vector<std::filesystem::path> &paths);
     VulkanTexture(std::shared_ptr<VulkanDevice> device, void *pixels, VkDeviceSize imageSize, int texWidth,
                   int texHeight);
+    VulkanTexture(std::shared_ptr<VulkanDevice> device, int texWidth, int texHeight); // TODO:Change -> Shadow map texture ctor
 
     void Destroy();
 

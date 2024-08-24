@@ -92,6 +92,8 @@ void Application::InitVulkan() {
 
     m_CubemapTexture = std::make_shared<VulkanTexture>(m_Device, cubemapPaths);
 
+    m_ShadowDepthTexture = std::make_shared<VulkanTexture>(m_Device, 2048, 2048);
+
     CreateColorResources();
     CreateDepthResources();
 
@@ -387,7 +389,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_ShadowDepthImage->GetImageView(),
+            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -402,7 +404,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .pDepthAttachment = &shadowDepthAttachment,
     };
 
-    m_ShadowDepthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
     VkViewport shadowViewport{
@@ -434,7 +436,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     m_Scene.Draw(commandBuffer, m_ShadowMapPipeline->GetLayout(), false, true);
 
     vkCmdEndRendering(commandBuffer);
-
 
     // Main scene render
     bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
@@ -713,14 +714,6 @@ void Application::CreateDepthResources() {
                                                  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                                  VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    m_ShadowDepthImage = std::make_shared<VulkanImage>(m_Device, shadowSize, shadowSize, 1,
-                                                       VK_SAMPLE_COUNT_1_BIT,
-                                                       VK_FORMAT_D16_UNORM, // TODO: Check later
-                                                       VK_IMAGE_TILING_OPTIMAL,
-                                                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                                       VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Application::CreateColorResources() {

@@ -18,6 +18,7 @@ public:
     // TODO: Make name more clear
     void From(void *src, VkDeviceSize srcSize);
     void From(void *src, VkDeviceSize srcSize, uint32_t offset);
+    void Fill(uint8_t data, VkDeviceSize srcSize);
     void FromBuffer(VulkanBuffer& src);
 
     [[nodiscard]] VkBuffer GetBuffer() const { return m_Buffer; };
