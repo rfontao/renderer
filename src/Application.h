@@ -120,9 +120,9 @@ public:
 
     // TODO: Extract later -> probably when render graph is available
     // shadow mapping things
-    constexpr static uint32_t shadowSize { 2048 };
-    constexpr static float shadowDepthBias { 4.00f };
-    constexpr static float shadowDepthSlope { 1.75f };
+    constexpr static uint32_t shadowSize { 4096 };
+    constexpr static float shadowDepthBias { 2.00f };
+    constexpr static float shadowDepthSlope { 1.0f };
 
     std::shared_ptr<VulkanTexture> m_ShadowDepthTexture;
 

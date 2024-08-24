@@ -173,7 +173,7 @@ void main() {
         roughness = roughness * texture(textures2D[nonuniformEXT(material.metallicRoughnessTextureIndex)], metallicRoughnessUV).g;
     }
 
-    const float ambient = 0.02;
+    const float ambient = 0.1;
     vec3 N = GetNormal();
     vec3 V = normalize(i_ViewVec);
 

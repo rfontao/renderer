@@ -582,12 +582,12 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
 void Scene::CreateLights() {
 
     SceneInfo sceneInfo{};
-    sceneInfo.lightDir = glm::vec3(30.0f, 30.0f, 30.0f);
+    sceneInfo.lightDir = glm::vec3(0.1f, 1.0f, 0.25f);
     sceneInfo.lightCount = 0;
     sceneInfo.lightPos[0] = glm::vec3(-11.0f, 0.1f, -0.3f);
     sceneInfo.lightPos[1] = glm::vec3(-6.5f, 1.0f, -1.5f);
     sceneInfo.shadowMapTextureIndex = 800; // TODO: Change
-    sceneInfo.lightView = glm::lookAt(glm::vec3(30.0f, 30.0f, 30.0f),
+    sceneInfo.lightView = glm::lookAt(sceneInfo.lightDir * 30.0f,
                                 glm::vec3(0.0f, 0.0f, 0.0f),
                                 glm::vec3(0.0f, -1.0f, 0.0f));;
     sceneInfo.lightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);

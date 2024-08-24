@@ -92,7 +92,7 @@ void Application::InitVulkan() {
 
     m_CubemapTexture = std::make_shared<VulkanTexture>(m_Device, cubemapPaths);
 
-    m_ShadowDepthTexture = std::make_shared<VulkanTexture>(m_Device, 2048, 2048);
+    m_ShadowDepthTexture = std::make_shared<VulkanTexture>(m_Device, shadowSize, shadowSize);
 
     CreateColorResources();
     CreateDepthResources();
@@ -621,7 +621,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 
     DirectionalLightUBO lightUBO{};
-    lightUBO.view = glm::lookAt(glm::vec3(30.0f, 30.0f, 30.0f),
+    lightUBO.view = glm::lookAt(glm::vec3(3.0f, 30.0f, 7.5f),
                            glm::vec3(0.0f, 0.0f, 0.0f),
                            glm::vec3(0.0f, -1.0f, 0.0f));
     lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
