@@ -1,8 +1,6 @@
 #include "pch.h"
 
 #include "Application.h"
-#include "imgui_impl_vulkan.h"
-#include "spirv_reflect.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -120,13 +118,16 @@ void Application::Cleanup() {
     m_DepthImage->Destroy();
 
     m_CubemapTexture->Destroy();
+    m_ShadowDepthTexture->Destroy();
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_UniformBuffers[i]->Destroy();
     }
+    m_ShadowMapUBOBuffer->Destroy();
 
     m_GraphicsPipeline->Destroy();
     m_SkyboxPipeline->Destroy();
+    m_ShadowMapPipeline->Destroy();
     m_Scene.Destroy();
     m_Skybox.Destroy();
 

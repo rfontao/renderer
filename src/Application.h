@@ -3,11 +3,11 @@
 #include "Camera.h"
 #include "Vulkan/VulkanPipeline.h"
 #include "vulkan/VulkanTexture.h"
-#include "vulkan/VulkanDevice.h"
-#include "vulkan/VulkanSwapchain.h"
-#include "vulkan/VulkanImage.h"
-#include "vulkan/VulkanBuffer.h"
-#include "vulkan/Utils.h"
+#include "Vulkan/VulkanDevice.h"
+#include "Vulkan/VulkanSwapchain.h"
+#include "Vulkan/VulkanImage.h"
+#include "Vulkan/VulkanBuffer.h"
+#include "Vulkan/Utils.h"
 #include "Scene.h"
 #include "UI/UI.h"
 
@@ -119,18 +119,15 @@ public:
     };
 
     // TODO: Extract later -> probably when render graph is available
-    // shadow mapping things
+    // Shadow Mapping
     constexpr static uint32_t shadowSize { 4096 };
     constexpr static float shadowDepthBias { 2.00f };
     constexpr static float shadowDepthSlope { 1.0f };
 
-    std::shared_ptr<VulkanTexture> m_ShadowDepthTexture;
-
-    std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
-
-    VkDescriptorSet m_LightDescriptorSet;
-
     std::shared_ptr<VulkanBuffer> m_ShadowMapUBOBuffer;
+    std::shared_ptr<VulkanTexture> m_ShadowDepthTexture;
+    std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
+    VkDescriptorSet m_LightDescriptorSet;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;

@@ -11,22 +11,12 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
 
     VkDescriptorPoolSize pool_sizes[] =
             {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
+                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
             };
-    VkDescriptorPoolCreateInfo poolInfo = {};
+    VkDescriptorPoolCreateInfo poolInfo {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    poolInfo.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+    poolInfo.maxSets = 1;
     poolInfo.poolSizeCount = (uint32_t) IM_ARRAYSIZE(pool_sizes);
     poolInfo.pPoolSizes = pool_sizes;
     VK_CHECK(vkCreateDescriptorPool(m_Device->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool),
@@ -55,7 +45,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
         c = {ToLinear(c.x), ToLinear(c.y), ToLinear(c.z), c.w};
     }
 
-    std::array<VkFormat, 1> imageFormat { m_App->m_Swapchain->GetImageFormat() };
+    std::array<VkFormat, 1> imageFormat{m_App->m_Swapchain->GetImageFormat()};
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
             .colorAttachmentCount = 1,
