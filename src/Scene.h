@@ -125,8 +125,6 @@ private:
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
 
-
-
     VulkanBuffer m_VertexBuffer;
     VulkanBuffer m_IndexBuffer;
 

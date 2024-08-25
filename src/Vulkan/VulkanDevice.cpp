@@ -61,7 +61,6 @@ void VulkanDevice::PickPhysicalDevice(VkInstance instance) {
     for (const auto &d: devices) {
         m_PhysicalDevice = d;
         if (IsDeviceSuitable()) {
-//            m_MsaaSamples = GetMaxUsableSampleCount();
             foundSuitableDevice = true;
             break;
         }

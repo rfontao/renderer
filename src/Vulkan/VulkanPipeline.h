@@ -37,8 +37,6 @@ public:
         bool operator==(const DescriptorSetLayoutData &other) const { return setNumber == other.setNumber; }
     };
 
-    VulkanPipeline() = default;
-
     VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification);
 
     void Destroy();

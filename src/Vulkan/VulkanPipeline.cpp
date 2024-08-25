@@ -492,15 +492,15 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 layoutBinding.binding = reflBinding.binding;
                 layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
 
-                if (set->set == 1 && iBinding == 0 &&
-                    pipelineSpecification.fragShaderPath == "shaders/pbr_bindless.frag.spv") {
-                    layoutBinding.descriptorCount = 1000;
-                } else {
-                    layoutBinding.descriptorCount = 1;
-                    for (uint32_t iDim = 0; iDim < reflBinding.array.dims_count; ++iDim) {
-                        layoutBinding.descriptorCount *= reflBinding.array.dims[iDim];
-                    }
+                layoutBinding.descriptorCount = 1;
+                for (uint32_t iDim = 0; iDim < reflBinding.array.dims_count; ++iDim) {
+                    layoutBinding.descriptorCount *= reflBinding.array.dims[iDim];
                 }
+                // NOTE: Bindless case
+                if (layoutBinding.descriptorCount == 0) {
+                    layoutBinding.descriptorCount = 1000;
+                }
+
                 layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
                 //TODO: Martelo
                 if (set->set == 2 && iBinding == 0 && pipelineSpecification.vertShaderPath == "shaders/pbr.vert.spv") {
@@ -511,8 +511,6 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             layout.createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
             layout.createInfo.bindingCount = reflSet.binding_count;
             layout.createInfo.pBindings = layout.bindings.data();
-
-            //TODO: Update after bind
 
             setLayouts.push_back(layout);
         }
@@ -707,7 +705,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     // Dynamic rendering
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
     // TODO: Reevaluate
-    VkFormat colorAttachmentFormat { VK_FORMAT_B8G8R8A8_SRGB };
+    VkFormat colorAttachmentFormat{VK_FORMAT_B8G8R8A8_SRGB};
     if (pipelineSpecification.depthBiasEnable) { // Means shadowmapping
         pipelineRenderingInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
