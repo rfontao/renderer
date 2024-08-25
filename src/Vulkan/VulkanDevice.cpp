@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "VulkanDevice.h"
 
-#include "VulkanSwapchain.h"
-
 VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface) : m_Surface(surface) {
     PickPhysicalDevice(instance);
 

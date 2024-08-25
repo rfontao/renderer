@@ -9,9 +9,9 @@ public:
     Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
            double yFov = 45.0f);
 
-    glm::mat4 GetViewMatrix() const;
-    glm::mat4 GetProjectionMatrix() const;
-    glm::vec3 GetPosition() const { return m_Position; }
+    [[nodiscard]] glm::mat4 GetViewMatrix() const;
+    [[nodiscard]] glm::mat4 GetProjectionMatrix() const;
+    [[nodiscard]] glm::vec3 GetPosition() const { return m_Position; }
 
     void SetAspectRatio(double aspectRatio) { m_AspectRatio = aspectRatio; }
 

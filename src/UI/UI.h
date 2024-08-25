@@ -8,14 +8,17 @@ class UI {
 public:
 
     UI() = default;
-    UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application* app);
+
+    UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app);
+
     void Destroy();
 
     void Draw(VkCommandBuffer cmd);
+
 private:
 
-    Application* m_App;
-    VkDescriptorPool m_DescriptorPool;
+    Application *m_App{nullptr};
+    VkDescriptorPool m_DescriptorPool{};
     std::shared_ptr<VulkanDevice> m_Device;
 };
 

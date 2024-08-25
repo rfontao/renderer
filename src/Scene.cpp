@@ -589,7 +589,7 @@ void Scene::CreateLights() {
     sceneInfo.shadowMapTextureIndex = 800; // TODO: Change
     sceneInfo.lightView = glm::lookAt(sceneInfo.lightDir * 15.0f,
                                 glm::vec3(0.0f, 0.0f, 0.0f),
-                                glm::vec3(0.0f, -1.0f, 0.0f));;
+                                glm::vec3(0.0f, -1.0f, 0.0f));
     sceneInfo.lightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
     VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,

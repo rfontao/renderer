@@ -462,8 +462,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             // Sort attributes by location
             std::sort(std::begin(attributeDescriptions),
                       std::end(attributeDescriptions),
-                      [](const VkVertexInputAttributeDescription &a,
-                         const VkVertexInputAttributeDescription &b) {
+                      [](const auto &a, const auto &b) {
                           return a.location < b.location;
                       });
 

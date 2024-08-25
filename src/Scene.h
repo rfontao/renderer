@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Vulkan/VulkanTexture.h"
-#include "vulkan/VulkanBuffer.h"
+#include "Vulkan/VulkanBuffer.h"
 
 class Scene {
 public:
@@ -22,9 +22,9 @@ public:
 
     // A primitive contains the data for a single draw call
     struct Primitive {
-        uint32_t firstIndex;
-        uint32_t indexCount;
-        int32_t materialIndex = -1;
+        uint32_t firstIndex{0};
+        uint32_t indexCount{0};
+        int32_t materialIndex{-1};
     };
 
     struct Mesh {
@@ -96,10 +96,14 @@ public:
     };
 
     Scene() = default;
+
     Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
+
     void Destroy();
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false, bool isShadowMap = false);
+    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false,
+              bool isShadowMap = false);
+
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
     std::vector<Image> m_Images;
@@ -109,17 +113,24 @@ public:
     Material m_DefaultMaterial;
 
 private:
-    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode, bool isSkybox = false, bool isShadowMap = false);
+    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
+                  bool isSkybox = false, bool isShadowMap = false);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
+
     void CreateVertexBuffer(std::vector<Vertex> &vertices);
 
     void LoadImages(tinygltf::Model &input);
+
     void LoadTextures(tinygltf::Model &input);
+
     void LoadTextureSamplers(tinygltf::Model &input);
+
     void LoadMaterials(tinygltf::Model &input);
+
     void LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Node *parent,
                   std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer);
+
     void CreateLights();
 
     std::vector<Material> m_Materials;
