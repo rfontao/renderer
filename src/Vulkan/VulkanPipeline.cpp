@@ -386,11 +386,10 @@ static uint32_t FormatSize(VkFormat format) {
     return result;
 }
 
-VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat colorAttachmentFormat,
-                               const std::pair<std::string, std::string> &shaderPaths, bool skybox)
-        : m_Device(device) {
-    auto vertShaderCode = ReadFile(shaderPaths.first);
-    auto fragShaderCode = ReadFile(shaderPaths.second);
+VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification)
+        : m_Device(device), spec(pipelineSpecification) {
+    auto vertShaderCode = ReadFile(pipelineSpecification.vertShaderPath);
+    auto fragShaderCode = ReadFile(pipelineSpecification.fragShaderPath);
 
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
@@ -493,7 +492,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 layoutBinding.binding = reflBinding.binding;
                 layoutBinding.descriptorType = static_cast<VkDescriptorType>(reflBinding.descriptor_type);
 
-                if (set->set == 1 && iBinding == 0 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
+                if (set->set == 1 && iBinding == 0 &&
+                    pipelineSpecification.fragShaderPath == "shaders/pbr_bindless.frag.spv") {
                     layoutBinding.descriptorCount = 1000;
                 } else {
                     layoutBinding.descriptorCount = 1;
@@ -503,7 +503,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
                 }
                 layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
                 //TODO: Martelo
-                if (set->set == 2 && iBinding == 0 && shaderPaths.first == "shaders/pbr.vert.spv") {
+                if (set->set == 2 && iBinding == 0 && pipelineSpecification.vertShaderPath == "shaders/pbr.vert.spv") {
                     layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
                 }
             }
@@ -557,7 +557,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
         bindingFlags.pBindingFlags = &flags;
         bindingFlags.bindingCount = 1;
 
-        if (i == 1 && shaderPaths.second == "shaders/pbr_bindless.frag.spv") {
+        if (i == 1 && pipelineSpecification.fragShaderPath == "shaders/pbr_bindless.frag.spv") {
             layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
             layoutInfo.pNext = &bindingFlags;
         }
@@ -614,27 +614,56 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
             .scissorCount = 1,
     };
 
+    VkCullModeFlags cullMode;
+    switch (pipelineSpecification.cullingMode) {
+        case CullingMode::NONE:
+            cullMode = VK_CULL_MODE_NONE;
+            break;
+        case CullingMode::FRONT:
+            cullMode = VK_CULL_MODE_FRONT_BIT;
+            break;
+        case CullingMode::BACK:
+            cullMode = VK_CULL_MODE_BACK_BIT;
+            break;
+        case CullingMode::FRONT_AND_BACK:
+            cullMode = VK_CULL_MODE_FRONT_AND_BACK;
+            break;
+    }
+
     VkPipelineRasterizationStateCreateInfo rasterizer{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = static_cast<VkCullModeFlags>(skybox ? VK_CULL_MODE_FRONT_BIT : ((colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_CULL_MODE_BACK_BIT: VK_CULL_MODE_NONE)),
+            .cullMode = cullMode,
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-            .depthBiasEnable = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_FALSE : VK_TRUE,
+            .depthBiasEnable = pipelineSpecification.depthBiasEnable,
             .lineWidth = 1.0f,
     };
 
+    VkSampleCountFlagBits msaaMode;
+    switch (pipelineSpecification.msaaMode) {
+        case MSAAMode::NONE:
+            msaaMode = VK_SAMPLE_COUNT_1_BIT;
+            break;
+        case MSAAMode::MSAA2X:
+            msaaMode = VK_SAMPLE_COUNT_2_BIT;
+            break;
+        case MSAAMode::MSAA4X:
+            msaaMode = VK_SAMPLE_COUNT_4_BIT;
+            break;
+        case MSAAMode::MSAA8X:
+            msaaMode = VK_SAMPLE_COUNT_8_BIT;
+            break;
+    }
     VkPipelineMultisampleStateCreateInfo multisampling{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = (colorAttachmentFormat != VK_FORMAT_UNDEFINED) ? VK_SAMPLE_COUNT_8_BIT
-                                                                                   : VK_SAMPLE_COUNT_1_BIT,
-//            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+            .rasterizationSamples = msaaMode,
             .sampleShadingEnable = VK_FALSE,
     };
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{
-            .blendEnable = skybox ? VK_FALSE : VK_TRUE,
+            .blendEnable = pipelineSpecification.blendEnable,
             .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
             .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
             .colorBlendOp = VK_BLEND_OP_ADD,
@@ -657,8 +686,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-            .depthTestEnable = skybox ? VK_FALSE : VK_TRUE,
-            .depthWriteEnable = skybox ? VK_FALSE : VK_TRUE,
+            .depthTestEnable = pipelineSpecification.enableDepthTesting,
+            .depthWriteEnable = pipelineSpecification.enableDepthTesting,
             .depthCompareOp = VK_COMPARE_OP_LESS,
             .depthBoundsTestEnable = VK_FALSE,
             .stencilTestEnable = VK_FALSE,
@@ -677,18 +706,20 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, VkFormat co
 
     // Dynamic rendering
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
-    if (colorAttachmentFormat != VK_FORMAT_UNDEFINED) {
+    // TODO: Reevaluate
+    VkFormat colorAttachmentFormat { VK_FORMAT_B8G8R8A8_SRGB };
+    if (pipelineSpecification.depthBiasEnable) { // Means shadowmapping
+        pipelineRenderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                .colorAttachmentCount = 0,
+                .depthAttachmentFormat = VK_FORMAT_D16_UNORM,
+        };
+    } else {
         pipelineRenderingInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &colorAttachmentFormat,
                 .depthAttachmentFormat = device->FindDepthFormat(),
-        };
-    } else { // Shadow map case
-        pipelineRenderingInfo = {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                .colorAttachmentCount = 0,
-                .depthAttachmentFormat = VK_FORMAT_D16_UNORM,
         };
     }
 

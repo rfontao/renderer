@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Application.h"
+#include "Vulkan/VulkanPipeline.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -63,15 +64,31 @@ void Application::InitVulkan() {
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
-    std::pair<std::string, std::string> pbrShaders = {"shaders/pbr.vert.spv", "shaders/pbr_bindless.frag.spv"};
-    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), pbrShaders);
+    VulkanPipeline::PipelineSpecification graphicsSpec {
+        .vertShaderPath = "shaders/pbr.vert.spv",
+        .fragShaderPath = "shaders/pbr_bindless.frag.spv",
+        .msaaMode = VulkanPipeline::MSAAMode::MSAA8X,
+    };
+    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, graphicsSpec);
 
-    std::pair<std::string, std::string> skyboxShaders = {"shaders/skybox.vert.spv", "shaders/skybox.frag.spv"};
-    m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, m_Swapchain->GetImageFormat(), skyboxShaders, true);
+    VulkanPipeline::PipelineSpecification skyboxSpec {
+            .vertShaderPath = "shaders/skybox.vert.spv",
+            .fragShaderPath = "shaders/skybox.frag.spv",
+            .msaaMode = VulkanPipeline::MSAAMode::MSAA8X,
+            .cullingMode = VulkanPipeline::CullingMode::FRONT,
+            .blendEnable = false,
+            .enableDepthTesting = false,
+    };
+    m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, skyboxSpec);
 
     // TODO: Rework image formats passing
-    std::pair<std::string, std::string> shadowMapShaders = {"shaders/shadowmap.vert.spv", "shaders/shadowmap.frag.spv"};
-    m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, VK_FORMAT_UNDEFINED, shadowMapShaders);
+    VulkanPipeline::PipelineSpecification shadowMapSpec {
+            .vertShaderPath = "shaders/shadowmap.vert.spv",
+            .fragShaderPath = "shaders/shadowmap.frag.spv",
+            .cullingMode = VulkanPipeline::CullingMode::NONE,
+            .depthBiasEnable = true,
+    };
+    m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[25]);
