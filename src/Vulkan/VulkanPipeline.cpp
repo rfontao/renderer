@@ -394,7 +394,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
 
-    std::vector<DescriptorSetLayoutData> setLayouts{};
+    std::unordered_map<uint32_t, DescriptorSetLayoutData> setLayouts;
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     std::vector<VkPushConstantRange> pushConstantRanges;
     VkVertexInputBindingDescription bindingDescription{};
@@ -483,8 +483,11 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         for (auto &set: sets) {
             const SpvReflectDescriptorSet &reflSet = *set;
 
-            DescriptorSetLayoutData layout{};
-            layout.bindings.resize(reflSet.binding_count);
+            DescriptorSetLayoutData layout = setLayouts[reflSet.set];
+            if (layout.bindings.size() < reflSet.binding_count) {
+                layout.bindings.resize(reflSet.binding_count);
+            }
+
             for (uint32_t iBinding = 0; iBinding < reflSet.binding_count; ++iBinding) {
                 const SpvReflectDescriptorBinding &reflBinding = *(reflSet.bindings[iBinding]);
                 VkDescriptorSetLayoutBinding &layoutBinding = layout.bindings[iBinding];
@@ -511,7 +514,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             layout.createInfo.bindingCount = reflSet.binding_count;
             layout.createInfo.pBindings = layout.bindings.data();
 
-            setLayouts.push_back(layout);
+            setLayouts[reflSet.set] = layout;
         }
 
         for (auto &pushConstantBlock: pushConstantBlocks) {
@@ -523,21 +526,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         }
     }
 
-    // TODO: Improve
-    // Remove duplicate set layouts defined in multiple shaders
-    std::stable_sort(setLayouts.begin(), setLayouts.end(),
-                     [](const auto &a, const auto &b) {
-                         return a.setNumber < b.setNumber;
-                     });
-    auto last = std::unique(setLayouts.begin(), setLayouts.end());
-    setLayouts.erase(last, setLayouts.end());
-
-    // TODO: Handle repeated sets across shaders
     m_DescriptorSetLayouts.resize(setLayouts.size());
     for (int i = 0; i < setLayouts.size(); ++i) {
-//        std::vector<VkDescriptorSetLayoutBinding> bindings;
-//        bindings.insert(bindings.end(), setLayout.bindings.begin(), setLayout.bindings.end());
-
         VkDescriptorSetLayoutCreateInfo layoutInfo{
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                 .bindingCount = (uint32_t) setLayouts[i].bindings.size(),
