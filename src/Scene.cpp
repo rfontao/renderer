@@ -75,7 +75,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
 
         // Load from disk
         if (!glTFImage.uri.empty()) {
-            m_Images[i].texture = VulkanTexture(m_Device, m_ResourcePath / glTFImage.uri);
+            TextureSpecification spec{.width = static_cast<uint32_t>(glTFImage.width), .height = static_cast<uint32_t>(glTFImage.height), .generateMipMaps = true};
+            m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, m_ResourcePath / glTFImage.uri);
         } else { // https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfloading/gltfloading.cpp
             unsigned char *buffer;
             VkDeviceSize bufferSize;
@@ -96,8 +97,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
                 buffer = &glTFImage.image[0];
                 bufferSize = glTFImage.image.size();
             }
-
-            m_Images[i].texture = VulkanTexture(m_Device, buffer, bufferSize, glTFImage.width, glTFImage.height);
+            TextureSpecification spec{.width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
+            m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, buffer);
             if (deleteBuffer) {
                 delete[] buffer;
             }
@@ -105,7 +106,9 @@ void Scene::LoadImages(tinygltf::Model &input) {
     }
 
     // Default image/texture
-    m_Images[m_Images.size() - 1].texture = VulkanTexture(m_Device);
+    std::array<unsigned char, 1 * 1 * 4> pixels = {128, 128, 128, 255};
+    TextureSpecification spec{.width = 1, .height = 1};
+    m_Images[m_Images.size() - 1] = std::make_shared<Texture2D>(m_Device, spec, pixels.data());
 }
 
 void Scene::LoadTextures(tinygltf::Model &input) {
@@ -114,9 +117,7 @@ void Scene::LoadTextures(tinygltf::Model &input) {
         m_Textures[i].imageIndex = input.textures[i].source;
         if (input.textures[i].sampler != -1) {
             TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
-            m_Images[m_Textures[i].imageIndex].texture.SetSampler(sampler.magFilter, sampler.minFilter,
-                                                                  sampler.addressModeU, sampler.addressModeV,
-                                                                  sampler.addressModeW);
+            m_Images[m_Textures[i].imageIndex]->SetSampler(sampler);
         }
     }
 
@@ -124,46 +125,44 @@ void Scene::LoadTextures(tinygltf::Model &input) {
     m_DefaultTexture.imageIndex = static_cast<int32_t>(m_Images.size() - 1);
 }
 
-static VkSamplerAddressMode GetVkWrapMode(int32_t wrapMode) {
+static TextureWrapMode GetWrapMode(int32_t wrapMode) {
     switch (wrapMode) {
         case -1:
         case 10497:
-            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            return TextureWrapMode::Repeat;
         case 33071:
-            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            return TextureWrapMode::Clamp;
         case 33648:
-            return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+            return TextureWrapMode::MirroredRepeat;
         default:
             std::cerr << "Unknown wrap mode for getVkWrapMode: " << wrapMode << std::endl;
-            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            return TextureWrapMode::Repeat;
     }
 }
 
-static VkFilter GetVkFilterMode(int32_t filterMode) {
+static TextureFilterMode GetFilterMode(int32_t filterMode) {
     switch (filterMode) {
         case -1:
         case 9728:
         case 9984:
         case 9985:
-            return VK_FILTER_NEAREST;
+            return TextureFilterMode::Nearest;
         case 9986:
         case 9987:
         case 9729:
-            return VK_FILTER_LINEAR;
+            return TextureFilterMode::Linear;
         default:
             std::cerr << "Unknown filter mode for getVkFilterMode: " << filterMode << std::endl;
-            return VK_FILTER_NEAREST;
+            return TextureFilterMode::Nearest;
     }
 }
 
 void Scene::LoadTextureSamplers(tinygltf::Model &input) {
     for (const tinygltf::Sampler &smpl: input.samplers) {
-        TextureSampler sampler{};
-        sampler.minFilter = GetVkFilterMode(smpl.minFilter);
-        sampler.magFilter = GetVkFilterMode(smpl.magFilter);
-        sampler.addressModeU = GetVkWrapMode(smpl.wrapS);
-        sampler.addressModeV = GetVkWrapMode(smpl.wrapT);
-        sampler.addressModeW = sampler.addressModeV;
+        TextureSampler sampler{
+                .samplerWrap = GetWrapMode(smpl.wrapS),
+                .samplerFilter = GetFilterMode(smpl.minFilter),
+        };
         m_TextureSamplers.push_back(sampler);
     }
 }
@@ -514,7 +513,7 @@ void Scene::Destroy() {
 
 //    m_DefaultImage.texture.Destroy();
     for (auto &image: m_Images) {
-        image.texture.Destroy();
+        image->Destroy();
     }
 }
 
@@ -588,8 +587,8 @@ void Scene::CreateLights() {
     sceneInfo.lightPos[1] = glm::vec3(-6.5f, 1.0f, -1.5f);
     sceneInfo.shadowMapTextureIndex = 800; // TODO: Change
     sceneInfo.lightView = glm::lookAt(sceneInfo.lightDir * 15.0f,
-                                glm::vec3(0.0f, 0.0f, 0.0f),
-                                glm::vec3(0.0f, -1.0f, 0.0f));
+                                      glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec3(0.0f, -1.0f, 0.0f));
     sceneInfo.lightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
     VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,

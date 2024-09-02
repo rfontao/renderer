@@ -5,22 +5,41 @@
 #include "VulkanBuffer.h"
 
 class VulkanDevice;
+
 class VulkanBuffer;
+
+enum class ImageFormat {
+    R8 = VK_FORMAT_R8_UNORM,
+    R8G8 = VK_FORMAT_R8G8_UNORM,
+    R8G8B8 = VK_FORMAT_R8G8B8_UNORM,
+    R8G8B8A8 = VK_FORMAT_R8G8B8A8_UNORM,
+    R8G8B8A8_SRGB = VK_FORMAT_B8G8R8A8_SRGB,
+    D16 = VK_FORMAT_D16_UNORM,
+    D32 = VK_FORMAT_D32_SFLOAT,
+    D24S8 = VK_FORMAT_D32_SFLOAT_S8_UINT,
+};
+
+enum class ImageUsage {
+    Texture = 0,
+    Attachment,
+};
+
+struct ImageSpecification {
+    ImageFormat format{ImageFormat::R8G8B8A8};
+    ImageUsage usage{ImageUsage::Texture};
+    uint32_t width{1};
+    uint32_t height{1};
+    uint32_t mipLevels{1};
+    uint32_t layers{1};
+};
 
 class VulkanImage {
 public:
     VulkanImage() = default;
-    VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
-                VkSampleCountFlagBits numSamples, VkFormat format,
-                VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                VkImageAspectFlags aspectFlags);
+    VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecification &specification);
 
-    explicit VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-                         uint32_t mipLevels);
-
-    VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
-                VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                VkMemoryPropertyFlags properties, VkImageAspectFlags aspectFlags, bool cube);
+    // Swapchain Image ctor
+    VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image);
 
     void Destroy();
 
@@ -35,13 +54,16 @@ public:
 
     bool m_IsSwapchainImage = false;
 private:
-    uint32_t m_Width, m_Height;
-    VkImage m_Image             { VK_NULL_HANDLE };
-    VkImageView m_View          { VK_NULL_HANDLE };
-    VkDeviceMemory m_Memory     { VK_NULL_HANDLE };
+    uint32_t m_Width{0}, m_Height{0};
+    VkImage m_Image{VK_NULL_HANDLE};
+    VkImageView m_View{VK_NULL_HANDLE};
+    VkDeviceMemory m_Memory{VK_NULL_HANDLE};
     VkFormat m_Format;
 
     VmaAllocation m_Allocation;
 
     std::shared_ptr<VulkanDevice> m_Device;
 };
+
+[[nodiscard]] bool IsDepthFormat(ImageFormat format);
+[[nodiscard]] int GetChannels(ImageFormat format);

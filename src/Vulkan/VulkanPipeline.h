@@ -5,13 +5,6 @@
 class VulkanPipeline {
 public:
 
-    enum class MSAAMode {
-        NONE,
-        MSAA2X,
-        MSAA4X,
-        MSAA8X
-    };
-
     enum class CullingMode {
         NONE,
         FRONT,
@@ -22,7 +15,6 @@ public:
     struct PipelineSpecification {
         std::filesystem::path vertShaderPath;
         std::filesystem::path fragShaderPath;
-        MSAAMode msaaMode{MSAAMode::NONE};
         CullingMode cullingMode{CullingMode::BACK};
         bool depthBiasEnable{false};
         bool blendEnable{true};

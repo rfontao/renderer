@@ -628,24 +628,9 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             .lineWidth = 1.0f,
     };
 
-    VkSampleCountFlagBits msaaMode;
-    switch (pipelineSpecification.msaaMode) {
-        case MSAAMode::NONE:
-            msaaMode = VK_SAMPLE_COUNT_1_BIT;
-            break;
-        case MSAAMode::MSAA2X:
-            msaaMode = VK_SAMPLE_COUNT_2_BIT;
-            break;
-        case MSAAMode::MSAA4X:
-            msaaMode = VK_SAMPLE_COUNT_4_BIT;
-            break;
-        case MSAAMode::MSAA8X:
-            msaaMode = VK_SAMPLE_COUNT_8_BIT;
-            break;
-    }
     VkPipelineMultisampleStateCreateInfo multisampling{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = msaaMode,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
             .sampleShadingEnable = VK_FALSE,
     };
 

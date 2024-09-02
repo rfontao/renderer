@@ -64,8 +64,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = 2;
     initInfo.UseDynamicRendering = true;
-//    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    initInfo.MSAASamples = VK_SAMPLE_COUNT_8_BIT;
+    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
     ImGui_ImplVulkan_Init(&initInfo);
 

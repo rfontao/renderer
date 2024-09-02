@@ -57,20 +57,8 @@ public:
         VkDescriptorSet descriptorSet;
     };
 
-    struct Image {
-        VulkanTexture texture;
-    };
-
     struct Texture {
         int32_t imageIndex;
-    };
-
-    struct TextureSampler {
-        VkFilter magFilter;
-        VkFilter minFilter;
-        VkSamplerAddressMode addressModeU;
-        VkSamplerAddressMode addressModeV;
-        VkSamplerAddressMode addressModeW;
     };
 
     struct Node {
@@ -106,10 +94,10 @@ public:
 
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
-    std::vector<Image> m_Images;
+    std::vector<std::shared_ptr<Texture2D>> m_Images;
 
     Texture m_DefaultTexture;
-    Image m_DefaultImage;
+    std::shared_ptr<VulkanTexture> m_DefaultImage;
     Material m_DefaultMaterial;
 
 private:

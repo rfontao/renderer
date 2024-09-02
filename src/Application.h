@@ -94,8 +94,6 @@ public:
     std::vector<VkDescriptorImageInfo> m_TextureDescriptors;
 
     VkDebugUtilsMessengerEXT m_DebugMessenger;
-//    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkSampleCountFlagBits m_MsaaSamples = VK_SAMPLE_COUNT_8_BIT;
 
     uint32_t m_CurrentFrame = 0;
 
@@ -106,7 +104,7 @@ public:
     Scene m_Skybox;
     UI m_UI;
 
-    std::shared_ptr<VulkanTexture> m_CubemapTexture;
+    std::shared_ptr<TextureCube> m_CubemapTexture;
 
     Camera m_Camera;
     GLFWwindow *m_Window;
@@ -125,7 +123,7 @@ public:
     constexpr static float shadowDepthSlope { 1.0f };
 
     std::shared_ptr<VulkanBuffer> m_ShadowMapUBOBuffer;
-    std::shared_ptr<VulkanTexture> m_ShadowDepthTexture;
+    std::shared_ptr<Texture2D> m_ShadowDepthTexture;
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
     VkDescriptorSet m_LightDescriptorSet;
 

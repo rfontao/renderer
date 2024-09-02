@@ -5,111 +5,81 @@
 #include "VulkanBuffer.h"
 #include "Utils.h"
 
-VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image, VkFormat format,
-                         VkImageAspectFlags aspectFlags,
-                         uint32_t mipLevelCount) : m_Device(device), m_Image(image), m_IsSwapchainImage(true),
-                                                   m_Format(format) {
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecification &specification) :
+        m_Device(device), m_Width(specification.width), m_Height(specification.height) {
 
+    VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (specification.usage == ImageUsage::Texture) {
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if (specification.usage == ImageUsage::Attachment) {
+        if (IsDepthFormat(specification.format)) {
+            usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        } else {
+            usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        }
+    }
+
+    // VkImage creation
+    VkImageCreateInfo imageInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = static_cast<VkFormat>(specification.format),
+            .mipLevels = specification.mipLevels,
+            .arrayLayers = specification.layers,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = usage,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    imageInfo.extent.height = (uint32_t) m_Height;
+    imageInfo.extent.width = (uint32_t) m_Width;
+    imageInfo.extent.depth = 1;
+
+    if (specification.layers == 6) {
+        imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    }
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
+
+    VkImageAspectFlags aspectMask = IsDepthFormat(specification.format) ? VK_IMAGE_ASPECT_DEPTH_BIT
+                                                                        : VK_IMAGE_ASPECT_COLOR_BIT;
+    if (specification.format == ImageFormat::D24S8)
+        aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    // VkImageView creation
+    VkImageViewCreateInfo viewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = m_Image,
+            .viewType = (specification.layers == 6) ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D,
+            .format = static_cast<VkFormat>(specification.format),
+    };
+    viewInfo.subresourceRange.aspectMask = aspectMask;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = specification.mipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = specification.layers;
+
+    VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
+             "Failed to create texture image view!");
+}
+
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) : m_Device(device), m_Image(image), m_IsSwapchainImage(true) {
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = format,
+            .format = static_cast<VkFormat>(ImageFormat::R8G8B8A8_SRGB),
     };
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = mipLevelCount;
+    viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
-
-    VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
-             "Failed to create texture image view!");
-}
-
-VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
-                         VkSampleCountFlagBits numSamples, VkFormat format,
-                         VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                         VkImageAspectFlags aspectFlags) : m_Device(device), m_Width(width), m_Height(height),
-                                                           m_Format(format) {
-    // VkImage creation
-    VkImageCreateInfo imageInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = format,
-            .mipLevels = mipLevelCount,
-            .arrayLayers = 1,
-            .samples = numSamples,
-            .tiling = tiling,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
-    imageInfo.extent.height = (uint32_t) m_Height;
-    imageInfo.extent.width = (uint32_t) m_Width;
-    imageInfo.extent.depth = 1;
-
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
-
-    // VkImageView creation
-    VkImageViewCreateInfo viewInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = m_Image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = format,
-    };
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = mipLevelCount;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
-             "Failed to create texture image view!");
-}
-
-VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, uint32_t width, uint32_t height, uint32_t mipLevelCount,
-                         VkSampleCountFlagBits numSamples, VkFormat format,
-                         VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                         VkImageAspectFlags aspectFlags, bool cube) : m_Device(device), m_Width(width),
-                                                                      m_Height(height),
-                                                                      m_Format(format) {
-    // VkImage creation
-    VkImageCreateInfo imageInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = format,
-            .mipLevels = mipLevelCount,
-            .arrayLayers = 6,
-            .samples = numSamples,
-            .tiling = tiling,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
-    imageInfo.extent.height = (uint32_t) m_Height;
-    imageInfo.extent.width = (uint32_t) m_Width;
-    imageInfo.extent.depth = 1;
-
-    VmaAllocationCreateInfo allocCreateInfo = {};
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
-
-    // VkImageView creation
-    VkImageViewCreateInfo viewInfo{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = m_Image,
-            .viewType = VK_IMAGE_VIEW_TYPE_CUBE,
-            .format = format,
-    };
-    viewInfo.subresourceRange.aspectMask = aspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = mipLevelCount;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 6;
 
     VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
              "Failed to create texture image view!");
@@ -121,8 +91,6 @@ void VulkanImage::Destroy() {
     // Image should only be destroyed if it doesn't belong to swapchain
     if (!m_IsSwapchainImage) {
         vmaDestroyImage(m_Device->GetAllocator(), m_Image, m_Allocation);
-//        vkDestroyImage(m_Device->GetDevice(), m_Image, nullptr);
-//        vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
     }
 }
 
@@ -314,4 +282,26 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
 
 
     m_Device->EndSingleTimeCommands(commandBuffer);
+}
+
+bool IsDepthFormat(ImageFormat format) {
+    return format == ImageFormat::D16 || format == ImageFormat::D24S8 || format == ImageFormat::D32;
+}
+
+int GetChannels(ImageFormat format) {
+    switch (format) {
+        case ImageFormat::R8:
+            return 1;
+        case ImageFormat::D16:
+        case ImageFormat::R8G8:
+            return 2;
+        case ImageFormat::R8G8B8:
+            return 3;
+        case ImageFormat::D32:
+        case ImageFormat::D24S8:
+        case ImageFormat::R8G8B8A8:
+        case ImageFormat::R8G8B8A8_SRGB:
+            return 4;
+    }
+    throw std::runtime_error("Invalid format");
 }

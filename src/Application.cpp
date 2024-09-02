@@ -64,25 +64,22 @@ void Application::InitVulkan() {
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
-    VulkanPipeline::PipelineSpecification graphicsSpec {
-        .vertShaderPath = "shaders/pbr.vert.spv",
-        .fragShaderPath = "shaders/pbr_bindless.frag.spv",
-        .msaaMode = VulkanPipeline::MSAAMode::MSAA8X,
+    VulkanPipeline::PipelineSpecification graphicsSpec{
+            .vertShaderPath = "shaders/pbr.vert.spv",
+            .fragShaderPath = "shaders/pbr_bindless.frag.spv",
     };
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, graphicsSpec);
 
-    VulkanPipeline::PipelineSpecification skyboxSpec {
+    VulkanPipeline::PipelineSpecification skyboxSpec{
             .vertShaderPath = "shaders/skybox.vert.spv",
             .fragShaderPath = "shaders/skybox.frag.spv",
-            .msaaMode = VulkanPipeline::MSAAMode::MSAA8X,
             .cullingMode = VulkanPipeline::CullingMode::FRONT,
             .blendEnable = false,
             .enableDepthTesting = false,
     };
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, skyboxSpec);
 
-    // TODO: Rework image formats passing
-    VulkanPipeline::PipelineSpecification shadowMapSpec {
+    VulkanPipeline::PipelineSpecification shadowMapSpec{
             .vertShaderPath = "shaders/shadowmap.vert.spv",
             .fragShaderPath = "shaders/shadowmap.frag.spv",
             .cullingMode = VulkanPipeline::CullingMode::NONE,
@@ -105,9 +102,15 @@ void Application::InitVulkan() {
                                                        "textures/cubemaps/vindelalven/negz.jpg",
     };
 
-    m_CubemapTexture = std::make_shared<VulkanTexture>(m_Device, cubemapPaths);
+    TextureSpecification cubemapTextureSpec{};
+    m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
-    m_ShadowDepthTexture = std::make_shared<VulkanTexture>(m_Device, shadowSize, shadowSize);
+    TextureSpecification shadowmapTextureSpec{
+            .format = ImageFormat::D16,
+            .width = shadowSize,
+            .height = shadowSize,
+    };
+    m_ShadowDepthTexture = std::make_shared<Texture2D>(m_Device, shadowmapTextureSpec);
 
     CreateColorResources();
     CreateDepthResources();
@@ -377,8 +380,8 @@ void Application::CreateBindlessTexturesArray() {
     for (auto &tex: m_Scene.m_Textures) {
         m_TextureDescriptors.push_back(
                 {
-                        .sampler = m_Scene.m_Images[tex.imageIndex].texture.GetSampler(),
-                        .imageView = m_Scene.m_Images[tex.imageIndex].texture.GetImage()->GetImageView(),
+                        .sampler = m_Scene.m_Images[tex.imageIndex]->GetSampler(),
+                        .imageView = m_Scene.m_Images[tex.imageIndex]->GetImage()->GetImageView(),
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 });
     }
@@ -422,7 +425,8 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .pDepthAttachment = &shadowDepthAttachment,
     };
 
-    m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
+                                                       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
     VkViewport shadowViewport{
@@ -456,9 +460,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdEndRendering(commandBuffer);
 
     VkDescriptorImageInfo imageInfo{
-        .sampler = m_ShadowDepthTexture->GetSampler(),
-        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .sampler = m_ShadowDepthTexture->GetSampler(),
+            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     VkWriteDescriptorSet write{};
@@ -473,12 +477,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
 
     // Main scene render
-    bool msaaEnabled = m_MsaaSamples != VK_SAMPLE_COUNT_1_BIT;
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = msaaEnabled ? m_ColorImage->GetImageView() : m_Swapchain->GetImageView(imageIndex),
+            .imageView = m_Swapchain->GetImageView(imageIndex),
             .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .resolveMode = msaaEnabled ? VK_RESOLVE_MODE_AVERAGE_BIT : VK_RESOLVE_MODE_NONE,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
             .resolveImageView = m_Swapchain->GetImageView(imageIndex),
             .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -620,8 +623,9 @@ void Application::CreateUniformBuffers() {
 
     VkDeviceSize shadowMapBufferSize = sizeof(DirectionalLightUBO);
 
-    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                             VMA_MEMORY_USAGE_CPU_ONLY);
+    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(m_Device, shadowMapBufferSize,
+                                                          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                          VMA_MEMORY_USAGE_CPU_ONLY);
     m_ShadowMapUBOBuffer->Map();
 }
 
@@ -640,8 +644,8 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 
     DirectionalLightUBO lightUBO{};
     lightUBO.view = glm::lookAt(glm::vec3(1.5f, 15.0f, 3.75f),
-                           glm::vec3(0.0f, 0.0f, 0.0f),
-                           glm::vec3(0.0f, -1.0f, 0.0f));
+                                glm::vec3(0.0f, 0.0f, 0.0f),
+                                glm::vec3(0.0f, -1.0f, 0.0f));
     lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
     m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
@@ -740,27 +744,30 @@ void Application::CreateDescriptorSets() {
 }
 
 void Application::CreateDepthResources() {
-    VkFormat depthFormat = m_Device->FindDepthFormat();
-
-    m_DepthImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
-                                                 m_MsaaSamples,
-                                                 depthFormat,
-                                                 VK_IMAGE_TILING_OPTIMAL,
-                                                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                                 VK_IMAGE_ASPECT_DEPTH_BIT);
+//    VkFormat depthFormat = m_Device->FindDepthFormat();
+    ImageSpecification imageSpecification{
+            .format = ImageFormat::D32,
+            .usage = ImageUsage::Attachment,
+            .width = m_Swapchain->GetWidth(),
+            .height = m_Swapchain->GetHeight(),
+            .mipLevels = 1,
+            .layers = 1,
+    };
+    m_DepthImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }
 
 void Application::CreateColorResources() {
-    VkFormat colorFormat = m_Swapchain->GetImageFormat();
+//    VkFormat colorFormat = m_Swapchain->GetImageFormat();
 
-    m_ColorImage = std::make_shared<VulkanImage>(m_Device, m_Swapchain->GetWidth(), m_Swapchain->GetHeight(), 1,
-                                                 m_MsaaSamples,
-                                                 colorFormat,
-                                                 VK_IMAGE_TILING_OPTIMAL,
-                                                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT |
-                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+    ImageSpecification imageSpecification{
+            .format = ImageFormat::R8G8B8A8_SRGB,
+            .usage = ImageUsage::Attachment,
+            .width = m_Swapchain->GetWidth(),
+            .height = m_Swapchain->GetHeight(),
+            .mipLevels = 1,
+            .layers = 1,
+    };
+    m_ColorImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }
 
 void Application::SetScene(const std::filesystem::path &scenePath) {
