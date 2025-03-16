@@ -22,7 +22,7 @@ void VulkanDevice::Destroy() {
     vmaDestroyAllocator(m_Allocator);
     vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
     vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-    vkDestroyDevice(m_Device, nullptr);
+    vkb::destroy_device(m_Device);
 }
 
 void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {

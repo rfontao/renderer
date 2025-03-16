@@ -221,7 +221,7 @@ VkSurfaceKHR Application::CreateSurface() const {
 }
 
 void Application::CreateBindlessTexturesArray() {
-    const uint32_t maxBindlessArrayTextureSize = 1000;
+    constexpr uint32_t maxBindlessArrayTextureSize = 1000;
     std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
     };
@@ -642,12 +642,11 @@ void Application::CreateDescriptorSets() {
     shadowMapDescriptorWrites[0].descriptorCount = 1;
     shadowMapDescriptorWrites[0].pBufferInfo = &bufferInfo;
 
-    vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) shadowMapDescriptorWrites.size(),
+    vkUpdateDescriptorSets(m_Device->GetDevice(), shadowMapDescriptorWrites.size(),
                            shadowMapDescriptorWrites.data(), 0, nullptr);
 }
 
 void Application::CreateDepthResources() {
-    //    VkFormat depthFormat = m_Device->FindDepthFormat();
     ImageSpecification imageSpecification{
         .format = ImageFormat::D32,
         .usage = ImageUsage::Attachment,
@@ -660,8 +659,6 @@ void Application::CreateDepthResources() {
 }
 
 void Application::CreateColorResources() {
-    //    VkFormat colorFormat = m_Swapchain->GetImageFormat();
-
     ImageSpecification imageSpecification{
         .format = ImageFormat::R8G8B8A8_SRGB,
         .usage = ImageUsage::Attachment,
