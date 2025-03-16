@@ -23,7 +23,6 @@ public:
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 private:
-    [[nodiscard]] VkSampleCountFlagBits GetMaxUsableSampleCount() const;
     void PickPhysicalDevice(vkb::Instance instance);
 
     void CreateLogicalDevice();
