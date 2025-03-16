@@ -14,6 +14,7 @@ VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Sur
     allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
     allocatorCreateInfo.device = m_Device;
     allocatorCreateInfo.instance = instance;
+    allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     //    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
     vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator);
 }
@@ -55,14 +56,21 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
     descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
     descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
 
+    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        .bufferDeviceAddress = VK_TRUE
+    };
+
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn = physicalDeviceSelector
             .set_surface(m_Surface)
             .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
+            .add_required_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)
             .set_required_features(deviceFeatures)
             .require_present()
             .add_required_extension_features(dynamicRenderingFeature)
             .add_required_extension_features(descriptorIndexingFeatures)
+            .add_required_extension_features(bufferDeviceAddressFeatures)
             .select();
     if (!physicalDeviceSelectorReturn) {
         throw std::runtime_error("Failed to find a suitable GPU!");
@@ -162,5 +170,3 @@ void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
 
     vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
 }
-
-
