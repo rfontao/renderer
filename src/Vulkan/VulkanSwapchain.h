@@ -3,6 +3,8 @@
 #include "VulkanDevice.h"
 #include "VulkanImage.h"
 
+#include <VkBootstrap.h>
+
 class VulkanImage;
 class VulkanDevice;
 
@@ -24,26 +26,22 @@ public:
     [[nodiscard]] const std::vector<VkCommandBuffer> &GetCommandBuffers() const { return m_CommandBuffers; }
     [[nodiscard]] VkImageView GetImageView(uint32_t index) const;
     [[nodiscard]] std::shared_ptr<VulkanImage> GetImage(uint32_t index) const;
-    [[nodiscard]] uint32_t GetHeight() const { return m_Extent.height; }
-    [[nodiscard]] uint32_t GetWidth() const { return m_Extent.width; }
-    [[nodiscard]] VkExtent2D GetExtent() const { return m_Extent; }
-    [[nodiscard]] VkFormat GetImageFormat() const { return m_ImageFormat; }
+    [[nodiscard]] uint32_t GetHeight() const { return m_Swapchain.extent.height; }
+    [[nodiscard]] uint32_t GetWidth() const { return m_Swapchain.extent.width; }
+    [[nodiscard]] VkExtent2D GetExtent() const { return m_Swapchain.extent; }
+    [[nodiscard]] VkFormat GetImageFormat() const { return m_Swapchain.image_format; }
 
     int MAX_FRAMES_IN_FLIGHT = 2;
     bool m_NeedsResizing = false;
 private:
-    void Create(bool resizing);
-    void Clean();
+    void Create();
 
     static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
     static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
     VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
-    VkSwapchainKHR m_Swapchain;
+    vkb::Swapchain m_Swapchain;
     std::vector<std::shared_ptr<VulkanImage>> m_Images;
-
-    VkFormat m_ImageFormat;
-    VkExtent2D m_Extent;
 
     GLFWwindow *m_Window;
 

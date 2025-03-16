@@ -8,8 +8,7 @@
 
 UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app) : m_Device(
         device), m_App(app) {
-
-    VkDescriptorPoolSize pool_sizes[] =
+    constexpr VkDescriptorPoolSize pool_sizes[] =
             {
                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
             };
@@ -50,7 +49,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
             .colorAttachmentCount = 1,
             .pColorAttachmentFormats = imageFormat.data(),
-            .depthAttachmentFormat = device->FindDepthFormat(),
+            .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
     };
 
     // Setup Platform/Renderer backends

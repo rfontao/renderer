@@ -11,6 +11,8 @@
 #include "Scene.h"
 #include "UI/UI.h"
 
+#include <VkBootstrap.h>
+
 struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
@@ -52,12 +54,6 @@ public:
 
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
 
-    void SetupDebugMessenger();
-
-    [[nodiscard]] std::vector<const char *> GetRequiredExtensions() const;
-
-    bool CheckValidationLayerSupport();
-
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void DrawFrame();
@@ -77,7 +73,7 @@ public:
     void HandleKeys();
 
     std::shared_ptr<VulkanDevice> m_Device;
-    VkInstance m_Instance;
+    vkb::Instance m_Instance;
 
     std::shared_ptr<VulkanImage> m_DepthImage;
     std::shared_ptr<VulkanImage> m_ColorImage;

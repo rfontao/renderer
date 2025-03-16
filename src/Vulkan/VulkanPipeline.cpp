@@ -691,7 +691,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &colorAttachmentFormat,
-                .depthAttachmentFormat = device->FindDepthFormat(),
+                .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
         };
     }
 

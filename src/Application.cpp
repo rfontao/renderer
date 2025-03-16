@@ -3,51 +3,14 @@
 #include "Application.h"
 #include "Vulkan/VulkanPipeline.h"
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
-
-static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-                                             const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                                             const VkAllocationCallbacks *pAllocator,
-                                             VkDebugUtilsMessengerEXT *pDebugMessenger
-) {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-    if (func != nullptr) {
-        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    } else {
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
-}
-
-static void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                          VkDebugUtilsMessengerEXT debugMessenger,
-                                          const VkAllocationCallbacks *pAllocator
-) {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance,
-                                                                            "vkDestroyDebugUtilsMessengerEXT");
-    if (func != nullptr) {
-        func(instance, debugMessenger, pAllocator);
-    }
-}
-
-static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
-    createInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-            .pfnUserCallback = debugCallback,
-    };
-}
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 void Application::Run() {
     m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                       (double) WIDTH / (double) HEIGHT);
-//    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    //    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
-//    PrintAvailableVulkanExtensions();
+    //    PrintAvailableVulkanExtensions();
     InitWindow();
     InitVulkan();
     MainLoop();
@@ -56,7 +19,6 @@ void Application::Run() {
 
 void Application::InitVulkan() {
     CreateInstance();
-    SetupDebugMessenger();
 
     FindScenePaths("models");
 
@@ -65,25 +27,25 @@ void Application::InitVulkan() {
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
     VulkanPipeline::PipelineSpecification graphicsSpec{
-            .vertShaderPath = "shaders/pbr.vert.spv",
-            .fragShaderPath = "shaders/pbr_bindless.frag.spv",
+        .vertShaderPath = "shaders/pbr.vert.spv",
+        .fragShaderPath = "shaders/pbr_bindless.frag.spv",
     };
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, graphicsSpec);
 
     VulkanPipeline::PipelineSpecification skyboxSpec{
-            .vertShaderPath = "shaders/skybox.vert.spv",
-            .fragShaderPath = "shaders/skybox.frag.spv",
-            .cullingMode = VulkanPipeline::CullingMode::FRONT,
-            .blendEnable = false,
-            .enableDepthTesting = false,
+        .vertShaderPath = "shaders/skybox.vert.spv",
+        .fragShaderPath = "shaders/skybox.frag.spv",
+        .cullingMode = VulkanPipeline::CullingMode::FRONT,
+        .blendEnable = false,
+        .enableDepthTesting = false,
     };
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, skyboxSpec);
 
     VulkanPipeline::PipelineSpecification shadowMapSpec{
-            .vertShaderPath = "shaders/shadowmap.vert.spv",
-            .fragShaderPath = "shaders/shadowmap.frag.spv",
-            .cullingMode = VulkanPipeline::CullingMode::NONE,
-            .depthBiasEnable = true,
+        .vertShaderPath = "shaders/shadowmap.vert.spv",
+        .fragShaderPath = "shaders/shadowmap.frag.spv",
+        .cullingMode = VulkanPipeline::CullingMode::NONE,
+        .depthBiasEnable = true,
     };
     m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
@@ -94,21 +56,22 @@ void Application::InitVulkan() {
     m_Skybox = Scene(m_Device, "models/cube.gltf");
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
-    std::vector<std::filesystem::path> cubemapPaths = {"textures/cubemaps/vindelalven/posx.jpg",
-                                                       "textures/cubemaps/vindelalven/negx.jpg",
-                                                       "textures/cubemaps/vindelalven/posy.jpg",
-                                                       "textures/cubemaps/vindelalven/negy.jpg",
-                                                       "textures/cubemaps/vindelalven/posz.jpg",
-                                                       "textures/cubemaps/vindelalven/negz.jpg",
+    std::vector<std::filesystem::path> cubemapPaths = {
+        "textures/cubemaps/vindelalven/posx.jpg",
+        "textures/cubemaps/vindelalven/negx.jpg",
+        "textures/cubemaps/vindelalven/posy.jpg",
+        "textures/cubemaps/vindelalven/negy.jpg",
+        "textures/cubemaps/vindelalven/posz.jpg",
+        "textures/cubemaps/vindelalven/negz.jpg",
     };
 
     TextureSpecification cubemapTextureSpec{};
     m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
     TextureSpecification shadowmapTextureSpec{
-            .format = ImageFormat::D16,
-            .width = shadowSize,
-            .height = shadowSize,
+        .format = ImageFormat::D16,
+        .width = shadowSize,
+        .height = shadowSize,
     };
     m_ShadowDepthTexture = std::make_shared<Texture2D>(m_Device, shadowmapTextureSpec);
 
@@ -154,11 +117,7 @@ void Application::Cleanup() {
     vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
     m_Device->Destroy();
 
-    if (enableValidationLayers) {
-        DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
-    }
-
-    vkDestroyInstance(m_Instance, nullptr);
+    vkb::destroy_instance(m_Instance);
 
     glfwDestroyWindow(m_Window);
     glfwTerminate();
@@ -217,96 +176,42 @@ void Application::HandleKeys() {
 }
 
 void Application::CreateInstance() {
-    if (enableValidationLayers && !CheckValidationLayerSupport()) {
-        throw std::runtime_error("Validation layers requested, but not available!");
+
+    auto systemInfoRet = vkb::SystemInfo::get_system_info();
+    if (!systemInfoRet) {
+        throw std::runtime_error("Failed to get system info!");
+    }
+    auto systemInfo = systemInfoRet.value();
+
+    vkb::InstanceBuilder instanceBuilder;
+    instanceBuilder.set_app_name("Experimental Renderer")
+            .set_engine_name("None")
+            .require_api_version(1, 3, 0);
+
+    // of course dedicated variable for validation
+    if (enableValidationLayers && systemInfo.validation_layers_available) {
+        instanceBuilder.enable_validation_layers()
+                .use_default_debug_messenger();
     }
 
-    VkApplicationInfo appInfo{
-            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pApplicationName = "Experimental Renderer",
-            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-            .pEngineName = "None",
-            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_API_VERSION_1_3
-    };
-
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-
-    auto extensions = GetRequiredExtensions();
-    createInfo.enabledExtensionCount = (uint32_t) extensions.size();
-    createInfo.ppEnabledExtensionNames = extensions.data();
-
-    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    if (enableValidationLayers) {
-        createInfo.enabledLayerCount = (uint32_t) validationLayers.size();
-        createInfo.ppEnabledLayerNames = validationLayers.data();
-
-        PopulateDebugMessengerCreateInfo(debugCreateInfo);
-        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *) &debugCreateInfo;
-    } else {
-        createInfo.enabledLayerCount = 0;
-
-        createInfo.pNext = nullptr;
-    }
-
-    if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create Vulkan instance");
-    }
-
-}
-
-bool Application::CheckValidationLayerSupport() {
-    uint32_t layerCount;
-    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-    std::vector<VkLayerProperties> availableLayers(layerCount);
-    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-//    std::cout << "Available validation extensions:" << std::endl;
-//    for (const auto &layer: availableLayers) {
-//        std::cout << '\t' << layer.layerName << std::endl;
-//    }
-
-    for (const char *layerName: validationLayers) {
-        bool layerFound = false;
-        for (const auto &layerProperties: availableLayers) {
-            if (strcmp(layerName, layerProperties.layerName) == 0) {
-                layerFound = true;
-                break;
-            }
-        }
-
-        if (!layerFound)
-            return false;
-    }
-
-    return true;
-}
-
-std::vector<const char *> Application::GetRequiredExtensions() const {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-    if (enableValidationLayers) {
-        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    for (uint32_t i = 0; i < glfwExtensionCount; i++) {
+        if (systemInfo.is_extension_available(extensions[i])) {
+            instanceBuilder.enable_extension(extensions[i]);
+        } else {
+            throw std::runtime_error("Instance extension required by GLFW not available {}!");
+        }
     }
 
-    return extensions;
-}
+    auto instanceRet = instanceBuilder.build();
+    if (!instanceRet) {
+        throw std::runtime_error("Failed to create vulkan instance!");
+    }
 
-void Application::SetupDebugMessenger() {
-    if (!enableValidationLayers)
-        return;
-
-    VkDebugUtilsMessengerCreateInfoEXT createInfo;
-    PopulateDebugMessengerCreateInfo(createInfo);
-
-    VK_CHECK(CreateDebugUtilsMessengerEXT(m_Instance, &createInfo, nullptr, &m_DebugMessenger),
-             "Failed to set up debug messenger!");
+    m_Instance = instanceRet.value();
 }
 
 VkSurfaceKHR Application::CreateSurface() const {
@@ -316,18 +221,17 @@ VkSurfaceKHR Application::CreateSurface() const {
 }
 
 void Application::CreateBindlessTexturesArray() {
-
     const uint32_t maxBindlessArrayTextureSize = 1000;
     std::vector<VkDescriptorPoolSize> poolSizes = {
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
     };
 
     VkDescriptorPoolCreateInfo poolInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-            .maxSets = 1000,
-            .poolSizeCount = (uint32_t) poolSizes.size(),
-            .pPoolSizes = poolSizes.data(),
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        .maxSets = 1000,
+        .poolSizeCount = (uint32_t) poolSizes.size(),
+        .pPoolSizes = poolSizes.data(),
     };
 
     VkDescriptorPool pool;
@@ -379,11 +283,11 @@ void Application::CreateBindlessTexturesArray() {
 
     for (auto &tex: m_Scene.m_Textures) {
         m_TextureDescriptors.push_back(
-                {
-                        .sampler = m_Scene.m_Images[tex.imageIndex]->GetSampler(),
-                        .imageView = m_Scene.m_Images[tex.imageIndex]->GetImage()->GetImageView(),
-                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                });
+            {
+                .sampler = m_Scene.m_Images[tex.imageIndex]->GetSampler(),
+                .imageView = m_Scene.m_Images[tex.imageIndex]->GetImage()->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            });
     }
 
     VkWriteDescriptorSet write{};
@@ -399,9 +303,8 @@ void Application::CreateBindlessTexturesArray() {
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-
     VkCommandBufferBeginInfo beginInfo{
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("Failed to begin recording command buffer!");
@@ -409,20 +312,20 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo shadowRenderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, shadowSize, shadowSize},
-            .layerCount = 1,
-            .colorAttachmentCount = 0,
-            .pDepthAttachment = &shadowDepthAttachment,
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea = {0, 0, shadowSize, shadowSize},
+        .layerCount = 1,
+        .colorAttachmentCount = 0,
+        .pDepthAttachment = &shadowDepthAttachment,
     };
 
     m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
@@ -430,26 +333,26 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
     VkViewport shadowViewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) shadowSize,
-            .height = (float) shadowSize,
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float) shadowSize,
+        .height = (float) shadowSize,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
     };
     vkCmdSetViewport(commandBuffer, 0, 1, &shadowViewport);
 
     VkRect2D shadowScissor{
-            .offset = {0, 0},
-            .extent = VkExtent2D(shadowSize, shadowSize),
+        .offset = {0, 0},
+        .extent = VkExtent2D(shadowSize, shadowSize),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
 
     vkCmdSetDepthBias(
-            commandBuffer,
-            shadowDepthBias,
-            0.0f,
-            shadowDepthSlope);
+        commandBuffer,
+        shadowDepthBias,
+        0.0f,
+        shadowDepthSlope);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
     // Bind camera matrices
@@ -460,9 +363,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdEndRendering(commandBuffer);
 
     VkDescriptorImageInfo imageInfo{
-            .sampler = m_ShadowDepthTexture->GetSampler(),
-            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .sampler = m_ShadowDepthTexture->GetSampler(),
+        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     VkWriteDescriptorSet write{};
@@ -478,34 +381,34 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     // Main scene render
     VkRenderingAttachmentInfo colorAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_Swapchain->GetImageView(imageIndex),
-            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
-            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = m_Swapchain->GetImageView(imageIndex),
+        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+        .resolveMode = VK_RESOLVE_MODE_NONE,
+        .resolveImageView = m_Swapchain->GetImageView(imageIndex),
+        .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
     VkRenderingAttachmentInfo depthAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_DepthImage->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = m_DepthImage->GetImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo renderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment,
-            .pDepthAttachment = &depthAttachment,
-//            .pStencilAttachment = &depthAttachment,
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment,
+        .pDepthAttachment = &depthAttachment,
+        //            .pStencilAttachment = &depthAttachment,
     };
 
     m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
@@ -514,18 +417,18 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     VkViewport viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) m_Swapchain->GetWidth(),
-            .height = (float) m_Swapchain->GetHeight(),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float) m_Swapchain->GetWidth(),
+        .height = (float) m_Swapchain->GetHeight(),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
     };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{
-            .offset = {0, 0},
-            .extent = m_Swapchain->GetExtent(),
+        .offset = {0, 0},
+        .extent = m_Swapchain->GetExtent(),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
@@ -579,7 +482,7 @@ void Application::DrawFrame() {
     RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     };
 
     VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[m_CurrentFrame]};
@@ -632,8 +535,8 @@ void Application::CreateUniformBuffers() {
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-//    auto currentTime = std::chrono::high_resolution_clock::now();
-//    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    //    auto currentTime = std::chrono::high_resolution_clock::now();
+    //    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
     ubo.view = m_Camera.GetViewMatrix();
@@ -655,10 +558,10 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 void Application::CreateDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayouts()[0]);
     VkDescriptorSetAllocateInfo allocInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
-            .pSetLayouts = layouts.data(),
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_Device->GetDescriptorPool(),
+        .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
+        .pSetLayouts = layouts.data(),
     };
 
     m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
@@ -667,9 +570,9 @@ void Application::CreateDescriptorSets() {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{
-                .buffer = m_UniformBuffers[i]->GetBuffer(),
-                .offset = 0,
-                .range = sizeof(UniformBufferObject),
+            .buffer = m_UniformBuffers[i]->GetBuffer(),
+            .offset = 0,
+            .range = sizeof(UniformBufferObject),
         };
 
         std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -687,18 +590,18 @@ void Application::CreateDescriptorSets() {
 
     VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[1];
     VkDescriptorSetAllocateInfo allocskyboxInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = (uint32_t) 1,
-            .pSetLayouts = &skyboxLayouts,
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_Device->GetDescriptorPool(),
+        .descriptorSetCount = (uint32_t) 1,
+        .pSetLayouts = &skyboxLayouts,
     };
     VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocskyboxInfo, &m_SkyboxDescriptorSet),
              "Failed to allocate descriptor sets!");
 
     VkDescriptorImageInfo imageInfo{
-            .sampler = m_CubemapTexture->GetSampler(),
-            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .sampler = m_CubemapTexture->GetSampler(),
+        .imageView = m_CubemapTexture->GetImage()->GetImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     std::array<VkWriteDescriptorSet, 1> skyboxDescriptorWrites{};
@@ -715,19 +618,19 @@ void Application::CreateDescriptorSets() {
 
     VkDescriptorSetLayout shadowMapLayouts = m_ShadowMapPipeline->GetDescriptorSetLayouts()[0];
     VkDescriptorSetAllocateInfo allocShadowmapInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = (uint32_t) 1,
-            .pSetLayouts = &shadowMapLayouts,
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_Device->GetDescriptorPool(),
+        .descriptorSetCount = (uint32_t) 1,
+        .pSetLayouts = &shadowMapLayouts,
     };
     VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocShadowmapInfo, &m_LightDescriptorSet),
              "Failed to allocate descriptor sets!");
 
 
     VkDescriptorBufferInfo bufferInfo{
-            .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
-            .offset = 0,
-            .range = sizeof(DirectionalLightUBO),
+        .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
+        .offset = 0,
+        .range = sizeof(DirectionalLightUBO),
     };
 
     std::array<VkWriteDescriptorSet, 1> shadowMapDescriptorWrites{};
@@ -744,28 +647,28 @@ void Application::CreateDescriptorSets() {
 }
 
 void Application::CreateDepthResources() {
-//    VkFormat depthFormat = m_Device->FindDepthFormat();
+    //    VkFormat depthFormat = m_Device->FindDepthFormat();
     ImageSpecification imageSpecification{
-            .format = ImageFormat::D32,
-            .usage = ImageUsage::Attachment,
-            .width = m_Swapchain->GetWidth(),
-            .height = m_Swapchain->GetHeight(),
-            .mipLevels = 1,
-            .layers = 1,
+        .format = ImageFormat::D32,
+        .usage = ImageUsage::Attachment,
+        .width = m_Swapchain->GetWidth(),
+        .height = m_Swapchain->GetHeight(),
+        .mipLevels = 1,
+        .layers = 1,
     };
     m_DepthImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }
 
 void Application::CreateColorResources() {
-//    VkFormat colorFormat = m_Swapchain->GetImageFormat();
+    //    VkFormat colorFormat = m_Swapchain->GetImageFormat();
 
     ImageSpecification imageSpecification{
-            .format = ImageFormat::R8G8B8A8_SRGB,
-            .usage = ImageUsage::Attachment,
-            .width = m_Swapchain->GetWidth(),
-            .height = m_Swapchain->GetHeight(),
-            .mipLevels = 1,
-            .layers = 1,
+        .format = ImageFormat::R8G8B8A8_SRGB,
+        .usage = ImageUsage::Attachment,
+        .width = m_Swapchain->GetWidth(),
+        .height = m_Swapchain->GetHeight(),
+        .mipLevels = 1,
+        .layers = 1,
     };
     m_ColorImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }

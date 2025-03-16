@@ -18,6 +18,8 @@ find_package(unofficial-spirv-reflect CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(draco CONFIG REQUIRED)
 
+add_subdirectory(external/vk-bootstrap)
+
 file(GLOB_RECURSE SourceFiles "src/*.cpp")
 add_executable(renderer ${SourceFiles})
 target_precompile_headers(${PROJECT_NAME} PUBLIC src/pch.h)
@@ -30,6 +32,7 @@ target_link_libraries(${PROJECT_NAME}
         imgui::imgui
         GPUOpen::VulkanMemoryAllocator
         draco::draco
+        vk-bootstrap::vk-bootstrap
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
