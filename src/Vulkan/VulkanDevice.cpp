@@ -31,46 +31,40 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
         .samplerAnisotropy = VK_TRUE,
     };
 
-    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeature{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
-        .dynamicRendering = VK_TRUE,
+    VkPhysicalDeviceVulkan12Features vulkan12Features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+
+        // Descriptor Indexing
+        .descriptorIndexing = VK_TRUE,
+        .shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
+        .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingUpdateUnusedWhilePending = VK_TRUE,
+        .descriptorBindingPartiallyBound = VK_TRUE,
+        .runtimeDescriptorArray = VK_TRUE,
+
+        // Buffer Device Address
+        .bufferDeviceAddress = VK_TRUE,
     };
 
-    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
-    descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    // Enable non sized arrays
-    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
-    // Enable non bound descriptors slots
-    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
-    // Enable non uniform array indexing
-    // (#extension GL_EXT_nonuniform_qualifier : require)
-    descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    // descriptorIndexingFeatures.pNext = &dynamicRenderingFeature;
+    VkPhysicalDeviceVulkan13Features vulkan13Features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
 
-    descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    descriptorIndexingFeatures.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
-    descriptorIndexingFeatures.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
-    descriptorIndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-    descriptorIndexingFeatures.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
-    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
-
-    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-        .bufferDeviceAddress = VK_TRUE
+        // Dynamic Rendering
+        .dynamicRendering = VK_TRUE
     };
 
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn = physicalDeviceSelector
             .set_surface(m_Surface)
             .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-            .add_required_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)
             .set_required_features(deviceFeatures)
+            .set_required_features_12(vulkan12Features)
+            .set_required_features_13(vulkan13Features)
             .require_present()
-            .add_required_extension_features(dynamicRenderingFeature)
-            .add_required_extension_features(descriptorIndexingFeatures)
-            .add_required_extension_features(bufferDeviceAddressFeatures)
             .select();
     if (!physicalDeviceSelectorReturn) {
         throw std::runtime_error("Failed to find a suitable GPU!");
