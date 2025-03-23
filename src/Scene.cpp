@@ -1,5 +1,8 @@
-#include "pch.h"
 #include "Scene.h"
+
+#include <Application.h>
+
+#include "pch.h"
 
 Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath) : m_Device(device) {
     tinygltf::TinyGLTF gltfContext;
@@ -14,8 +17,8 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
     }
 
     if (!fileLoaded) {
-        throw std::runtime_error(
-                "Could not open " + scenePath.string() + " scene file. Exiting... \n" + warning + error);
+        throw std::runtime_error("Could not open " + scenePath.string() + " scene file. Exiting... \n" + warning +
+                                 error);
     }
 
     m_ResourcePath = scenePath.parent_path();
@@ -43,12 +46,12 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
 
     VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
                                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                               VMA_ALLOCATION_CREATE_MAPPED_BIT);
+                                       VMA_ALLOCATION_CREATE_MAPPED_BIT);
     stagingBuffer.From(vertices.data(), (size_t) bufferSize);
 
-    m_VertexBuffer = VulkanBuffer(m_Device, bufferSize,
-                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                  VMA_MEMORY_USAGE_AUTO);
+    m_VertexBuffer =
+            VulkanBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                         VMA_MEMORY_USAGE_AUTO);
     m_VertexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -58,12 +61,12 @@ void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
 
     VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
                                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                               VMA_ALLOCATION_CREATE_MAPPED_BIT);
+                                       VMA_ALLOCATION_CREATE_MAPPED_BIT);
     stagingBuffer.From(indices.data(), (size_t) bufferSize);
 
-    m_IndexBuffer = VulkanBuffer(m_Device, bufferSize,
-                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                 VMA_MEMORY_USAGE_AUTO);
+    m_IndexBuffer =
+            VulkanBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                         VMA_MEMORY_USAGE_AUTO);
     m_IndexBuffer.FromBuffer(stagingBuffer);
     stagingBuffer.Destroy();
 }
@@ -75,7 +78,9 @@ void Scene::LoadImages(tinygltf::Model &input) {
 
         // Load from disk
         if (!glTFImage.uri.empty()) {
-            TextureSpecification spec{.width = static_cast<uint32_t>(glTFImage.width), .height = static_cast<uint32_t>(glTFImage.height), .generateMipMaps = true};
+            TextureSpecification spec{.width = static_cast<uint32_t>(glTFImage.width),
+                                      .height = static_cast<uint32_t>(glTFImage.height),
+                                      .generateMipMaps = true};
             m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, m_ResourcePath / glTFImage.uri);
         } else { // https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfloading/gltfloading.cpp
             unsigned char *buffer;
@@ -178,8 +183,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
 
         tinygltf::Material glTFMaterial = input.materials[i];
         if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
-            material.baseColorFactor = glm::make_vec4(
-                    glTFMaterial.values["baseColorFactor"].ColorFactor().data());
+            material.baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
         }
 
         if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
@@ -234,10 +238,14 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
         m_Materials[i].ubo = material;
 
         std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
-//                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-//                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-//                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-//                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                //                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                //                nullptr},
+                //                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                //                nullptr},
+                //                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                //                nullptr},
+                //                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                //                nullptr},
                 {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
         };
 
@@ -385,47 +393,46 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
 
                 // Get buffer data for vertex positions
                 if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "POSITION")->second];
+                    const tinygltf::Accessor &accessor =
+                            input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    positionBuffer = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
+                    positionBuffer = reinterpret_cast<const float *>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                     vertexCount = accessor.count;
                 }
                 // Get buffer data for vertex normals
                 if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "NORMAL")->second];
+                    const tinygltf::Accessor &accessor =
+                            input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    normalsBuffer = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
+                    normalsBuffer = reinterpret_cast<const float *>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 }
                 // Get buffer data for vertex texture coordinates
                 // glTF supports multiple sets, we only load the first one
                 if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "TEXCOORD_0")->second];
+                    const tinygltf::Accessor &accessor =
+                            input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    texCoordsBuffer0 = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
+                    texCoordsBuffer0 = reinterpret_cast<const float *>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 }
 
                 if (glTFPrimitive.attributes.find("TEXCOORD_1") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "TEXCOORD_1")->second];
+                    const tinygltf::Accessor &accessor =
+                            input.accessors[glTFPrimitive.attributes.find("TEXCOORD_1")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    texCoordsBuffer1 = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
+                    texCoordsBuffer1 = reinterpret_cast<const float *>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 }
 
                 // Vertex colors
                 if (glTFPrimitive.attributes.find("COLOR_0") != glTFPrimitive.attributes.end()) {
-                    const tinygltf::Accessor &accessor = input.accessors[glTFPrimitive.attributes.find(
-                            "COLOR_0")->second];
+                    const tinygltf::Accessor &accessor =
+                            input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
-                    colorBuffer = reinterpret_cast<const float *>(&(input.buffers[view.buffer].data[
-                            accessor.byteOffset + view.byteOffset]));
-
+                    colorBuffer = reinterpret_cast<const float *>(
+                            &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 }
 
                 // Append data to model's vertex buffer
@@ -452,24 +459,24 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                 // glTF supports different component types of indices
                 switch (accessor.componentType) {
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-                        const auto *buf = reinterpret_cast<const uint32_t *>(&buffer.data[accessor.byteOffset +
-                                                                                          bufferView.byteOffset]);
+                        const auto *buf = reinterpret_cast<const uint32_t *>(
+                                &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++) {
                             indexBuffer.push_back(buf[index] + vertexStart);
                         }
                         break;
                     }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-                        const auto *buf = reinterpret_cast<const uint16_t *>(&buffer.data[accessor.byteOffset +
-                                                                                          bufferView.byteOffset]);
+                        const auto *buf = reinterpret_cast<const uint16_t *>(
+                                &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++) {
                             indexBuffer.push_back(buf[index] + vertexStart);
                         }
                         break;
                     }
                     case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-                        const auto *buf = reinterpret_cast<const uint8_t *>(&buffer.data[accessor.byteOffset +
-                                                                                         bufferView.byteOffset]);
+                        const auto *buf = reinterpret_cast<const uint8_t *>(
+                                &buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++) {
                             indexBuffer.push_back(buf[index] + vertexStart);
                         }
@@ -511,7 +518,7 @@ void Scene::Destroy() {
         material.info.Destroy();
     }
 
-//    m_DefaultImage.texture.Destroy();
+    //    m_DefaultImage.texture.Destroy();
     for (auto &image: m_Images) {
         image->Destroy();
     }
@@ -535,9 +542,8 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
     }
 }
 
-void
-Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
-                bool isSkybox, bool isShadowMap) {
+void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
+                     bool isSkybox, bool isShadowMap) {
     if (!node->mesh.primitives.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -548,10 +554,25 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
             nodeMatrix = currentParent->matrix * nodeMatrix;
             currentParent = currentParent->parent;
         }
+        // TODO Cleanup
         // Pass the final matrix to the vertex shader using push constants
-        if (!isSkybox)
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                               &nodeMatrix);
+        if (!isSkybox) {
+            if (isShadowMap) {
+
+                struct shadowPushConstants {
+                    glm::mat4 model;
+                    uint64_t lightUBOaddress;
+                };
+
+                const auto pushConstants = shadowPushConstants{nodeMatrix, Application::shadowBufferAddress};
+                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(shadowPushConstants),
+                   &pushConstants);
+
+            } else {
+                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                                   &nodeMatrix);
+            }
+        }
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
                 // Get the texture index for this primitive
@@ -572,10 +593,9 @@ Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, 
             }
         }
     }
-    for (auto &child: node->children) {
+    for (const auto &child: node->children) {
         DrawNode(commandBuffer, pipelineLayout, child, alphaMode, isSkybox, isShadowMap);
     }
-
 }
 
 void Scene::CreateLights() {
@@ -586,9 +606,8 @@ void Scene::CreateLights() {
     sceneInfo.lightPos[0] = glm::vec3(-11.0f, 0.1f, -0.3f);
     sceneInfo.lightPos[1] = glm::vec3(-6.5f, 1.0f, -1.5f);
     sceneInfo.shadowMapTextureIndex = 800; // TODO: Change
-    sceneInfo.lightView = glm::lookAt(sceneInfo.lightDir * 15.0f,
-                                      glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec3(0.0f, -1.0f, 0.0f));
+    sceneInfo.lightView =
+            glm::lookAt(sceneInfo.lightDir * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
     sceneInfo.lightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
     VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
@@ -618,8 +637,8 @@ void Scene::CreateLights() {
              "Failed to allocate descriptor sets");
 
 
-    m_SceneInfo = VulkanBuffer(m_Device, sizeof(SceneInfo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                               VMA_MEMORY_USAGE_CPU_ONLY);
+    m_SceneInfo =
+            VulkanBuffer(m_Device, sizeof(SceneInfo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
     m_SceneInfo.Map();
     m_SceneInfo.From(&sceneInfo, sizeof(sceneInfo));
 
@@ -641,4 +660,3 @@ void Scene::CreateLights() {
 
     vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
-

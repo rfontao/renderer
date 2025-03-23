@@ -521,6 +521,9 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             VkPushConstantRange pushConstant;
             pushConstant.offset = pushConstantBlock->offset;
             pushConstant.size = pushConstantBlock->size;
+            if (pipelineSpecification.depthBiasEnable) {
+                pushConstant.size = 80;
+            }
             pushConstant.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
             pushConstantRanges.push_back(pushConstant);
         }

@@ -27,51 +27,49 @@ void Application::InitVulkan() {
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
     VulkanPipeline::PipelineSpecification graphicsSpec{
-        .vertShaderPath = "shaders/pbr.vert.spv",
-        .fragShaderPath = "shaders/pbr_bindless.frag.spv",
+            .vertShaderPath = "shaders/pbr.vert.spv",
+            .fragShaderPath = "shaders/pbr_bindless.frag.spv",
     };
     m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, graphicsSpec);
 
     VulkanPipeline::PipelineSpecification skyboxSpec{
-        .vertShaderPath = "shaders/skybox.vert.spv",
-        .fragShaderPath = "shaders/skybox.frag.spv",
-        .cullingMode = VulkanPipeline::CullingMode::FRONT,
-        .blendEnable = false,
-        .enableDepthTesting = false,
+            .vertShaderPath = "shaders/skybox.vert.spv",
+            .fragShaderPath = "shaders/skybox.frag.spv",
+            .cullingMode = VulkanPipeline::CullingMode::FRONT,
+            .blendEnable = false,
+            .enableDepthTesting = false,
     };
     m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, skyboxSpec);
 
     VulkanPipeline::PipelineSpecification shadowMapSpec{
-        .vertShaderPath = "shaders/shadowmap.vert.spv",
-        .fragShaderPath = "shaders/shadowmap.frag.spv",
-        .cullingMode = VulkanPipeline::CullingMode::NONE,
-        .depthBiasEnable = true,
+            .vertShaderPath = "shaders/shadowmap.vert.spv",
+            .fragShaderPath = "shaders/shadowmap.frag.spv",
+            .cullingMode = VulkanPipeline::CullingMode::NONE,
+            .depthBiasEnable = true,
     };
     m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[26]);
 
-    // Taken from https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
+    // Taken from
+    // https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
     m_Skybox = Scene(m_Device, "models/cube.gltf");
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
     std::vector<std::filesystem::path> cubemapPaths = {
-        "textures/cubemaps/vindelalven/posx.jpg",
-        "textures/cubemaps/vindelalven/negx.jpg",
-        "textures/cubemaps/vindelalven/posy.jpg",
-        "textures/cubemaps/vindelalven/negy.jpg",
-        "textures/cubemaps/vindelalven/posz.jpg",
-        "textures/cubemaps/vindelalven/negz.jpg",
+            "textures/cubemaps/vindelalven/posx.jpg", "textures/cubemaps/vindelalven/negx.jpg",
+            "textures/cubemaps/vindelalven/posy.jpg", "textures/cubemaps/vindelalven/negy.jpg",
+            "textures/cubemaps/vindelalven/posz.jpg", "textures/cubemaps/vindelalven/negz.jpg",
     };
 
     TextureSpecification cubemapTextureSpec{};
     m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
     TextureSpecification shadowmapTextureSpec{
-        .format = ImageFormat::D16,
-        .width = shadowSize,
-        .height = shadowSize,
+            .format = ImageFormat::D16,
+            .width = shadowSize,
+            .height = shadowSize,
     };
     m_ShadowDepthTexture = std::make_shared<Texture2D>(m_Device, shadowmapTextureSpec);
 
@@ -81,6 +79,8 @@ void Application::InitVulkan() {
     CreateUniformBuffers();
     CreateDescriptorSets();
     CreateBindlessTexturesArray();
+
+    stagingManager.InitializeStagingBuffers(m_Device);
 }
 
 void Application::MainLoop() {
@@ -113,6 +113,8 @@ void Application::Cleanup() {
     m_ShadowMapPipeline->Destroy();
     m_Scene.Destroy();
     m_Skybox.Destroy();
+
+    stagingManager.Destroy();
 
     vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
     m_Device->Destroy();
@@ -149,19 +151,15 @@ void Application::InitWindow() {
         }
     });
 
-    glfwSetCursorPosCallback(m_Window,
-                             [](GLFWwindow *w, double xPosIn, double yPosIn) {
-                                 auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-                                 app->GetCamera().HandleMouseMovement(xPosIn, yPosIn);
-                             }
-    );
+    glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, double xPosIn, double yPosIn) {
+        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+        app->GetCamera().HandleMouseMovement(xPosIn, yPosIn);
+    });
 
-    glfwSetScrollCallback(m_Window,
-                          [](GLFWwindow *w, double xScroll, double yScroll) {
-                              auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-                              app->GetCamera().HandleMouseScroll(yScroll);
-                          }
-    );
+    glfwSetScrollCallback(m_Window, [](GLFWwindow *w, double xScroll, double yScroll) {
+        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+        app->GetCamera().HandleMouseScroll(yScroll);
+    });
 }
 
 void Application::HandleKeys() {
@@ -176,7 +174,6 @@ void Application::HandleKeys() {
 }
 
 void Application::CreateInstance() {
-
     auto systemInfoRet = vkb::SystemInfo::get_system_info();
     if (!systemInfoRet) {
         throw std::runtime_error("Failed to get system info!");
@@ -184,14 +181,11 @@ void Application::CreateInstance() {
     auto systemInfo = systemInfoRet.value();
 
     vkb::InstanceBuilder instanceBuilder;
-    instanceBuilder.set_app_name("Experimental Renderer")
-            .set_engine_name("None")
-            .require_api_version(1, 3, 0);
+    instanceBuilder.set_app_name("Experimental Renderer").set_engine_name("None").require_api_version(1, 3, 0);
 
     // of course dedicated variable for validation
     if (enableValidationLayers && systemInfo.validation_layers_available) {
-        instanceBuilder.enable_validation_layers()
-                .use_default_debug_messenger();
+        instanceBuilder.enable_validation_layers().use_default_debug_messenger();
     }
 
     uint32_t glfwExtensionCount = 0;
@@ -223,15 +217,15 @@ VkSurfaceKHR Application::CreateSurface() const {
 void Application::CreateBindlessTexturesArray() {
     constexpr uint32_t maxBindlessArrayTextureSize = 1000;
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxBindlessArrayTextureSize},
     };
 
     VkDescriptorPoolCreateInfo poolInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        .maxSets = 1000,
-        .poolSizeCount = (uint32_t) poolSizes.size(),
-        .pPoolSizes = poolSizes.data(),
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+            .maxSets = 1000,
+            .poolSizeCount = (uint32_t) poolSizes.size(),
+            .pPoolSizes = poolSizes.data(),
     };
 
     VkDescriptorPool pool;
@@ -245,11 +239,11 @@ void Application::CreateBindlessTexturesArray() {
     bindingLayoutInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     bindingLayoutInfo.pImmutableSamplers = nullptr;
 
-    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-                                            VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    VkDescriptorBindingFlags bindingFlags =
+            VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extendedInfo{};
     extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-            extendedInfo.pNext = nullptr;
+    extendedInfo.pNext = nullptr;
     extendedInfo.bindingCount = 1;
     extendedInfo.pBindingFlags = &bindingFlags;
 
@@ -282,12 +276,11 @@ void Application::CreateBindlessTexturesArray() {
              "Failed to allocate bindless textures array descriptor set");
 
     for (auto &tex: m_Scene.m_Textures) {
-        m_TextureDescriptors.push_back(
-            {
+        m_TextureDescriptors.push_back({
                 .sampler = m_Scene.m_Images[tex.imageIndex]->GetSampler(),
                 .imageView = m_Scene.m_Images[tex.imageIndex]->GetImage()->GetImageView(),
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            });
+        });
     }
 
     VkWriteDescriptorSet write{};
@@ -304,28 +297,38 @@ void Application::CreateBindlessTexturesArray() {
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("Failed to begin recording command buffer!");
     }
 
+    for (const auto &copy: stagingManager.queuedBufferCopies) {
+        VkBufferCopy copyInfo{
+                .srcOffset = copy.offset,
+                .dstOffset = 0,
+                .size = copy.size,
+        };
+        vkCmdCopyBuffer(commandBuffer, stagingManager.stagingBuffers[stagingManager.currentFrame].buffer->GetBuffer(),
+                        copy.destination, 1, &copyInfo);
+    }
+
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo shadowRenderInfo{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea = {0, 0, shadowSize, shadowSize},
-        .layerCount = 1,
-        .colorAttachmentCount = 0,
-        .pDepthAttachment = &shadowDepthAttachment,
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, shadowSize, shadowSize},
+            .layerCount = 1,
+            .colorAttachmentCount = 0,
+            .pDepthAttachment = &shadowDepthAttachment,
     };
 
     m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
@@ -333,39 +336,35 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
     VkViewport shadowViewport{
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (float) shadowSize,
-        .height = (float) shadowSize,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float) shadowSize,
+            .height = (float) shadowSize,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
     };
     vkCmdSetViewport(commandBuffer, 0, 1, &shadowViewport);
 
     VkRect2D shadowScissor{
-        .offset = {0, 0},
-        .extent = VkExtent2D(shadowSize, shadowSize),
+            .offset = {0, 0},
+            .extent = VkExtent2D(shadowSize, shadowSize),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
 
-    vkCmdSetDepthBias(
-        commandBuffer,
-        shadowDepthBias,
-        0.0f,
-        shadowDepthSlope);
+    vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
     // Bind camera matrices
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetLayout(), 0, 1,
-                            &m_LightDescriptorSet, 0, nullptr);
+    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetLayout(), 0, 1,
+    //                         &m_LightDescriptorSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_ShadowMapPipeline->GetLayout(), false, true);
 
     vkCmdEndRendering(commandBuffer);
 
     VkDescriptorImageInfo imageInfo{
-        .sampler = m_ShadowDepthTexture->GetSampler(),
-        .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .sampler = m_ShadowDepthTexture->GetSampler(),
+            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     VkWriteDescriptorSet write{};
@@ -381,59 +380,60 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     // Main scene render
     VkRenderingAttachmentInfo colorAttachment{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = m_Swapchain->GetImageView(imageIndex),
-        .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        .resolveMode = VK_RESOLVE_MODE_NONE,
-        .resolveImageView = m_Swapchain->GetImageView(imageIndex),
-        .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_Swapchain->GetImageView(imageIndex),
+            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
+            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
+            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
     VkRenderingAttachmentInfo depthAttachment{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = m_DepthImage->GetImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_DepthImage->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo renderInfo{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment,
-        .pDepthAttachment = &depthAttachment,
-        //            .pStencilAttachment = &depthAttachment,
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachment,
+            .pDepthAttachment = &depthAttachment,
+            //            .pStencilAttachment = &depthAttachment,
     };
 
-    m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
-                                                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    m_Swapchain->GetImage(imageIndex)
+            ->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     m_DepthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     VkViewport viewport{
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (float) m_Swapchain->GetWidth(),
-        .height = (float) m_Swapchain->GetHeight(),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float) m_Swapchain->GetWidth(),
+            .height = (float) m_Swapchain->GetHeight(),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
     };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{
-        .offset = {0, 0},
-        .extent = m_Swapchain->GetExtent(),
+            .offset = {0, 0},
+            .extent = m_Swapchain->GetExtent(),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
-    // TODO: Investigate why this is needed: should be retained from previous pipeline -> probably push constant mismatch
+    // TODO: Investigate why this is needed: should be retained from previous pipeline -> probably push constant
+    // mismatch
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
                             &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 1, 1,
@@ -455,13 +455,15 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
-    m_Swapchain->GetImage(imageIndex)->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    m_Swapchain->GetImage(imageIndex)
+            ->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
 }
 
 void Application::DrawFrame() {
+    stagingManager.NextFrame();
+
     vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
@@ -482,7 +484,7 @@ void Application::DrawFrame() {
     RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     };
 
     VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[m_CurrentFrame]};
@@ -526,10 +528,20 @@ void Application::CreateUniformBuffers() {
 
     VkDeviceSize shadowMapBufferSize = sizeof(DirectionalLightUBO);
 
-    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(m_Device, shadowMapBufferSize,
-                                                          VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                          VMA_MEMORY_USAGE_CPU_ONLY);
-    m_ShadowMapUBOBuffer->Map();
+    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(
+            m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO);
+
+    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
+    };
+
+    shadowBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &bufferDeviceAddressInfo);
+
+    // m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(
+    //         m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+    // m_ShadowMapUBOBuffer->Map();
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
@@ -546,22 +558,23 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 
     DirectionalLightUBO lightUBO{};
-    lightUBO.view = glm::lookAt(glm::vec3(1.5f, 15.0f, 3.75f),
-                                glm::vec3(0.0f, 0.0f, 0.0f),
-                                glm::vec3(0.0f, -1.0f, 0.0f));
+    lightUBO.view =
+            glm::lookAt(glm::vec3(1.5f, 15.0f, 3.75f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
     lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
 
-    m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
+    // m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
+
+    stagingManager.AddCopy(&lightUBO, m_ShadowMapUBOBuffer->GetBuffer(), sizeof(lightUBO));
 }
 
 
 void Application::CreateDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayouts()[0]);
     VkDescriptorSetAllocateInfo allocInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = m_Device->GetDescriptorPool(),
-        .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
-        .pSetLayouts = layouts.data(),
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
+            .pSetLayouts = layouts.data(),
     };
 
     m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
@@ -570,9 +583,9 @@ void Application::CreateDescriptorSets() {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{
-            .buffer = m_UniformBuffers[i]->GetBuffer(),
-            .offset = 0,
-            .range = sizeof(UniformBufferObject),
+                .buffer = m_UniformBuffers[i]->GetBuffer(),
+                .offset = 0,
+                .range = sizeof(UniformBufferObject),
         };
 
         std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -590,18 +603,18 @@ void Application::CreateDescriptorSets() {
 
     VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[1];
     VkDescriptorSetAllocateInfo allocskyboxInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = m_Device->GetDescriptorPool(),
-        .descriptorSetCount = (uint32_t) 1,
-        .pSetLayouts = &skyboxLayouts,
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = m_Device->GetDescriptorPool(),
+            .descriptorSetCount = 1,
+            .pSetLayouts = &skyboxLayouts,
     };
     VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocskyboxInfo, &m_SkyboxDescriptorSet),
              "Failed to allocate descriptor sets!");
 
     VkDescriptorImageInfo imageInfo{
-        .sampler = m_CubemapTexture->GetSampler(),
-        .imageView = m_CubemapTexture->GetImage()->GetImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .sampler = m_CubemapTexture->GetSampler(),
+            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     std::array<VkWriteDescriptorSet, 1> skyboxDescriptorWrites{};
@@ -613,59 +626,59 @@ void Application::CreateDescriptorSets() {
     skyboxDescriptorWrites[0].descriptorCount = 1;
     skyboxDescriptorWrites[0].pImageInfo = &imageInfo;
 
-    vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) skyboxDescriptorWrites.size(),
-                           skyboxDescriptorWrites.data(), 0, nullptr);
+    vkUpdateDescriptorSets(m_Device->GetDevice(), skyboxDescriptorWrites.size(), skyboxDescriptorWrites.data(), 0,
+                           nullptr);
 
-    VkDescriptorSetLayout shadowMapLayouts = m_ShadowMapPipeline->GetDescriptorSetLayouts()[0];
-    VkDescriptorSetAllocateInfo allocShadowmapInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = m_Device->GetDescriptorPool(),
-        .descriptorSetCount = (uint32_t) 1,
-        .pSetLayouts = &shadowMapLayouts,
-    };
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocShadowmapInfo, &m_LightDescriptorSet),
-             "Failed to allocate descriptor sets!");
+    // VkDescriptorSetLayout shadowMapLayouts = m_ShadowMapPipeline->GetDescriptorSetLayouts()[0];
+    // VkDescriptorSetAllocateInfo allocShadowmapInfo{
+    //         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    //         .descriptorPool = m_Device->GetDescriptorPool(),
+    //         .descriptorSetCount = (uint32_t) 1,
+    //         .pSetLayouts = &shadowMapLayouts,
+    // };
+    // VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocShadowmapInfo, &m_LightDescriptorSet),
+    //          "Failed to allocate descriptor sets!");
 
 
-    VkDescriptorBufferInfo bufferInfo{
-        .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
-        .offset = 0,
-        .range = sizeof(DirectionalLightUBO),
-    };
-
-    std::array<VkWriteDescriptorSet, 1> shadowMapDescriptorWrites{};
-    shadowMapDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    shadowMapDescriptorWrites[0].dstSet = m_LightDescriptorSet;
-    shadowMapDescriptorWrites[0].dstBinding = 0;
-    shadowMapDescriptorWrites[0].dstArrayElement = 0;
-    shadowMapDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    shadowMapDescriptorWrites[0].descriptorCount = 1;
-    shadowMapDescriptorWrites[0].pBufferInfo = &bufferInfo;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), shadowMapDescriptorWrites.size(),
-                           shadowMapDescriptorWrites.data(), 0, nullptr);
+    // VkDescriptorBufferInfo bufferInfo{
+    //         .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
+    //         .offset = 0,
+    //         .range = sizeof(DirectionalLightUBO),
+    // };
+    //
+    // std::array<VkWriteDescriptorSet, 1> shadowMapDescriptorWrites{};
+    // shadowMapDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    // shadowMapDescriptorWrites[0].dstSet = m_LightDescriptorSet;
+    // shadowMapDescriptorWrites[0].dstBinding = 0;
+    // shadowMapDescriptorWrites[0].dstArrayElement = 0;
+    // shadowMapDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    // shadowMapDescriptorWrites[0].descriptorCount = 1;
+    // shadowMapDescriptorWrites[0].pBufferInfo = &bufferInfo;
+    //
+    // vkUpdateDescriptorSets(m_Device->GetDevice(), shadowMapDescriptorWrites.size(), shadowMapDescriptorWrites.data(), 0,
+    //                        nullptr);
 }
 
 void Application::CreateDepthResources() {
     ImageSpecification imageSpecification{
-        .format = ImageFormat::D32,
-        .usage = ImageUsage::Attachment,
-        .width = m_Swapchain->GetWidth(),
-        .height = m_Swapchain->GetHeight(),
-        .mipLevels = 1,
-        .layers = 1,
+            .format = ImageFormat::D32,
+            .usage = ImageUsage::Attachment,
+            .width = m_Swapchain->GetWidth(),
+            .height = m_Swapchain->GetHeight(),
+            .mipLevels = 1,
+            .layers = 1,
     };
     m_DepthImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }
 
 void Application::CreateColorResources() {
     ImageSpecification imageSpecification{
-        .format = ImageFormat::R8G8B8A8_SRGB,
-        .usage = ImageUsage::Attachment,
-        .width = m_Swapchain->GetWidth(),
-        .height = m_Swapchain->GetHeight(),
-        .mipLevels = 1,
-        .layers = 1,
+            .format = ImageFormat::R8G8B8A8_SRGB,
+            .usage = ImageUsage::Attachment,
+            .width = m_Swapchain->GetWidth(),
+            .height = m_Swapchain->GetHeight(),
+            .mipLevels = 1,
+            .layers = 1,
     };
     m_ColorImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
 }

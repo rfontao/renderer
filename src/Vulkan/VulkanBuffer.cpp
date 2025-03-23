@@ -18,21 +18,9 @@ VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDevice> device, VkDeviceSize si
     allocInfo.flags = vmaFlags;
     vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo, &m_Buffer, &m_Allocation, &m_AllocationInfo);
 
-//    VK_CHECK(vkCreateBuffer(m_Device->GetDevice(), &bufferInfo, nullptr, &m_Buffer),
-//             "Failed to create staging buffer!");
-//
-//    VkMemoryRequirements memRequirements;
-//    vkGetBufferMemoryRequirements(m_Device->GetDevice(), m_Buffer, &memRequirements);
-//
-//    VkMemoryAllocateInfo allocInfo{
-//            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-//            .allocationSize = memRequirements.size,
-//            .memoryTypeIndex = m_Device->FindMemoryType(memRequirements.memoryTypeBits, properties),
-//    };
-//    VK_CHECK(vkAllocateMemory(m_Device->GetDevice(), &allocInfo, nullptr, &m_Memory),
-//             "Failed to allocate vertex buffer memory!");
-//
-//    vkBindBufferMemory(m_Device->GetDevice(), m_Buffer, m_Memory, 0);
+    // if (vmaFlags & VMA_ALLOCATION_CREATE_MAPPED_BIT) {
+    //     m_Mapped = true;
+    // }
 }
 
 void VulkanBuffer::Destroy() {
@@ -40,8 +28,6 @@ void VulkanBuffer::Destroy() {
         Unmap();
     }
     vmaDestroyBuffer(m_Device->GetAllocator(), m_Buffer, m_Allocation);
-//    vkDestroyBuffer(m_Device->GetDevice(), m_Buffer, nullptr);
-//    vkFreeMemory(m_Device->GetDevice(), m_Memory, nullptr);
 }
 
 void VulkanBuffer::Map() {

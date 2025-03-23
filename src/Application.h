@@ -1,15 +1,16 @@
 #pragma once
 
 #include "Camera.h"
-#include "Vulkan/VulkanPipeline.h"
-#include "vulkan/VulkanTexture.h"
-#include "Vulkan/VulkanDevice.h"
-#include "Vulkan/VulkanSwapchain.h"
-#include "Vulkan/VulkanImage.h"
-#include "Vulkan/VulkanBuffer.h"
-#include "Vulkan/Utils.h"
 #include "Scene.h"
 #include "UI/UI.h"
+#include "Vulkan/Utils.h"
+#include "Vulkan/VulkanBuffer.h"
+#include "Vulkan/VulkanDevice.h"
+#include "Vulkan/VulkanImage.h"
+#include "Vulkan/VulkanPipeline.h"
+#include "Vulkan/VulkanSwapchain.h"
+#include "vulkan/VulkanTexture.h"
+#include "StagingManager.h"
 
 #include <VkBootstrap.h>
 
@@ -108,10 +109,6 @@ public:
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 800;
 
-    const std::vector<const char *> validationLayers = {
-            "VK_LAYER_KHRONOS_validation"
-    };
-
     // TODO: Extract later -> probably when render graph is available
     // Shadow Mapping
     constexpr static uint32_t shadowSize { 4096 };
@@ -122,6 +119,9 @@ public:
     std::shared_ptr<Texture2D> m_ShadowDepthTexture;
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
     VkDescriptorSet m_LightDescriptorSet;
+
+    StagingManager stagingManager;
+    inline static uint64_t shadowBufferAddress;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
