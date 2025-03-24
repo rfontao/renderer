@@ -121,7 +121,7 @@ public:
     VkDescriptorSet m_LightDescriptorSet;
 
     StagingManager stagingManager;
-    inline static uint64_t shadowBufferAddress;
+    inline static VkDeviceAddress shadowBufferAddress;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;

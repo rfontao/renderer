@@ -10,7 +10,6 @@ void Application::Run() {
                       (double) WIDTH / (double) HEIGHT);
     //    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
-    //    PrintAvailableVulkanExtensions();
     InitWindow();
     InitVulkan();
     MainLoop();
@@ -354,9 +353,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
-    // Bind camera matrices
-    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetLayout(), 0, 1,
-    //                         &m_LightDescriptorSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_ShadowMapPipeline->GetLayout(), false, true);
 
     vkCmdEndRendering(commandBuffer);
@@ -538,10 +534,6 @@ void Application::CreateUniformBuffers() {
     };
 
     shadowBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &bufferDeviceAddressInfo);
-
-    // m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(
-    //         m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    // m_ShadowMapUBOBuffer->Map();
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
@@ -561,8 +553,6 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     lightUBO.view =
             glm::lookAt(glm::vec3(1.5f, 15.0f, 3.75f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
     lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
-
-    // m_ShadowMapUBOBuffer->From(&lightUBO, sizeof(lightUBO));
 
     stagingManager.AddCopy(&lightUBO, m_ShadowMapUBOBuffer->GetBuffer(), sizeof(lightUBO));
 }
@@ -628,35 +618,6 @@ void Application::CreateDescriptorSets() {
 
     vkUpdateDescriptorSets(m_Device->GetDevice(), skyboxDescriptorWrites.size(), skyboxDescriptorWrites.data(), 0,
                            nullptr);
-
-    // VkDescriptorSetLayout shadowMapLayouts = m_ShadowMapPipeline->GetDescriptorSetLayouts()[0];
-    // VkDescriptorSetAllocateInfo allocShadowmapInfo{
-    //         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-    //         .descriptorPool = m_Device->GetDescriptorPool(),
-    //         .descriptorSetCount = (uint32_t) 1,
-    //         .pSetLayouts = &shadowMapLayouts,
-    // };
-    // VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocShadowmapInfo, &m_LightDescriptorSet),
-    //          "Failed to allocate descriptor sets!");
-
-
-    // VkDescriptorBufferInfo bufferInfo{
-    //         .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
-    //         .offset = 0,
-    //         .range = sizeof(DirectionalLightUBO),
-    // };
-    //
-    // std::array<VkWriteDescriptorSet, 1> shadowMapDescriptorWrites{};
-    // shadowMapDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    // shadowMapDescriptorWrites[0].dstSet = m_LightDescriptorSet;
-    // shadowMapDescriptorWrites[0].dstBinding = 0;
-    // shadowMapDescriptorWrites[0].dstArrayElement = 0;
-    // shadowMapDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    // shadowMapDescriptorWrites[0].descriptorCount = 1;
-    // shadowMapDescriptorWrites[0].pBufferInfo = &bufferInfo;
-    //
-    // vkUpdateDescriptorSets(m_Device->GetDevice(), shadowMapDescriptorWrites.size(), shadowMapDescriptorWrites.data(), 0,
-    //                        nullptr);
 }
 
 void Application::CreateDepthResources() {

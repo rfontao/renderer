@@ -10,14 +10,15 @@ struct Light
     vec4 viewPos;
 };
 
-layout(std430, buffer_reference, buffer_reference_align = 64) buffer PointerToLight
+layout(scalar, buffer_reference, buffer_reference_align = 8) buffer PointerToLight
 {
     Light light;
 };
 
-layout (push_constant) uniform PushConsts {
+layout (scalar, push_constant) uniform PushConsts {
     mat4 model;
     PointerToLight lightBufferAddress;
+    vec4 padding; // TODO: not sure why this is needed
 } pc;
 
 layout (location = 0) in vec3 i_Position;

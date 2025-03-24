@@ -21,30 +21,3 @@ inline std::vector<char> ReadFile(const std::filesystem::path &filename) {
 
     return buffer;
 }
-
-inline VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-        void *pUserData
-) {
-    std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
-    return VK_FALSE;
-}
-
-inline void PrintAvailableVulkanExtensions() {
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-    std::cout << "Available extensions:" << std::endl;
-    for (const auto &extension: extensions) {
-        std::cout << '\t' << extension.extensionName << std::endl;
-    }
-}
-
-inline bool HasStencilComponent(VkFormat format) {
-    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}

@@ -533,11 +533,11 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
                                 &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
-    for (auto &node: m_Nodes) {
+    for (const auto &node: m_Nodes) {
         DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox, isShadowMap);
     }
 
-    for (auto &node: m_Nodes) {
+    for (const auto &node: m_Nodes) {
         DrawNode(commandBuffer, pipelineLayout, node, MASK, isSkybox, isShadowMap);
     }
 }
@@ -561,11 +561,11 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
                 struct shadowPushConstants {
                     glm::mat4 model;
-                    uint64_t lightUBOaddress;
+                    VkDeviceAddress lightUBOaddress;
                 };
 
                 const auto pushConstants = shadowPushConstants{nodeMatrix, Application::shadowBufferAddress};
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(shadowPushConstants),
+                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                    &pushConstants);
 
             } else {
