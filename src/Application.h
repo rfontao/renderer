@@ -123,6 +123,9 @@ public:
     StagingManager stagingManager;
     inline static VkDeviceAddress shadowBufferAddress;
 
+    std::shared_ptr<VulkanBuffer> materialsBuffer;
+    inline static VkDeviceAddress materialsBufferAddress;
+
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else

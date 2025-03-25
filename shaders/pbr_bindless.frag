@@ -1,6 +1,9 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier: enable
 
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_scalar_block_layout : require
+
 layout (set = 1, binding = 0) uniform sampler2D textures2D[];
 
 layout (set = 2, binding = 0) uniform PerScene {
@@ -12,7 +15,7 @@ layout (set = 2, binding = 0) uniform PerScene {
     mat4 lightProj;
 } sceneInfo;
 
-layout (set = 3, binding = 0) uniform Material {
+struct Material {
     vec4 baseColorFactor;
     vec4 metallicFactor;
     vec4 roughnessFactor;
@@ -30,7 +33,19 @@ layout (set = 3, binding = 0) uniform Material {
 
     float alphaMask;
     float alphaMaskCutoff;
-} material;
+};
+
+layout(std430, buffer_reference, buffer_reference_align = 8) buffer MaterialBuffer
+{
+    Material materials[];
+};
+
+layout (scalar, push_constant) uniform MaterialPushConstant {
+    mat4 model;
+    MaterialBuffer materialBufferAddress;
+    int materialIndex;
+    vec4 padding;
+} pc;
 
 layout (location = 0) in vec3 i_FragColor;
 layout (location = 1) in vec3 i_Mormal;
@@ -46,6 +61,8 @@ const float PI = 3.1415926535897932384626433832795;
 const int PCF_SIZE = 3;
 
 vec3 GetNormal() {
+
+    Material material = pc.materialBufferAddress.materials[pc.materialIndex];
     vec3 N = normalize(i_Mormal);
 
     if (material.normalTextureIndex != -1) {
@@ -140,8 +157,8 @@ float CalculateShadow(vec4 fragPosLightSpace) {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
     if (abs(projCoords.x) > 1.0 ||
-        abs(projCoords.y) > 1.0 ||
-        abs(projCoords.z) > 1.0) {
+    abs(projCoords.y) > 1.0 ||
+    abs(projCoords.z) > 1.0) {
         return 0.0;
     }
 
@@ -152,7 +169,7 @@ float CalculateShadow(vec4 fragPosLightSpace) {
     // PCF Implementation
     float shadow = 0.0f;
     vec2 shadowMapTexelSize = 1.0f / textureSize(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], 0);
-    for (int x = -1; x <= 1; x++){
+    for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
             vec2 PCFCoords = shadowMapCoords + vec2(x, y) * shadowMapTexelSize;
 
@@ -167,6 +184,8 @@ float CalculateShadow(vec4 fragPosLightSpace) {
 }
 
 void main() {
+
+    Material material = pc.materialBufferAddress.materials[pc.materialIndex];
 
     vec4 color;
     if (material.alphaMask == 1.0f || material.alphaMask == 0.0f) {

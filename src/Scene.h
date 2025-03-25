@@ -31,7 +31,7 @@ public:
         std::vector<Primitive> primitives;
     };
 
-    struct MaterialUBO {
+    struct Material {
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
         glm::vec4 metallicFactor = glm::vec4(1.0f);
         glm::vec4 roughnessFactor = glm::vec4(1.0f);
@@ -49,12 +49,6 @@ public:
 
         float alphaMask = 0.0f;
         float alphaCutoff = 1.0f;
-    };
-
-    struct Material {
-        VulkanBuffer info;
-        MaterialUBO ubo;
-        VkDescriptorSet descriptorSet;
     };
 
     struct Texture {
@@ -121,6 +115,7 @@ private:
 
     void CreateLights();
 
+public:
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
 

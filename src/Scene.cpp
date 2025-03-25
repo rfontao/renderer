@@ -173,54 +173,52 @@ void Scene::LoadTextureSamplers(tinygltf::Model &input) {
 }
 
 void Scene::LoadMaterials(tinygltf::Model &input) {
+    m_DefaultMaterial = {};
+
     m_Materials.resize(input.materials.size());
     for (size_t i = 0; i < input.materials.size(); i++) {
-        MaterialUBO material{}; // Must have a different name than below, or it doesn't work
-
-        m_Materials[i].info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
-        m_Materials[i].info.Map();
+        Material material{}; // Must have a different name than below, or it doesn't work
 
         tinygltf::Material glTFMaterial = input.materials[i];
-        if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
+        if (glTFMaterial.values.contains("baseColorFactor")) {
             material.baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
         }
 
-        if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
+        if (glTFMaterial.values.contains("baseColorTexture")) {
             material.baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
             material.baseColorTextureUV = glTFMaterial.values["baseColorTexture"].TextureTexCoord();
         }
 
-        if (glTFMaterial.values.find("roughnessFactor") != glTFMaterial.values.end()) {
+        if (glTFMaterial.values.contains("roughnessFactor")) {
             material.roughnessFactor = glm::vec4(static_cast<float>(glTFMaterial.values["roughnessFactor"].Factor()));
         }
 
-        if (glTFMaterial.values.find("metallicFactor") != glTFMaterial.values.end()) {
+        if (glTFMaterial.values.contains("metallicFactor")) {
             material.metallicFactor = glm::vec4(static_cast<float>(glTFMaterial.values["metallicFactor"].Factor()));
         }
 
-        if (glTFMaterial.additionalValues.find("emissiveFactor") != glTFMaterial.additionalValues.end()) {
+        if (glTFMaterial.additionalValues.contains("emissiveFactor")) {
             material.emissiveFactor = glm::vec4(
                     glm::make_vec3(glTFMaterial.additionalValues["emissiveFactor"].ColorFactor().data()), 1.0);
         }
 
-        if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
+        if (glTFMaterial.values.contains("metallicRoughnessTexture")) {
             material.metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
             material.metallicRoughnessTextureUV = glTFMaterial.values["metallicRoughnessTexture"].TextureTexCoord();
         }
 
         // Get the normal map texture index
-        if (glTFMaterial.additionalValues.find("normalTexture") != glTFMaterial.additionalValues.end()) {
+        if (glTFMaterial.additionalValues.contains("normalTexture")) {
             material.normalTextureIndex = glTFMaterial.additionalValues["normalTexture"].TextureIndex();
             material.normalTextureUV = glTFMaterial.additionalValues["normalTexture"].TextureTexCoord();
         }
 
-        if (glTFMaterial.additionalValues.find("emissiveTexture") != glTFMaterial.additionalValues.end()) {
+        if (glTFMaterial.additionalValues.contains("emissiveTexture")) {
             material.emissiveTextureIndex = glTFMaterial.additionalValues["emissiveTexture"].TextureIndex();
             material.emissiveTextureUV = glTFMaterial.additionalValues["emissiveTexture"].TextureTexCoord();
         }
 
-        if (glTFMaterial.additionalValues.find("alphaMode") != glTFMaterial.additionalValues.end()) {
+        if (glTFMaterial.additionalValues.contains("alphaMode")) {
             tinygltf::Parameter param = glTFMaterial.additionalValues["alphaMode"];
             if (param.string_value == "BLEND") {
                 material.alphaMask = 2.0f;
@@ -230,117 +228,12 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
                 material.alphaMask = 1.0f;
             }
         }
-        if (glTFMaterial.additionalValues.find("alphaCutoff") != glTFMaterial.additionalValues.end()) {
+        if (glTFMaterial.additionalValues.contains("alphaCutoff")) {
             material.alphaCutoff = static_cast<float>(glTFMaterial.additionalValues["alphaCutoff"].Factor());
         }
 
-        m_Materials[i].info.From(&material, sizeof(material));
-        m_Materials[i].ubo = material;
-
-        std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
-                //                {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
-                //                nullptr},
-                //                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
-                //                nullptr},
-                //                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
-                //                nullptr},
-                //                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
-                //                nullptr},
-                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-        };
-
-        // TODO: Create all pipelines in advance and store setlayouts on device??
-        VkDescriptorSetLayoutCreateInfo layoutInfo{
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .bindingCount = static_cast<uint32_t>(materialSetLayout.size()),
-                .pBindings = materialSetLayout.data(),
-        };
-
-        VkDescriptorSetLayout layout;
-        VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
-                 "Failed to create descriptor set layout!");
-
-        std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
-        VkDescriptorSetAllocateInfo setCreateInfo{
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorPool = m_Device->GetDescriptorPool(),
-                .descriptorSetCount = 1,
-                .pSetLayouts = setLayouts.data(),
-        };
-
-        VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_Materials[i].descriptorSet),
-                 "Failed to allocate descriptor sets");
-
-        VkDescriptorBufferInfo bufferInfo{
-                .buffer = m_Materials[i].info.GetBuffer(),
-                .offset = 0,
-                .range = sizeof(MaterialUBO),
-        };
-
-        VkWriteDescriptorSet writeDescriptorSet{};
-        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorSet.dstSet = m_Materials[i].descriptorSet;
-        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        writeDescriptorSet.dstBinding = 0;
-        writeDescriptorSet.pBufferInfo = &bufferInfo;
-        writeDescriptorSet.descriptorCount = 1;
-
-        vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
+        m_Materials[i] = material;
     }
-
-    m_DefaultMaterial.info = VulkanBuffer(m_Device, sizeof(MaterialUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                          VMA_MEMORY_USAGE_CPU_TO_GPU);
-    m_DefaultMaterial.info.Map();
-
-    MaterialUBO mat{};
-    m_DefaultMaterial.info.From(&mat, sizeof(mat));
-    m_DefaultMaterial.ubo = mat;
-
-    std::vector<VkDescriptorSetLayoutBinding> materialSetLayout = {
-            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-    };
-
-    // TODO: Create all pipelines in advance and store setlayouts on device??
-    VkDescriptorSetLayoutCreateInfo layoutInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = static_cast<uint32_t>(materialSetLayout.size()),
-            .pBindings = materialSetLayout.data(),
-    };
-
-    VkDescriptorSetLayout layout;
-    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
-             "Failed to create descriptor set layout!");
-
-    std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
-    VkDescriptorSetAllocateInfo setCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = 1,
-            .pSetLayouts = setLayouts.data(),
-    };
-
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_DefaultMaterial.descriptorSet),
-             "Failed to allocate descriptor sets");
-
-    VkDescriptorBufferInfo bufferInfo{
-            .buffer = m_DefaultMaterial.info.GetBuffer(),
-            .offset = 0,
-            .range = sizeof(MaterialUBO),
-    };
-
-    VkWriteDescriptorSet writeDescriptorSet{};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.dstSet = m_DefaultMaterial.descriptorSet;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pBufferInfo = &bufferInfo;
-    writeDescriptorSet.descriptorCount = 1;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
 }
 
 void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Scene::Node *parent,
@@ -392,7 +285,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                 size_t vertexCount = 0;
 
                 // Get buffer data for vertex positions
-                if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) {
+                if (glTFPrimitive.attributes.contains("POSITION")) {
                     const tinygltf::Accessor &accessor =
                             input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
@@ -401,7 +294,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     vertexCount = accessor.count;
                 }
                 // Get buffer data for vertex normals
-                if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) {
+                if (glTFPrimitive.attributes.contains("NORMAL")) {
                     const tinygltf::Accessor &accessor =
                             input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
@@ -410,7 +303,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                 }
                 // Get buffer data for vertex texture coordinates
                 // glTF supports multiple sets, we only load the first one
-                if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) {
+                if (glTFPrimitive.attributes.contains("TEXCOORD_0")) {
                     const tinygltf::Accessor &accessor =
                             input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
@@ -418,7 +311,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                             &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                 }
 
-                if (glTFPrimitive.attributes.find("TEXCOORD_1") != glTFPrimitive.attributes.end()) {
+                if (glTFPrimitive.attributes.contains("TEXCOORD_1")) {
                     const tinygltf::Accessor &accessor =
                             input.accessors[glTFPrimitive.attributes.find("TEXCOORD_1")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
@@ -427,7 +320,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                 }
 
                 // Vertex colors
-                if (glTFPrimitive.attributes.find("COLOR_0") != glTFPrimitive.attributes.end()) {
+                if (glTFPrimitive.attributes.contains("COLOR_0")) {
                     const tinygltf::Accessor &accessor =
                             input.accessors[glTFPrimitive.attributes.find("COLOR_0")->second];
                     const tinygltf::BufferView &view = input.bufferViews[accessor.bufferView];
@@ -513,11 +406,6 @@ void Scene::Destroy() {
         delete node;
     }
 
-    m_DefaultMaterial.info.Destroy();
-    for (auto &material: m_Materials) {
-        material.info.Destroy();
-    }
-
     //    m_DefaultImage.texture.Destroy();
     for (auto &image: m_Images) {
         image->Destroy();
@@ -556,22 +444,16 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
         }
         // TODO Cleanup
         // Pass the final matrix to the vertex shader using push constants
-        if (!isSkybox) {
-            if (isShadowMap) {
+        if (!isSkybox && isShadowMap) {
 
-                struct shadowPushConstants {
-                    glm::mat4 model;
-                    VkDeviceAddress lightUBOaddress;
-                };
+            struct shadowPushConstants {
+                glm::mat4 model;
+                VkDeviceAddress lightUBOaddress;
+            };
 
-                const auto pushConstants = shadowPushConstants{nodeMatrix, Application::shadowBufferAddress};
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
-                   &pushConstants);
-
-            } else {
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                                   &nodeMatrix);
-            }
+            const auto pushConstants = shadowPushConstants{nodeMatrix, Application::shadowBufferAddress};
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
+                               &pushConstants);
         }
         for (Primitive &primitive: node->mesh.primitives) {
             if (primitive.indexCount > 0) {
@@ -579,15 +461,26 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                 auto &material =
                         primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
 
-                if (alphaMode == OPAQUE && material.ubo.alphaMask != 0.0f)
+                if (alphaMode == OPAQUE && material.alphaMask != 0.0f)
                     continue;
 
-                if (alphaMode == MASK && material.ubo.alphaMask != 1.0f)
+                if (alphaMode == MASK && material.alphaMask != 1.0f)
                     continue;
 
-                if (!isSkybox && !isShadowMap)
-                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1,
-                                            &material.descriptorSet, 0, nullptr);
+
+                if (!isSkybox && !isShadowMap) {
+                    struct PBRPushConstants {
+                        glm::mat4 model;
+                        VkDeviceAddress materialsBufferAddress;
+                        int32_t materialIndex;
+                    };
+
+                    const PBRPushConstants pushConstants = {nodeMatrix, Application::materialsBufferAddress,
+                                                            primitive.materialIndex};
+                    vkCmdPushConstants(commandBuffer, pipelineLayout,
+                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                       sizeof(PBRPushConstants), &pushConstants);
+                }
 
                 vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
             }

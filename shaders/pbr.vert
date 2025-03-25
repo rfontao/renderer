@@ -1,5 +1,7 @@
 #version 460
 
+#extension GL_EXT_scalar_block_layout : require
+
 layout (set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
@@ -15,8 +17,11 @@ layout (set = 2, binding = 0) uniform PerScene {
     mat4 lightProj;
 } sceneInfo;
 
-layout (push_constant) uniform PushConsts {
+layout (push_constant, scalar) uniform PushConsts {
     mat4 model;
+    int materialBufferAddress;
+    int materialIndex;
+    vec4 padding;
 } primitive;
 
 layout (location = 0) in vec3 i_Position;

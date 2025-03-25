@@ -75,11 +75,12 @@ void Application::InitVulkan() {
     CreateColorResources();
     CreateDepthResources();
 
+    stagingManager.InitializeStagingBuffers(m_Device);
+
     CreateUniformBuffers();
     CreateDescriptorSets();
     CreateBindlessTexturesArray();
 
-    stagingManager.InitializeStagingBuffers(m_Device);
 }
 
 void Application::MainLoop() {
@@ -106,6 +107,7 @@ void Application::Cleanup() {
         m_UniformBuffers[i]->Destroy();
     }
     m_ShadowMapUBOBuffer->Destroy();
+    materialsBuffer->Destroy();
 
     m_GraphicsPipeline->Destroy();
     m_SkyboxPipeline->Destroy();
@@ -458,7 +460,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 }
 
 void Application::DrawFrame() {
-    stagingManager.NextFrame();
 
     vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -508,6 +509,8 @@ void Application::DrawFrame() {
     }
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
+    stagingManager.NextFrame();
+
     if (m_ShouldChangeScene)
         ChangeScene();
 }
@@ -528,12 +531,26 @@ void Application::CreateUniformBuffers() {
             m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_AUTO);
 
-    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{
+    VkBufferDeviceAddressInfo shadowBufferDeviceAddressInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
             .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
     };
 
-    shadowBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &bufferDeviceAddressInfo);
+    shadowBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &shadowBufferDeviceAddressInfo);
+
+    materialsBuffer = std::make_shared<VulkanBuffer>(
+            m_Device, 128 * sizeof(Scene::Material),
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_AUTO);
+
+    VkBufferDeviceAddressInfo materialsBufferDeviceAddressInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = materialsBuffer->GetBuffer(),
+    };
+
+    materialsBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &materialsBufferDeviceAddressInfo);
+
+    stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
+                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
@@ -659,6 +676,9 @@ void Application::ChangeScene() {
 
     m_TextureDescriptors.clear();
     CreateBindlessTexturesArray();
+
+    stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
+                       m_Scene.m_Materials.size() * sizeof(Scene::Material));
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {
