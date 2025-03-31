@@ -1,11 +1,13 @@
 #include "pch.h"
 #include "VulkanSwapchain.h"
 
+#include <utility>
+
 #include "VulkanDevice.h"
 #include "Utils.h"
 
 VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) : m_Window(window),
-    m_Device(device) {
+    m_Device(std::move(device)) {
     Create();
 }
 

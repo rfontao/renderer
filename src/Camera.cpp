@@ -90,7 +90,7 @@ void Camera::HandleMovement(MovementDirection direction) {
     if (m_Mode == LOOKAT)
         return;
 
-    const float cameraMovementSpeed = 0.005f;
+    constexpr float cameraMovementSpeed = 0.005f;
     glm::vec3 front = m_Position - m_FocusPoint;
     switch (direction) {
         case FRONT:
@@ -113,6 +113,6 @@ void Camera::HandleMovement(MovementDirection direction) {
 }
 
 void Camera::HandleMouseScroll(double scrollAmount) {
-    const double zoomSensitivity = 1.0;
+    constexpr double zoomSensitivity = 1.0;
     m_YFov -= scrollAmount * zoomSensitivity;
 }

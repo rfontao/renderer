@@ -80,7 +80,6 @@ void Application::InitVulkan() {
     CreateUniformBuffers();
     CreateDescriptorSets();
     CreateBindlessTexturesArray();
-
 }
 
 void Application::MainLoop() {
@@ -134,12 +133,12 @@ void Application::InitWindow() {
     m_Window = glfwCreateWindow((int) WIDTH, (int) HEIGHT, "Experimental Renderer", nullptr, nullptr);
     glfwSetWindowUserPointer(m_Window, this);
     glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow *w, int width, int height) {
-        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+        const auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
         app->m_Swapchain->m_NeedsResizing = true;
     });
 
     glfwSetMouseButtonCallback(m_Window, [](GLFWwindow *w, int button, int action, int mods) {
-        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+        auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
@@ -179,7 +178,7 @@ void Application::CreateInstance() {
     if (!systemInfoRet) {
         throw std::runtime_error("Failed to get system info!");
     }
-    auto systemInfo = systemInfoRet.value();
+    const auto& systemInfo = systemInfoRet.value();
 
     vkb::InstanceBuilder instanceBuilder;
     instanceBuilder.set_app_name("Experimental Renderer").set_engine_name("None").require_api_version(1, 3, 0);
@@ -678,7 +677,7 @@ void Application::ChangeScene() {
     CreateBindlessTexturesArray();
 
     stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
-                       m_Scene.m_Materials.size() * sizeof(Scene::Material));
+                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {

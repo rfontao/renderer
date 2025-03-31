@@ -69,5 +69,5 @@ void VulkanBuffer::FromBuffer(VulkanBuffer &src) {
 void VulkanBuffer::Fill(uint8_t data, VkDeviceSize srcSize) {
     if (m_AllocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    std::memset(static_cast<uint8_t *>(m_AllocationInfo.pMappedData), data, srcSize);
+    std::memset(m_AllocationInfo.pMappedData, data, srcSize);
 }

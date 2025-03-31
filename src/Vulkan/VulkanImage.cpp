@@ -67,7 +67,7 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
              "Failed to create texture image view!");
 }
 
-VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) : m_Device(device), m_Image(image), m_IsSwapchainImage(true) {
+VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) : m_IsSwapchainImage(true), m_Image(image), m_Device(std::move(device)) {
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -279,7 +279,6 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
                              0, nullptr,
                              1, &barrier);
     }
-
 
     m_Device->EndSingleTimeCommands(commandBuffer);
 }

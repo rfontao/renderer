@@ -13,7 +13,7 @@ inline std::vector<char> ReadFile(const std::filesystem::path &filename) {
         throw std::runtime_error(std::format("Failed to open file - {}!", filename.string()));
     }
 
-    size_t fileSize = (size_t) file.tellg();
+    size_t fileSize = file.tellg();
     std::vector<char> buffer(fileSize);
     file.seekg(0);
     file.read(buffer.data(), fileSize);
