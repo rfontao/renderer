@@ -1,6 +1,6 @@
 #version 460
 
-#extension GL_EXT_scalar_block_layout : require
+#include "common.glsl"
 
 layout (set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -8,21 +8,16 @@ layout (set = 0, binding = 0) uniform UniformBufferObject {
     vec4 viewPos;
 } ubo;
 
-layout (set = 2, binding = 0) uniform PerScene {
-    vec3 lightDir;
-    vec3 lightPos[128];
-    int lightCount;
-    int shadowMapTextureIndex;
-    mat4 lightView;
-    mat4 lightProj;
-} sceneInfo;
-
 layout (push_constant, scalar) uniform PushConsts {
     mat4 model;
-    int materialBufferAddress;
+    MaterialBuffer materialBufferAddress;
     int materialIndex;
+    LightsBuffer lightsBufferAddress;
+    int directionLightIndex;
+    int lightCount;
+    int shadowMapTextureIndex;
     vec4 padding;
-} primitive;
+} pc;
 
 layout (location = 0) in vec3 i_Position;
 layout (location = 1) in vec3 i_Normal;
@@ -40,16 +35,18 @@ layout (location = 6) out vec4 o_FragPosLightSpace;
 
 // https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
-    gl_Position = ubo.proj * ubo.view * primitive.model * vec4(i_Position, 1.0);
+    Light direcitonalLight = pc.lightsBufferAddress.lights[pc.directionLightIndex];
+
+    gl_Position = ubo.proj * ubo.view * pc.model * vec4(i_Position, 1.0);
     o_Color = i_Color;
     o_UV0 = i_UV0;
     o_UV1 = i_UV1;
 
-    o_Normal = normalize(transpose(inverse(mat3(primitive.model))) * i_Normal);
+    o_Normal = normalize(transpose(inverse(mat3(pc.model))) * i_Normal);
     //    o_Normal = mat3(transpose(inverse(primitive.model))) * i_Normal;
     //    o_Normal = mat3(primitive.model) * i_Normal;
 
-    o_FragPos = vec3(primitive.model * vec4(i_Position, 1.0));
+    o_FragPos = vec3(pc.model * vec4(i_Position, 1.0));
     o_ViewVec = ubo.viewPos.xyz - o_FragPos;
-    o_FragPosLightSpace = sceneInfo.lightProj * sceneInfo.lightView * primitive.model * vec4(i_Position, 1.0);
+    o_FragPosLightSpace = direcitonalLight.proj * direcitonalLight.view * pc.model * vec4(i_Position, 1.0);
 }

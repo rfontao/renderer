@@ -400,8 +400,6 @@ void Scene::Destroy() {
     m_IndexBuffer.Destroy();
     m_VertexBuffer.Destroy();
 
-    m_SceneInfo.Destroy();
-
     for (auto node: m_Nodes) {
         delete node;
     }
@@ -417,9 +415,6 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
     VkBuffer vertexBuffers[] = {m_VertexBuffer.GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-    if (!isSkybox && !isShadowMap)
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1,
-                                &m_SceneInfoDescriptorSet, 0, nullptr);
     // Render all nodes at top-level
     for (const auto &node: m_Nodes) {
         DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox, isShadowMap);
@@ -448,10 +443,11 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
             struct shadowPushConstants {
                 glm::mat4 model;
-                VkDeviceAddress lightUBOaddress;
+                VkDeviceAddress lightBufferAddress;
+                int32_t directionalLightIndex;
             };
 
-            const auto pushConstants = shadowPushConstants{nodeMatrix, Application::shadowBufferAddress};
+            const auto pushConstants = shadowPushConstants{nodeMatrix, Application::lightsBufferAddress, 0};
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                                &pushConstants);
         }
@@ -473,10 +469,19 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                         glm::mat4 model;
                         VkDeviceAddress materialsBufferAddress;
                         int32_t materialIndex;
+                        VkDeviceAddress lightsBufferAddress;
+                        int32_t directionLightIndex;
+                        int32_t lightCount;
+                        int32_t shadowMapTextureIndex;
                     };
 
-                    const PBRPushConstants pushConstants = {nodeMatrix, Application::materialsBufferAddress,
-                                                            primitive.materialIndex};
+                    const PBRPushConstants pushConstants = {nodeMatrix,
+                                                            Application::materialsBufferAddress,
+                                                            primitive.materialIndex,
+                                                            Application::lightsBufferAddress,
+                                                            0,
+                                                            static_cast<uint32_t>(m_Lights.size()),
+                                                            800};
                     vkCmdPushConstants(commandBuffer, pipelineLayout,
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                        sizeof(PBRPushConstants), &pushConstants);
@@ -492,64 +497,13 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 }
 
 void Scene::CreateLights() {
+    constexpr auto lightDirection = glm::vec3(0.1f, 1.0f, 0.25f);
+    m_Lights.push_back(
+            {.direction = lightDirection,
+             .view = glm::lookAt(lightDirection * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+             .proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f),
+             .type = Light::Type::DIRECTIONAL});
 
-    SceneInfo sceneInfo{};
-    sceneInfo.lightDir = glm::vec3(0.1f, 1.0f, 0.25f);
-    sceneInfo.lightCount = 0;
-    sceneInfo.lightPos[0] = glm::vec3(-11.0f, 0.1f, -0.3f);
-    sceneInfo.lightPos[1] = glm::vec3(-6.5f, 1.0f, -1.5f);
-    sceneInfo.shadowMapTextureIndex = 800; // TODO: Change
-    sceneInfo.lightView =
-            glm::lookAt(sceneInfo.lightDir * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-    sceneInfo.lightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
-
-    VkDescriptorSetLayoutBinding sceneInfoSetLayout = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
-                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       nullptr};
-
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = 1,
-            .pBindings = &sceneInfoSetLayout,
-    };
-
-    VkDescriptorSetLayout layout;
-    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &layout),
-             "Failed to create descriptor set layout!");
-
-    std::array<VkDescriptorSetLayout, 1> setLayouts = {layout};
-    VkDescriptorSetAllocateInfo setCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = 1,
-            .pSetLayouts = setLayouts.data(),
-    };
-
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &setCreateInfo, &m_SceneInfoDescriptorSet),
-             "Failed to allocate descriptor sets");
-
-
-    m_SceneInfo =
-            VulkanBuffer(m_Device, sizeof(SceneInfo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    m_SceneInfo.Map();
-    m_SceneInfo.From(&sceneInfo, sizeof(sceneInfo));
-
-    VkDescriptorBufferInfo bufferInfo{
-            .buffer = m_SceneInfo.GetBuffer(),
-            .offset = 0,
-            .range = sizeof(SceneInfo),
-    };
-
-    VkWriteDescriptorSet writeDescriptorSet{};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.dstSet = m_SceneInfoDescriptorSet;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pBufferInfo = &bufferInfo;
-    writeDescriptorSet.descriptorCount = 1;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-    vkDestroyDescriptorSetLayout(m_Device->GetDevice(), layout, nullptr);
+    m_Lights.push_back({.position = glm::vec3(-11.0f, 0.1f, -0.3f), .type = Light::Type::POINT});
+    m_Lights.push_back({.position = glm::vec3(-6.5f, 1.0f, -1.5f), .type = Light::Type::POINT});
 }

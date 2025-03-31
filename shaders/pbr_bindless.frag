@@ -1,49 +1,17 @@
 #version 460
-#extension GL_EXT_nonuniform_qualifier: enable
 
-#extension GL_EXT_buffer_reference : require
-#extension GL_EXT_scalar_block_layout : require
+#include "common.glsl"
 
 layout (set = 1, binding = 0) uniform sampler2D textures2D[];
-
-layout (set = 2, binding = 0) uniform PerScene {
-    vec3 lightDir;
-    vec3 lightPos[128];
-    int lightCount;
-    int shadowMapTextureIndex;
-    mat4 lightView;
-    mat4 lightProj;
-} sceneInfo;
-
-struct Material {
-    vec4 baseColorFactor;
-    vec4 metallicFactor;
-    vec4 roughnessFactor;
-    vec4 emissiveFactor;
-
-    int baseColorTextureIndex;
-    int normalTextureIndex;
-    int metallicRoughnessTextureIndex;
-    int emissiveTextureIndex;
-
-    int baseColorTextureUV;
-    int normalTextureUV;
-    int metallicRoughnessTextureUV;
-    int emissiveTextureUV;
-
-    float alphaMask;
-    float alphaMaskCutoff;
-};
-
-layout(std430, buffer_reference, buffer_reference_align = 8) buffer MaterialBuffer
-{
-    Material materials[];
-};
 
 layout (scalar, push_constant) uniform MaterialPushConstant {
     mat4 model;
     MaterialBuffer materialBufferAddress;
     int materialIndex;
+    LightsBuffer lightsBufferAddress;
+    int directionLightIndex;
+    int lightCount;
+    int shadowMapTextureIndex;
     vec4 padding;
 } pc;
 
@@ -168,13 +136,13 @@ float CalculateShadow(vec4 fragPosLightSpace) {
 
     // PCF Implementation
     float shadow = 0.0f;
-    vec2 shadowMapTexelSize = 1.0f / textureSize(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], 0);
+    vec2 shadowMapTexelSize = 1.0f / textureSize(textures2D[nonuniformEXT(pc.shadowMapTextureIndex)], 0);
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
             vec2 PCFCoords = shadowMapCoords + vec2(x, y) * shadowMapTexelSize;
 
             // Check if the sample is in light or in the shadow
-            if (projCoords.z <= texture(textures2D[nonuniformEXT(sceneInfo.shadowMapTextureIndex)], PCFCoords).r) {
+            if (projCoords.z <= texture(textures2D[nonuniformEXT(pc.shadowMapTextureIndex)], PCFCoords).r) {
                 shadow += 1.0;
             }
         }
@@ -186,6 +154,7 @@ float CalculateShadow(vec4 fragPosLightSpace) {
 void main() {
 
     Material material = pc.materialBufferAddress.materials[pc.materialIndex];
+    Light directionalLight = pc.lightsBufferAddress.lights[pc.directionLightIndex];
 
     vec4 color;
     if (material.alphaMask == 1.0f || material.alphaMask == 0.0f) {
@@ -216,14 +185,19 @@ void main() {
 
     vec3 Lo = vec3(0.0);
     // Directional light -> Attenuation is 1.0 (no attenuation)
-    vec3 L = normalize(sceneInfo.lightDir);
+    vec3 L = normalize(directionalLight.direction);
     vec3 radiance = SRGBtoLINEAR(vec4(3.0f)).rgb;
     Lo += BRDF(L, V, N, radiance, metallic, roughness, color.rgb);
 
     // Point Lights
-    for (int i = 0; i < sceneInfo.lightCount; i++) {
-        L = normalize(sceneInfo.lightPos[i] - i_FragPos);
-        float distance = length(sceneInfo.lightPos[i] - i_FragPos);
+    for (int i = 0; i < pc.lightCount; i++) {
+        Light light = pc.lightsBufferAddress.lights[i];
+        if (light.type == 0) { // If directionlight, skip
+            continue;
+        }
+
+        L = normalize(light.position - i_FragPos);
+        float distance = length(light.position - i_FragPos);
         float attenuation = 1.0 / (distance * distance);
         radiance = SRGBtoLINEAR(vec4(1.0f)).rgb * attenuation;
 

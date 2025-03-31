@@ -1,24 +1,12 @@
 #version 460
 
-#extension GL_EXT_buffer_reference : require
-#extension GL_EXT_scalar_block_layout : require
-
-struct Light
-{
-    mat4 view;
-    mat4 proj;
-    vec4 viewPos;
-};
-
-layout(scalar, buffer_reference, buffer_reference_align = 8) buffer PointerToLight
-{
-    Light light;
-};
+#include "common.glsl"
 
 layout (scalar, push_constant) uniform PushConsts {
     mat4 model;
-    PointerToLight lightBufferAddress;
-    vec4 padding; // TODO: not sure why this is needed
+    LightsBuffer lightBufferAddress;
+    int directionLightIndex;
+    int padding; // TODO: not sure why this is needed
 } pc;
 
 layout (location = 0) in vec3 i_Position;
@@ -27,8 +15,7 @@ layout (location = 2) in vec3 i_Color;
 layout (location = 3) in vec2 i_UV0;
 layout (location = 4) in vec2 i_UV1;
 
-// https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
-    Light light = pc.lightBufferAddress.light;
-    gl_Position = light.proj * light.view * pc.model * vec4(i_Position, 1.0);
+    Light directionallight = pc.lightBufferAddress.lights[pc.directionLightIndex];
+    gl_Position = directionallight.proj * directionallight.view * pc.model * vec4(i_Position, 1.0);
 }

@@ -105,8 +105,8 @@ void Application::Cleanup() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_UniformBuffers[i]->Destroy();
     }
-    m_ShadowMapUBOBuffer->Destroy();
     materialsBuffer->Destroy();
+    lightsBuffer->Destroy();
 
     m_GraphicsPipeline->Destroy();
     m_SkyboxPipeline->Destroy();
@@ -178,7 +178,7 @@ void Application::CreateInstance() {
     if (!systemInfoRet) {
         throw std::runtime_error("Failed to get system info!");
     }
-    const auto& systemInfo = systemInfoRet.value();
+    const auto &systemInfo = systemInfoRet.value();
 
     vkb::InstanceBuilder instanceBuilder;
     instanceBuilder.set_app_name("Experimental Renderer").set_engine_name("None").require_api_version(1, 3, 0);
@@ -524,19 +524,6 @@ void Application::CreateUniformBuffers() {
         m_UniformBuffers[i]->Map();
     }
 
-    VkDeviceSize shadowMapBufferSize = sizeof(DirectionalLightUBO);
-
-    m_ShadowMapUBOBuffer = std::make_shared<VulkanBuffer>(
-            m_Device, shadowMapBufferSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_AUTO);
-
-    VkBufferDeviceAddressInfo shadowBufferDeviceAddressInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .buffer = m_ShadowMapUBOBuffer->GetBuffer(),
-    };
-
-    shadowBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &shadowBufferDeviceAddressInfo);
-
     materialsBuffer = std::make_shared<VulkanBuffer>(
             m_Device, 128 * sizeof(Scene::Material),
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_AUTO);
@@ -550,13 +537,29 @@ void Application::CreateUniformBuffers() {
 
     stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
+
+    constexpr int maxLights = 128;
+    VkDeviceSize lightsBufferSize = maxLights * sizeof(Scene::Light);
+
+    lightsBuffer = std::make_shared<VulkanBuffer>(
+            m_Device, lightsBufferSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO);
+
+    VkBufferDeviceAddressInfo lightsBufferAddressInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = lightsBuffer->GetBuffer(),
+    };
+    lightsBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &lightsBufferAddressInfo);
+
+    stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
+                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-    //    auto currentTime = std::chrono::high_resolution_clock::now();
-    //    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    const auto currentTime = std::chrono::high_resolution_clock::now();
+    const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
     ubo.view = m_Camera.GetViewMatrix();
@@ -565,12 +568,12 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 
     m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
 
-    DirectionalLightUBO lightUBO{};
-    lightUBO.view =
-            glm::lookAt(glm::vec3(1.5f, 15.0f, 3.75f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-    lightUBO.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f);
-
-    stagingManager.AddCopy(&lightUBO, m_ShadowMapUBOBuffer->GetBuffer(), sizeof(lightUBO));
+    // NOTE(RF): Directional light moving test
+    m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
+    m_Scene.m_Lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
+    m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+    stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
+                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
 }
 
 

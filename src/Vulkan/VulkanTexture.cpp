@@ -9,7 +9,7 @@
 TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecification &specification,
                          const std::vector<std::filesystem::path> &paths) {
     assert(paths.size() == 6);
-    m_Device = device;
+    m_Device = std::move(device);
 
     int width, height, channels;
     auto res = stbi_info(paths[0].string().c_str(), &width, &height, &channels);
@@ -76,7 +76,7 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
                                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                                               VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
-    stagingBuffer.From(pixels, (size_t) imageSize);
+    stagingBuffer.From(pixels, imageSize);
 
     stbi_image_free(pixels);
 

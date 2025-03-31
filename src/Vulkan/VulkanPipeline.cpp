@@ -1,5 +1,5 @@
-#include "pch.h"
 #include "VulkanPipeline.h"
+#include "pch.h"
 
 #include "spirv_reflect.h"
 
@@ -386,8 +386,8 @@ static uint32_t FormatSize(VkFormat format) {
     return result;
 }
 
-VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification)
-        : m_Device(device), spec(pipelineSpecification) {
+VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification) :
+    m_Device(device), spec(pipelineSpecification) {
     auto vertShaderCode = ReadFile(pipelineSpecification.vertShaderPath);
     auto fragShaderCode = ReadFile(pipelineSpecification.fragShaderPath);
 
@@ -400,9 +400,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     VkVertexInputBindingDescription bindingDescription{};
     for (auto code: {vertShaderCode, fragShaderCode}) {
         SpvReflectShaderModule module = {};
-        SpvReflectResult result = spvReflectCreateShaderModule(code.size(),
-                                                               reinterpret_cast<const uint32_t *>(code.data()),
-                                                               &module);
+        SpvReflectResult result = spvReflectCreateShaderModule(code.size(), code.data(), &module);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
         uint32_t count = 0;
@@ -439,7 +437,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
 
         if (module.shader_stage == SPV_REFLECT_SHADER_STAGE_VERTEX_BIT) {
             bindingDescription.binding = 0;
-            bindingDescription.stride = 0;  // computed below
+            bindingDescription.stride = 0; // computed below
             bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
             attributeDescriptions.reserve(inputVars.size());
@@ -454,17 +452,14 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 attr_desc.location = reflVar.location;
                 attr_desc.binding = bindingDescription.binding;
                 attr_desc.format = static_cast<VkFormat>(reflVar.format);
-                attr_desc.offset = 0;  // final offset computed below after sorting.
+                attr_desc.offset = 0; // final offset computed below after sorting.
 
                 attributeDescriptions.push_back(attr_desc);
             }
 
             // Sort attributes by location
-            std::sort(std::begin(attributeDescriptions),
-                      std::end(attributeDescriptions),
-                      [](const auto &a, const auto &b) {
-                          return a.location < b.location;
-                      });
+            std::sort(std::begin(attributeDescriptions), std::end(attributeDescriptions),
+                      [](const auto &a, const auto &b) { return a.location < b.location; });
 
             // Compute final offsets of each attribute, and total vertex stride.
             for (auto &attribute: attributeDescriptions) {
@@ -504,10 +499,6 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 }
 
                 layoutBinding.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
-                //TODO: Martelo
-                if (set->set == 2 && iBinding == 0 && pipelineSpecification.vertShaderPath == "shaders/pbr.vert.spv") {
-                    layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-                }
             }
             layout.setNumber = reflSet.set;
             layout.createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -521,9 +512,6 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             VkPushConstantRange pushConstant;
             pushConstant.offset = pushConstantBlock->offset;
             pushConstant.size = pushConstantBlock->size;
-            // if (pipelineSpecification.depthBiasEnable) {
-            //     pushConstant.size = 80;
-            // }
             pushConstant.stageFlags = static_cast<VkShaderStageFlagBits>(module.shader_stage);
             pushConstantRanges.push_back(pushConstant);
         }
@@ -537,8 +525,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 .pBindings = setLayouts[i].bindings.data(),
         };
 
-        VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
-                                         VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+        VkDescriptorBindingFlags flags =
+                VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
         // Must be outside if otherwise crashes :)
         VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags{};
@@ -573,8 +561,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
     std::vector<VkDynamicState> dynamicStates = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
             VK_DYNAMIC_STATE_DEPTH_BIAS // NOTE: For shadow mapping
     };
 
@@ -645,9 +632,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
             .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
             .alphaBlendOp = VK_BLEND_OP_ADD,
-            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                              VK_COLOR_COMPONENT_G_BIT |
-                              VK_COLOR_COMPONENT_B_BIT |
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
                               VK_COLOR_COMPONENT_A_BIT,
     };
 
@@ -718,8 +703,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             .basePipelineHandle = VK_NULL_HANDLE,
     };
 
-    VK_CHECK(vkCreateGraphicsPipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                       &m_Pipeline), "Failed to create graphics pipeline!");
+    VK_CHECK(vkCreateGraphicsPipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline),
+             "Failed to create graphics pipeline!");
 
     vkDestroyShaderModule(m_Device->GetDevice(), fragShaderModule, nullptr);
     vkDestroyShaderModule(m_Device->GetDevice(), vertShaderModule, nullptr);

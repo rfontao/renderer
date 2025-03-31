@@ -1,16 +1,11 @@
 #pragma once
 
-#include "Vulkan/VulkanTexture.h"
 #include "Vulkan/VulkanBuffer.h"
+#include "Vulkan/VulkanTexture.h"
 
 class Scene {
 public:
-
-    enum AlphaMode {
-        OPAQUE,
-        MASK,
-        BLEND
-    };
+    enum AlphaMode { OPAQUE, MASK, BLEND };
 
     struct Vertex {
         glm::vec3 pos;
@@ -68,13 +63,16 @@ public:
         }
     };
 
-    struct SceneInfo {
-        glm::vec3 lightDir; // 1 directional light
-        glm::vec3 lightPos[128];
-        int32_t lightCount;
-        int32_t shadowMapTextureIndex;
-        glm::mat4 lightView;
-        glm::mat4 lightProj;
+    struct Light {
+        enum class Type { DIRECTIONAL = 0, POINT = 1 };
+
+        glm::vec3 position{};
+        glm::vec3 direction{};
+        glm::vec3 color{};
+        glm::mat4 view{};
+        glm::mat4 proj{};
+        float intensity{};
+        Type type{};
     };
 
     Scene() = default;
@@ -99,15 +97,11 @@ private:
                   bool isSkybox = false, bool isShadowMap = false);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
-
     void CreateVertexBuffer(std::vector<Vertex> &vertices);
 
     void LoadImages(tinygltf::Model &input);
-
     void LoadTextures(tinygltf::Model &input);
-
     void LoadTextureSamplers(tinygltf::Model &input);
-
     void LoadMaterials(tinygltf::Model &input);
 
     void LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Node *parent,
@@ -119,11 +113,10 @@ public:
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
 
+    std::vector<Light> m_Lights;
+
     VulkanBuffer m_VertexBuffer;
     VulkanBuffer m_IndexBuffer;
-
-    VulkanBuffer m_SceneInfo;
-    VkDescriptorSet m_SceneInfoDescriptorSet;
 
     std::filesystem::path m_ResourcePath;
 
