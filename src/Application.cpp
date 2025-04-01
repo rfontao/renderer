@@ -78,7 +78,6 @@ void Application::InitVulkan() {
     stagingManager.InitializeStagingBuffers(m_Device);
 
     CreateUniformBuffers();
-    CreateDescriptorSets();
     CreateBindlessTexturesArray();
 }
 
@@ -290,6 +289,23 @@ void Application::CreateBindlessTexturesArray() {
     write.pImageInfo = m_TextureDescriptors.data();
 
     vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
+
+    VkDescriptorImageInfo imageInfo{
+            .sampler = m_CubemapTexture->GetSampler(),
+            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    VkWriteDescriptorSet write2{};
+    write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write2.dstBinding = 0;
+    write2.dstSet = m_BindlessTexturesSet;
+    write2.dstArrayElement = 750;
+    write2.descriptorCount = 1;
+    write2.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write2, 0, nullptr);
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -427,25 +443,22 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
-                            &m_SkyboxDescriptorSet, 0, nullptr);
-
-
+                            &m_BindlessTexturesSet, 0, nullptr);
     struct SkyboxPushConstant {
         VkDeviceAddress cameraBufferAddress;
+        uint32_t skyboxTextureIndex;
     };
 
-    SkyboxPushConstant pushConstant{cameraBufferAddress};
-    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+    SkyboxPushConstant pushConstant{cameraBufferAddress, 750};
+    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(SkyboxPushConstant), &pushConstant);
     m_Skybox.Draw(commandBuffer, m_SkyboxPipeline->GetLayout(), true);
-
 
     // TODO: Move to Scene class
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
-
 
     m_UI.Draw(commandBuffer);
 
@@ -576,37 +589,6 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
                                               glm::vec3(0.0f, -1.0f, 0.0f)),
     stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
-}
-
-
-void Application::CreateDescriptorSets() {
-    VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[0];
-    VkDescriptorSetAllocateInfo allocskyboxInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = 1,
-            .pSetLayouts = &skyboxLayouts,
-    };
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocskyboxInfo, &m_SkyboxDescriptorSet),
-             "Failed to allocate descriptor sets!");
-
-    VkDescriptorImageInfo imageInfo{
-            .sampler = m_CubemapTexture->GetSampler(),
-            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    std::array<VkWriteDescriptorSet, 1> skyboxDescriptorWrites{};
-    skyboxDescriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    skyboxDescriptorWrites[0].dstSet = m_SkyboxDescriptorSet;
-    skyboxDescriptorWrites[0].dstBinding = 0;
-    skyboxDescriptorWrites[0].dstArrayElement = 0;
-    skyboxDescriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    skyboxDescriptorWrites[0].descriptorCount = 1;
-    skyboxDescriptorWrites[0].pImageInfo = &imageInfo;
-
-    vkUpdateDescriptorSets(m_Device->GetDevice(), skyboxDescriptorWrites.size(), skyboxDescriptorWrites.data(), 0,
-                           nullptr);
 }
 
 void Application::CreateDepthResources() {

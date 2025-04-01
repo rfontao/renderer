@@ -12,6 +12,8 @@ layout (location = 0) out vec3 o_TexCoords;
 
 layout (push_constant, scalar) uniform PushConsts {
     CameraBuffer cameraBufferAddress;
+    int skyboxTextureIndex;
+    vec2 padding;
 } pc;
 
 void main()

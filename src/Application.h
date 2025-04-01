@@ -56,7 +56,6 @@ public:
     void UpdateUniformBuffer(uint32_t currentImage);
 
     void CreateBindlessTexturesArray();
-    void CreateDescriptorSets();
     void CreateDepthResources();
     void CreateColorResources();
 

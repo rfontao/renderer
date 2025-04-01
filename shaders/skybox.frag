@@ -1,11 +1,19 @@
 #version 460
 
-layout (set = 0, binding = 0) uniform samplerCube skyboxTexture;
+#include "common.glsl"
+
+layout (set = 0, binding = 0) uniform samplerCube texturesCube[];
+
+layout (push_constant, scalar) uniform PushConsts {
+    CameraBuffer cameraBufferAddress;
+    int skyboxTextureIndex;
+    vec2 padding;
+} pc;
 
 layout (location = 0) in vec3 i_texCoords;
 
 layout (location = 0) out vec4 o_Color;
 
 void main() {
-    o_Color = texture(skyboxTexture, i_texCoords);
+    o_Color = texture(texturesCube[nonuniformEXT(pc.skyboxTextureIndex)], i_texCoords);
 }
