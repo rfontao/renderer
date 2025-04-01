@@ -74,7 +74,6 @@ public:
 
     std::vector<VkDescriptorSet> m_DescriptorSets;
     VkDescriptorSet m_SkyboxDescriptorSet;
-    std::vector<std::shared_ptr<VulkanBuffer>> m_UniformBuffers;
 
     VkDescriptorSet m_BindlessTexturesSet;
     std::vector<VkDescriptorImageInfo> m_TextureDescriptors;
@@ -115,6 +114,9 @@ public:
 
     std::shared_ptr<VulkanBuffer> lightsBuffer;
     inline static VkDeviceAddress lightsBufferAddress;
+
+    std::shared_ptr<VulkanBuffer> cameraBuffer;
+    inline static VkDeviceAddress cameraBufferAddress;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;

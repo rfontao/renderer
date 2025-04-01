@@ -1,11 +1,10 @@
-#include "pch.h"
 #include "Camera.h"
+#include "pch.h"
 
-Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp,
-               const glm::vec3 &focusPoint, double aspectRatio,
-               double yFov) : m_Position(position), m_WorldUp(worldUp),
-                              m_FocusPoint(focusPoint), m_Up(worldUp),
-                              m_AspectRatio(aspectRatio), m_YFov(yFov) {
+Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
+               double yFov) :
+    m_Position(position), m_WorldUp(worldUp), m_FocusPoint(focusPoint), m_Up(worldUp), m_AspectRatio(aspectRatio),
+    m_YFov(yFov) {
     UpdateVectors();
 }
 
@@ -16,9 +15,7 @@ void Camera::UpdateVectors() {
     m_Up = glm::normalize(glm::cross(m_Right, front));
 }
 
-glm::mat4 Camera::GetViewMatrix() const {
-    return glm::lookAt(m_Position, m_FocusPoint, m_Up);
-}
+glm::mat4 Camera::GetViewMatrix() const { return glm::lookAt(m_Position, m_FocusPoint, m_Up); }
 
 glm::mat4 Camera::GetProjectionMatrix() const {
     glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.1, 500.0);
@@ -115,4 +112,12 @@ void Camera::HandleMovement(MovementDirection direction) {
 void Camera::HandleMouseScroll(double scrollAmount) {
     constexpr double zoomSensitivity = 1.0;
     m_YFov -= scrollAmount * zoomSensitivity;
+}
+
+Camera::CameraData Camera::GetCameraData() const {
+    return {
+            .view = GetViewMatrix(),
+            .proj = GetProjectionMatrix(),
+            .position = m_Position,
+    };
 }

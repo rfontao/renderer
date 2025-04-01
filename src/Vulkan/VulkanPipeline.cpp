@@ -535,7 +535,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         bindingFlags.pBindingFlags = &flags;
         bindingFlags.bindingCount = 1;
 
-        if (i == 1 && pipelineSpecification.fragShaderPath == "shaders/pbr_bindless.frag.spv") {
+        if (i == 0 && pipelineSpecification.fragShaderPath == "shaders/pbr_bindless.frag.spv") {
             layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
             layoutInfo.pNext = &bindingFlags;
         }

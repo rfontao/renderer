@@ -473,6 +473,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                         int32_t directionLightIndex;
                         int32_t lightCount;
                         int32_t shadowMapTextureIndex;
+                        VkDeviceAddress cameraBufferAddress;
                     };
 
                     const PBRPushConstants pushConstants = {nodeMatrix,
@@ -481,7 +482,8 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                                                             Application::lightsBufferAddress,
                                                             0,
                                                             static_cast<uint32_t>(m_Lights.size()),
-                                                            800};
+                                                            800,
+                                                            Application::cameraBufferAddress};
                     vkCmdPushConstants(commandBuffer, pipelineLayout,
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                        sizeof(PBRPushConstants), &pushConstants);

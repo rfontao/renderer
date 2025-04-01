@@ -2,7 +2,7 @@
 
 #include "common.glsl"
 
-layout (set = 1, binding = 0) uniform sampler2D textures2D[];
+layout (set = 0, binding = 0) uniform sampler2D textures2D[];
 
 layout (scalar, push_constant) uniform MaterialPushConstant {
     mat4 model;
@@ -12,7 +12,7 @@ layout (scalar, push_constant) uniform MaterialPushConstant {
     int directionLightIndex;
     int lightCount;
     int shadowMapTextureIndex;
-    vec4 padding;
+    CameraBuffer cameraBufferAddress;
 } pc;
 
 layout (location = 0) in vec3 i_FragColor;

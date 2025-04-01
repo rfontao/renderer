@@ -1,6 +1,6 @@
 #version 460
 
-layout (set = 1, binding = 0) uniform samplerCube skyboxTexture;
+layout (set = 0, binding = 0) uniform samplerCube skyboxTexture;
 
 layout (location = 0) in vec3 i_texCoords;
 

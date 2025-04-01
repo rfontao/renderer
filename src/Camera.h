@@ -2,8 +2,8 @@
 
 class Camera {
 public:
-    enum CameraMode {LOOKAT, FREE};
-    enum MovementDirection {FRONT, BACK, LEFT, RIGHT};
+    enum CameraMode { LOOKAT, FREE };
+    enum MovementDirection { FRONT, BACK, LEFT, RIGHT };
 
     Camera() = default;
     Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
@@ -19,6 +19,14 @@ public:
     void HandleMouseMovement(double xPos, double yPos);
     void HandleMouseScroll(double scrollAmount);
     void HandleMovement(MovementDirection direction);
+
+    struct CameraData {
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::vec3 position;
+    };
+
+    [[nodiscard]] CameraData GetCameraData() const;
 
 private:
     void UpdateVectors();

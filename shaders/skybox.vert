@@ -1,10 +1,6 @@
 #version 460
 
-layout (set = 0, binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec4 viewPos;
-} ubo;
+#include "common.glsl"
 
 layout (location = 0) in vec3 i_Position;
 layout (location = 1) in vec3 i_Normal;
@@ -14,10 +10,16 @@ layout (location = 4) in vec2 i_UV1;
 
 layout (location = 0) out vec3 o_TexCoords;
 
+layout (push_constant, scalar) uniform PushConsts {
+    CameraBuffer cameraBufferAddress;
+} pc;
+
 void main()
 {
     o_TexCoords = i_Position;
 
-    mat4 viewNoTranslation = mat4(mat3(ubo.view));
-    gl_Position = ubo.proj * viewNoTranslation * vec4(i_Position.xyz, 1.0);
+    Camera camera = pc.cameraBufferAddress.camera;
+
+    mat4 viewNoTranslation = mat4(mat3(camera.view));
+    gl_Position = camera.proj * viewNoTranslation * vec4(i_Position.xyz, 1.0);
 }

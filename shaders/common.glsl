@@ -3,6 +3,16 @@
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_nonuniform_qualifier: enable
 
+struct Camera {
+    mat4 view;
+    mat4 proj;
+    vec3 position;
+};
+
+layout(std430, buffer_reference, buffer_reference_align = 8) buffer CameraBuffer {
+    Camera camera;
+};
+
 struct Material {
     vec4 baseColorFactor;
     vec4 metallicFactor;

@@ -2,12 +2,6 @@
 
 #include "common.glsl"
 
-layout (set = 0, binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec4 viewPos;
-} ubo;
-
 layout (push_constant, scalar) uniform PushConsts {
     mat4 model;
     MaterialBuffer materialBufferAddress;
@@ -16,7 +10,7 @@ layout (push_constant, scalar) uniform PushConsts {
     int directionLightIndex;
     int lightCount;
     int shadowMapTextureIndex;
-    vec4 padding;
+    CameraBuffer cameraBufferAddress;
 } pc;
 
 layout (location = 0) in vec3 i_Position;
@@ -36,8 +30,9 @@ layout (location = 6) out vec4 o_FragPosLightSpace;
 // https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
     Light direcitonalLight = pc.lightsBufferAddress.lights[pc.directionLightIndex];
+    Camera camera = pc.cameraBufferAddress.camera;
 
-    gl_Position = ubo.proj * ubo.view * pc.model * vec4(i_Position, 1.0);
+    gl_Position = camera.proj * camera.view * pc.model * vec4(i_Position, 1.0);
     o_Color = i_Color;
     o_UV0 = i_UV0;
     o_UV1 = i_UV1;
@@ -47,6 +42,6 @@ void main() {
     //    o_Normal = mat3(primitive.model) * i_Normal;
 
     o_FragPos = vec3(pc.model * vec4(i_Position, 1.0));
-    o_ViewVec = ubo.viewPos.xyz - o_FragPos;
+    o_ViewVec = camera.position.xyz - o_FragPos;
     o_FragPosLightSpace = direcitonalLight.proj * direcitonalLight.view * pc.model * vec4(i_Position, 1.0);
 }

@@ -102,9 +102,6 @@ void Application::Cleanup() {
     m_CubemapTexture->Destroy();
     m_ShadowDepthTexture->Destroy();
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        m_UniformBuffers[i]->Destroy();
-    }
     materialsBuffer->Destroy();
     lightsBuffer->Destroy();
 
@@ -429,21 +426,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
-    // TODO: Investigate why this is needed: should be retained from previous pipeline -> probably push constant
-    // mismatch
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
-                            &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 1, 1,
                             &m_SkyboxDescriptorSet, 0, nullptr);
+
+
+    struct SkyboxPushConstant {
+        VkDeviceAddress cameraBufferAddress;
+    };
+
+    SkyboxPushConstant pushConstant{cameraBufferAddress};
+    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+                       sizeof(SkyboxPushConstant), &pushConstant);
     m_Skybox.Draw(commandBuffer, m_SkyboxPipeline->GetLayout(), true);
 
 
     // TODO: Move to Scene class
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
-    // Bind camera matrices
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
-                            &m_DescriptorSets[m_CurrentFrame], 0, nullptr);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 1, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
 
@@ -515,14 +514,6 @@ void Application::DrawFrame() {
 }
 
 void Application::CreateUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-    m_UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        m_UniformBuffers[i] = std::make_shared<VulkanBuffer>(m_Device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                             VMA_MEMORY_USAGE_CPU_ONLY);
-        m_UniformBuffers[i]->Map();
-    }
 
     materialsBuffer = std::make_shared<VulkanBuffer>(
             m_Device, 128 * sizeof(Scene::Material),
@@ -553,6 +544,20 @@ void Application::CreateUniformBuffers() {
 
     stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
+
+    cameraBuffer = std::make_shared<VulkanBuffer>(
+            m_Device, sizeof(Camera::CameraData),
+            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_AUTO);
+
+    VkBufferDeviceAddressInfo cameraBufferDeviceAddressInfo{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = cameraBuffer->GetBuffer(),
+    };
+
+    cameraBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &cameraBufferDeviceAddressInfo);
+
+    auto cameraData = m_Camera.GetCameraData();
+    stagingManager.AddCopy(&cameraData, cameraBuffer->GetBuffer(), sizeof(cameraData));
 }
 
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
@@ -561,56 +566,21 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
-    UniformBufferObject ubo{};
-    ubo.view = m_Camera.GetViewMatrix();
-    ubo.proj = m_Camera.GetProjectionMatrix();
-    ubo.viewPos = glm::vec4(m_Camera.GetPosition(), 1.0f);
-
-    m_UniformBuffers[currentImage]->From(&ubo, sizeof(ubo));
+    auto cameraData = m_Camera.GetCameraData();
+    stagingManager.AddCopy(&cameraData, cameraBuffer->GetBuffer(), sizeof(cameraData));
 
     // NOTE(RF): Directional light moving test
     m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
     m_Scene.m_Lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
-    m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+    m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
+                                              glm::vec3(0.0f, -1.0f, 0.0f)),
     stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
 }
 
 
 void Application::CreateDescriptorSets() {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_GraphicsPipeline->GetDescriptorSetLayouts()[0]);
-    VkDescriptorSetAllocateInfo allocInfo{
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = m_Device->GetDescriptorPool(),
-            .descriptorSetCount = (uint32_t) MAX_FRAMES_IN_FLIGHT,
-            .pSetLayouts = layouts.data(),
-    };
-
-    m_DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocInfo, m_DescriptorSets.data()),
-             "Failed to allocate descriptor sets!");
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo bufferInfo{
-                .buffer = m_UniformBuffers[i]->GetBuffer(),
-                .offset = 0,
-                .range = sizeof(UniformBufferObject),
-        };
-
-        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = m_DescriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-        vkUpdateDescriptorSets(m_Device->GetDevice(), (uint32_t) descriptorWrites.size(), descriptorWrites.data(), 0,
-                               nullptr);
-    }
-
-    VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[1];
+    VkDescriptorSetLayout skyboxLayouts = m_SkyboxPipeline->GetDescriptorSetLayouts()[0];
     VkDescriptorSetAllocateInfo allocskyboxInfo{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .descriptorPool = m_Device->GetDescriptorPool(),
