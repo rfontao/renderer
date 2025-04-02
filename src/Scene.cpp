@@ -5,6 +5,12 @@
 #include "pch.h"
 
 Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath) : m_Device(device) {
+
+    camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                        (double) 1280 / (double) 720);
+
+    CreateBuffers();
+
     tinygltf::TinyGLTF gltfContext;
     tinygltf::Model glTFInput;
     std::string error, warning;
@@ -42,33 +48,29 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
 }
 
 void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
-                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                       VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    stagingBuffer.From(vertices.data(), (size_t) bufferSize);
+    const auto stagingBuffer =
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::STAGING});
+    stagingBuffer->From(vertices.data(), bufferSize);
 
     m_VertexBuffer =
-            VulkanBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                         VMA_MEMORY_USAGE_AUTO);
-    m_VertexBuffer.FromBuffer(stagingBuffer);
-    stagingBuffer.Destroy();
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::VERTEX});
+    m_VertexBuffer->FromBuffer(stagingBuffer.get());
+    stagingBuffer->Destroy();
 }
 
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VulkanBuffer stagingBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
-                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                       VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    stagingBuffer.From(indices.data(), (size_t) bufferSize);
+    const auto stagingBuffer =
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::STAGING});
+    stagingBuffer->From(indices.data(), bufferSize);
 
     m_IndexBuffer =
-            VulkanBuffer(m_Device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                         VMA_MEMORY_USAGE_AUTO);
-    m_IndexBuffer.FromBuffer(stagingBuffer);
-    stagingBuffer.Destroy();
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::INDEX});
+    m_IndexBuffer->FromBuffer(stagingBuffer.get());
+    stagingBuffer->Destroy();
 }
 
 void Scene::LoadImages(tinygltf::Model &input) {
@@ -397,10 +399,14 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
 }
 
 void Scene::Destroy() {
-    m_IndexBuffer.Destroy();
-    m_VertexBuffer.Destroy();
+    m_IndexBuffer->Destroy();
+    m_VertexBuffer->Destroy();
 
-    for (auto node: m_Nodes) {
+    materialsBuffer->Destroy();
+    lightsBuffer->Destroy();
+    cameraBuffer->Destroy();
+
+    for (const auto &node: m_Nodes) {
         delete node;
     }
 
@@ -412,9 +418,9 @@ void Scene::Destroy() {
 
 void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox, bool isShadowMap) {
     VkDeviceSize offsets[] = {0};
-    VkBuffer vertexBuffers[] = {m_VertexBuffer.GetBuffer()};
+    VkBuffer vertexBuffers[] = {m_VertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
     // Render all nodes at top-level
     for (const auto &node: m_Nodes) {
         DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox, isShadowMap);
@@ -447,7 +453,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                 int32_t directionalLightIndex;
             };
 
-            const auto pushConstants = shadowPushConstants{nodeMatrix, Application::lightsBufferAddress, 0};
+            const auto pushConstants = shadowPushConstants{nodeMatrix, lightsBuffer->GetAddress(), 0};
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                                &pushConstants);
         }
@@ -477,13 +483,13 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                     };
 
                     const PBRPushConstants pushConstants = {nodeMatrix,
-                                                            Application::materialsBufferAddress,
+                                                            materialsBuffer->GetAddress(),
                                                             primitive.materialIndex,
-                                                            Application::lightsBufferAddress,
+                                                            lightsBuffer->GetAddress(),
                                                             0,
                                                             static_cast<uint32_t>(m_Lights.size()),
                                                             800,
-                                                            Application::cameraBufferAddress};
+                                                            cameraBuffer->GetAddress()};
                     vkCmdPushConstants(commandBuffer, pipelineLayout,
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                        sizeof(PBRPushConstants), &pushConstants);
@@ -508,4 +514,17 @@ void Scene::CreateLights() {
 
     m_Lights.push_back({.position = glm::vec3(-11.0f, 0.1f, -0.3f), .type = Light::Type::POINT});
     m_Lights.push_back({.position = glm::vec3(-6.5f, 1.0f, -1.5f), .type = Light::Type::POINT});
+}
+
+void Scene::CreateBuffers() {
+
+    materialsBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = 128 * sizeof(Material), .type = BufferType::GPU});
+
+    constexpr int maxLights = 128;
+    lightsBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxLights * sizeof(Scene::Light), .type = BufferType::GPU});
+
+    cameraBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = sizeof(Camera::CameraData), .type = BufferType::GPU});
 }

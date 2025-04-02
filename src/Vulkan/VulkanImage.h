@@ -2,11 +2,11 @@
 
 #include "pch.h"
 #include "VulkanDevice.h"
-#include "VulkanBuffer.h"
+#include "Buffer.h"
 
 class VulkanDevice;
 
-class VulkanBuffer;
+class Buffer;
 
 enum class ImageFormat {
     R8 = VK_FORMAT_R8_UNORM,
@@ -44,7 +44,7 @@ public:
     void Destroy();
 
     void TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
-    void CopyBufferData(VulkanBuffer &buffer, uint32_t layerCount = 1);
+    void CopyBufferData(Buffer &buffer, uint32_t layerCount = 1);
     void GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool cube = false);
 
     [[nodiscard]] uint32_t GetWidth() const { return m_Width; }

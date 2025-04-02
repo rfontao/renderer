@@ -6,10 +6,6 @@
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 void Application::Run() {
-    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                      (double) WIDTH / (double) HEIGHT);
-    //    m_Camera = Camera(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-
     InitWindow();
     InitVulkan();
     MainLoop();
@@ -77,7 +73,13 @@ void Application::InitVulkan() {
 
     stagingManager.InitializeStagingBuffers(m_Device);
 
-    CreateUniformBuffers();
+    stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
+                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
+    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
+                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
+    auto cameraData = m_Scene.camera.GetCameraData();
+    stagingManager.AddCopy(&cameraData, m_Scene.cameraBuffer->GetBuffer(), sizeof(cameraData));
+
     CreateBindlessTexturesArray();
 }
 
@@ -100,9 +102,6 @@ void Application::Cleanup() {
 
     m_CubemapTexture->Destroy();
     m_ShadowDepthTexture->Destroy();
-
-    materialsBuffer->Destroy();
-    lightsBuffer->Destroy();
 
     m_GraphicsPipeline->Destroy();
     m_SkyboxPipeline->Destroy();
@@ -138,10 +137,10 @@ void Application::InitWindow() {
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
-                app->GetCamera().SetMove(true);
+                app->m_Scene.camera.SetMove(true);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             } else if (action == GLFW_RELEASE) {
-                app->GetCamera().SetMove(false);
+                app->m_Scene.camera.SetMove(false);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
         }
@@ -149,24 +148,24 @@ void Application::InitWindow() {
 
     glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, double xPosIn, double yPosIn) {
         auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->GetCamera().HandleMouseMovement(xPosIn, yPosIn);
+        app->m_Scene.camera.HandleMouseMovement(xPosIn, yPosIn);
     });
 
     glfwSetScrollCallback(m_Window, [](GLFWwindow *w, double xScroll, double yScroll) {
         auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->GetCamera().HandleMouseScroll(yScroll);
+        app->m_Scene.camera.HandleMouseScroll(yScroll);
     });
 }
 
 void Application::HandleKeys() {
     if (glfwGetKey(m_Window, GLFW_KEY_W) == GLFW_PRESS)
-        m_Camera.HandleMovement(Camera::MovementDirection::FRONT);
+        m_Scene.camera.HandleMovement(Camera::MovementDirection::FRONT);
     if (glfwGetKey(m_Window, GLFW_KEY_A) == GLFW_PRESS)
-        m_Camera.HandleMovement(Camera::MovementDirection::LEFT);
+        m_Scene.camera.HandleMovement(Camera::MovementDirection::LEFT);
     if (glfwGetKey(m_Window, GLFW_KEY_S) == GLFW_PRESS)
-        m_Camera.HandleMovement(Camera::MovementDirection::BACK);
+        m_Scene.camera.HandleMovement(Camera::MovementDirection::BACK);
     if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
-        m_Camera.HandleMovement(Camera::MovementDirection::RIGHT);
+        m_Scene.camera.HandleMovement(Camera::MovementDirection::RIGHT);
 }
 
 void Application::CreateInstance() {
@@ -449,9 +448,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         uint32_t skyboxTextureIndex;
     };
 
-    SkyboxPushConstant pushConstant{cameraBufferAddress, 750};
-    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(SkyboxPushConstant), &pushConstant);
+    SkyboxPushConstant pushConstant{m_Scene.cameraBuffer->GetAddress(), 750};
+    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(),
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SkyboxPushConstant),
+                       &pushConstant);
     m_Skybox.Draw(commandBuffer, m_SkyboxPipeline->GetLayout(), true);
 
     // TODO: Move to Scene class
@@ -477,7 +477,7 @@ void Application::DrawFrame() {
     uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-        m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();
@@ -512,7 +512,7 @@ void Application::DrawFrame() {
 
     bool resourceNeedResizing = m_Swapchain->Present(imageIndex, m_CurrentFrame);
     if (resourceNeedResizing) {
-        m_Camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();
@@ -526,68 +526,21 @@ void Application::DrawFrame() {
         ChangeScene();
 }
 
-void Application::CreateUniformBuffers() {
-
-    materialsBuffer = std::make_shared<VulkanBuffer>(
-            m_Device, 128 * sizeof(Scene::Material),
-            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_AUTO);
-
-    VkBufferDeviceAddressInfo materialsBufferDeviceAddressInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .buffer = materialsBuffer->GetBuffer(),
-    };
-
-    materialsBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &materialsBufferDeviceAddressInfo);
-
-    stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
-                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
-
-    constexpr int maxLights = 128;
-    VkDeviceSize lightsBufferSize = maxLights * sizeof(Scene::Light);
-
-    lightsBuffer = std::make_shared<VulkanBuffer>(
-            m_Device, lightsBufferSize, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_AUTO);
-
-    VkBufferDeviceAddressInfo lightsBufferAddressInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .buffer = lightsBuffer->GetBuffer(),
-    };
-    lightsBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &lightsBufferAddressInfo);
-
-    stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
-                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
-
-    cameraBuffer = std::make_shared<VulkanBuffer>(
-            m_Device, sizeof(Camera::CameraData),
-            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_AUTO);
-
-    VkBufferDeviceAddressInfo cameraBufferDeviceAddressInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .buffer = cameraBuffer->GetBuffer(),
-    };
-
-    cameraBufferAddress = vkGetBufferDeviceAddress(m_Device->GetDevice(), &cameraBufferDeviceAddressInfo);
-
-    auto cameraData = m_Camera.GetCameraData();
-    stagingManager.AddCopy(&cameraData, cameraBuffer->GetBuffer(), sizeof(cameraData));
-}
-
 void Application::UpdateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
-    auto cameraData = m_Camera.GetCameraData();
-    stagingManager.AddCopy(&cameraData, cameraBuffer->GetBuffer(), sizeof(cameraData));
+    auto cameraData = m_Scene.camera.GetCameraData();
+    stagingManager.AddCopy(&cameraData, m_Scene.cameraBuffer->GetBuffer(), sizeof(cameraData));
 
     // NOTE(RF): Directional light moving test
     m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
     m_Scene.m_Lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
     m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
                                               glm::vec3(0.0f, -1.0f, 0.0f)),
-    stagingManager.AddCopy(m_Scene.m_Lights.data(), lightsBuffer->GetBuffer(),
+    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
 }
 
@@ -624,14 +577,12 @@ void Application::ChangeScene() {
     m_ShouldChangeScene = false;
     vkDeviceWaitIdle(m_Device->GetDevice());
     m_Scene.Destroy();
-    m_Camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                      (double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
     m_Scene = Scene(m_Device, m_NextScenePath);
 
     m_TextureDescriptors.clear();
     CreateBindlessTexturesArray();
 
-    stagingManager.AddCopy(m_Scene.m_Materials.data(), materialsBuffer->GetBuffer(),
+    stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
 }
 

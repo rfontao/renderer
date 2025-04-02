@@ -2,7 +2,7 @@
 #include "VulkanImage.h"
 
 #include "VulkanDevice.h"
-#include "VulkanBuffer.h"
+#include "Buffer.h"
 #include "Utils.h"
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecification &specification) :
@@ -163,7 +163,7 @@ void VulkanImage::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLay
     m_Device->EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanImage::CopyBufferData(VulkanBuffer &buffer, uint32_t layerCount) {
+void VulkanImage::CopyBufferData(Buffer &buffer, uint32_t layerCount) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
     VkBufferImageCopy region{

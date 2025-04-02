@@ -3,13 +3,13 @@
 #include <array>
 #include <vector>
 
-#include "Vulkan/VulkanBuffer.h"
+#include "Vulkan/Buffer.h"
 
 class StagingManager {
 public:
 
     struct StagingBuffer {
-        std::unique_ptr<VulkanBuffer> buffer;
+        std::unique_ptr<Buffer> buffer;
         VkDeviceSize currentOffset;
     };
 

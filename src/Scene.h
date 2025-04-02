@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Vulkan/VulkanBuffer.h"
+#include "Vulkan/Buffer.h"
 #include "Vulkan/VulkanTexture.h"
+
+#include <Camera.h>
 
 class Scene {
 public:
@@ -108,6 +110,7 @@ private:
                   std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer);
 
     void CreateLights();
+    void CreateBuffers();
 
 public:
     std::vector<Material> m_Materials;
@@ -115,10 +118,16 @@ public:
 
     std::vector<Light> m_Lights;
 
-    VulkanBuffer m_VertexBuffer;
-    VulkanBuffer m_IndexBuffer;
+    std::unique_ptr<Buffer> m_VertexBuffer;
+    std::unique_ptr<Buffer> m_IndexBuffer;
+
+    std::shared_ptr<Buffer> materialsBuffer;
+    std::shared_ptr<Buffer> lightsBuffer;
+    std::shared_ptr<Buffer> cameraBuffer;
 
     std::filesystem::path m_ResourcePath;
+
+    Camera camera;
 
     std::shared_ptr<VulkanDevice> m_Device;
 };

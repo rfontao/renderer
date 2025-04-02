@@ -7,13 +7,12 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
 
     for (auto &stagingBuffer: stagingBuffers) {
         // 64 MB staging buffer
-        stagingBuffer = {std::make_unique<VulkanBuffer>(
-                device, 64 * 1024 * 1024, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
-                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT),
-                0};
+        stagingBuffer = {std::make_unique<Buffer>(
+                                 device, BufferSpecification{.size = 64 * 1024 * 1024, .type = BufferType::STAGING}),
+                         0};
     }
 }
-void StagingManager::AddCopy(void* src, VkBuffer dstBuffer, VkDeviceSize size) {
+void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     // TODO: Check bounds
     queuedBufferCopies.push_back({
             .destination = dstBuffer,

@@ -2,7 +2,7 @@
 #include "VulkanTexture.h"
 
 #include "Utils.h"
-#include "VulkanBuffer.h"
+#include "Buffer.h"
 #include "VulkanImage.h"
 
 
@@ -18,10 +18,7 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
     }
 
     VkDeviceSize imageSize = width * height * 4 * 6;
-    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_AUTO,
-                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
 
     uint32_t offset = 0;
     for (const auto &path: paths) { // Should be 6
@@ -32,7 +29,7 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
         }
 
         VkDeviceSize faceSize = texWidth * texHeight * 4;
-        stagingBuffer.From(pixels, (size_t) faceSize, offset);
+        stagingBuffer->From(pixels, (size_t) faceSize, offset);
         offset += faceSize;
 
         stbi_image_free(pixels);
@@ -49,9 +46,9 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
     m_Image = make_shared<VulkanImage>(m_Device, imageSpecification);
 
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    m_Image->CopyBufferData(stagingBuffer, 6);
+    m_Image->CopyBufferData(*stagingBuffer, 6);
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    stagingBuffer.Destroy();
+    stagingBuffer->Destroy();
 
     SetSampler({.samplerWrap = specification.samplerWrap, .samplerFilter = specification.samplerFilter});
 }
@@ -71,12 +68,8 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
         mipLevelCount = (uint32_t) (std::floor(std::log2(std::max(texWidth, texHeight))) + 1);
     }
 
-    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_AUTO,
-                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
-
-    stagingBuffer.From(pixels, imageSize);
+    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
+    stagingBuffer->From(pixels, imageSize);
 
     stbi_image_free(pixels);
 
@@ -90,11 +83,11 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
     m_Image = make_shared<VulkanImage>(m_Device, imageSpecification);
 
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    m_Image->CopyBufferData(stagingBuffer);
+    m_Image->CopyBufferData(*stagingBuffer);
     if (specification.generateMipMaps) {
         m_Image->GenerateMipMaps(static_cast<VkFormat>(specification.format), mipLevelCount);
     }
-    stagingBuffer.Destroy();
+    stagingBuffer->Destroy();
 
     SetSampler({.samplerWrap = specification.samplerWrap, .samplerFilter = specification.samplerFilter});
 }
@@ -130,12 +123,8 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
 
     int channels = GetChannels(specification.format);
     VkDeviceSize imageSize = specification.width * specification.height * channels;
-    VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                              VMA_MEMORY_USAGE_AUTO,
-                                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT);
-
-    stagingBuffer.From(pixels, imageSize);
+    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
+    stagingBuffer->From(pixels, imageSize);
 
     ImageSpecification imageSpecification{
             .format = specification.format,
@@ -147,9 +136,9 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
     m_Image = make_shared<VulkanImage>(m_Device, imageSpecification);
 
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    m_Image->CopyBufferData(stagingBuffer);
+    m_Image->CopyBufferData(*stagingBuffer);
     m_Image->TransitionLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    stagingBuffer.Destroy();
+    stagingBuffer->Destroy();
 
     SetSampler({.samplerWrap = specification.samplerWrap, .samplerFilter = specification.samplerFilter});
 }
