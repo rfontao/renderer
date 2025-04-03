@@ -34,7 +34,6 @@ public:
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
     void DrawFrame();
 
     void UpdateUniformBuffer(uint32_t currentImage);
@@ -54,9 +53,6 @@ public:
     std::shared_ptr<VulkanSwapchain> m_Swapchain;
     std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
     std::shared_ptr<VulkanPipeline> m_SkyboxPipeline;
-
-    std::vector<VkDescriptorSet> m_DescriptorSets;
-    VkDescriptorSet m_SkyboxDescriptorSet;
 
     VkDescriptorSet m_BindlessTexturesSet;
     std::vector<VkDescriptorImageInfo> m_TextureDescriptors;
