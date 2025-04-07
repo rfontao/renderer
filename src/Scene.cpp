@@ -241,24 +241,27 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
 void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNode, Scene::Node *parent,
                      std::vector<Vertex> &vertexBuffer, std::vector<uint32_t> &indexBuffer) {
     auto node = new Node{};
-    node->matrix = glm::mat4(1.0f);
     node->parent = parent;
 
     // Get the local node matrix
     // It's either made up from translation, rotation, scale or a 4x4 matrix
+    auto modelMatrix = glm::mat4(1.0f);
     if (inputNode.translation.size() == 3) {
-        node->matrix = glm::translate(node->matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
     }
     if (inputNode.rotation.size() == 4) {
         glm::quat q = glm::make_quat(inputNode.rotation.data());
-        node->matrix *= glm::mat4(q);
+        modelMatrix *= glm::mat4(q);
     }
     if (inputNode.scale.size() == 3) {
-        node->matrix = glm::scale(node->matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
     }
     if (inputNode.matrix.size() == 16) {
-        node->matrix = glm::make_mat4x4(inputNode.matrix.data());
+        modelMatrix = glm::make_mat4x4(inputNode.matrix.data());
     }
+
+    modelMatrices.push_back(modelMatrix);
+    node->modelMatrixIndex = modelMatrices.size() - 1;
 
     if (!inputNode.children.empty()) {
         for (int i: inputNode.children) {
@@ -383,11 +386,13 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                         return;
                 }
             }
-            Primitive primitive{};
-            primitive.firstIndex = firstIndex;
-            primitive.indexCount = indexCount;
-            primitive.materialIndex = glTFPrimitive.material;
-            node->mesh.primitives.push_back(primitive);
+            Mesh mesh{};
+            mesh.firstIndex = firstIndex;
+            mesh.indexCount = indexCount;
+            mesh.materialIndex = glTFPrimitive.material;
+
+            meshes.push_back(mesh);
+            node->meshIndices.push_back(meshes.size() - 1);
         }
     }
 
@@ -433,14 +438,15 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
 
 void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
                      bool isSkybox, bool isShadowMap) {
-    if (!node->mesh.primitives.empty()) {
+    if (!node->meshIndices.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
         // TODO: Inefficient? -> Search for different scene graph implementations
-        glm::mat4 nodeMatrix = node->matrix;
+        glm::mat4 nodeMatrix = modelMatrices.at(node->modelMatrixIndex);
         Node *currentParent = node->parent;
         while (currentParent) {
-            nodeMatrix = currentParent->matrix * nodeMatrix;
+            glm::mat4 parentMatrix = modelMatrices.at(currentParent->modelMatrixIndex);
+            nodeMatrix = parentMatrix * nodeMatrix;
             currentParent = currentParent->parent;
         }
         // TODO Cleanup
@@ -457,11 +463,12 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                                &pushConstants);
         }
-        for (Primitive &primitive: node->mesh.primitives) {
-            if (primitive.indexCount > 0) {
+        for (const auto meshIndex: node->meshIndices) {
+            const auto& mesh = meshes[meshIndex];
+            if (mesh.indexCount > 0) {
                 // Get the texture index for this primitive
                 auto &material =
-                        primitive.materialIndex != -1 ? m_Materials[primitive.materialIndex] : m_DefaultMaterial;
+                        mesh.materialIndex != -1 ? m_Materials[mesh.materialIndex] : m_DefaultMaterial;
 
                 if (alphaMode == OPAQUE && material.alphaMask != 0.0f)
                     continue;
@@ -484,7 +491,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
                     const PBRPushConstants pushConstants = {nodeMatrix,
                                                             materialsBuffer->GetAddress(),
-                                                            primitive.materialIndex,
+                                                            mesh.materialIndex,
                                                             lightsBuffer->GetAddress(),
                                                             0,
                                                             static_cast<uint32_t>(m_Lights.size()),
@@ -495,7 +502,7 @@ void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
                                        sizeof(PBRPushConstants), &pushConstants);
                 }
 
-                vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
+                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0, 0);
             }
         }
     }

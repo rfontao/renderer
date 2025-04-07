@@ -17,15 +17,10 @@ public:
         glm::vec2 texCoord1;
     };
 
-    // A primitive contains the data for a single draw call
-    struct Primitive {
+    struct Mesh {
         uint32_t firstIndex{0};
         uint32_t indexCount{0};
         int32_t materialIndex{-1};
-    };
-
-    struct Mesh {
-        std::vector<Primitive> primitives;
     };
 
     struct Material {
@@ -55,11 +50,11 @@ public:
     struct Node {
         Node *parent;
         std::vector<Node *> children;
-        Mesh mesh;
-        glm::mat4 matrix;
+        std::vector<uint32_t> meshIndices;
+        uint32_t modelMatrixIndex{0};
 
         ~Node() {
-            for (auto &child: children) {
+            for (const auto &child: children) {
                 delete child;
             }
         }
@@ -115,6 +110,8 @@ private:
 public:
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
+    std::vector<Mesh> meshes;
+    std::vector<glm::mat4> modelMatrices;
 
     std::vector<Light> m_Lights;
 
@@ -126,6 +123,7 @@ public:
     std::shared_ptr<Buffer> cameraBuffer;
 
     std::filesystem::path m_ResourcePath;
+
 
     Camera camera;
 
