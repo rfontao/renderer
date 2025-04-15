@@ -588,6 +588,22 @@ void Application::ChangeScene() {
 
     stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
+    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
+                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
+                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
+                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
+                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {

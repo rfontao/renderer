@@ -543,14 +543,14 @@ void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
                                              modelMatricesBuffer->GetAddress(), 0};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                        &pushConstants);
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(shadowPushConstants), &pushConstants);
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(shadowPushConstants),
+                       &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
                              opaqueDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 
     pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(shadowPushConstants), &pushConstants);
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(shadowPushConstants),
+                       &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
                              transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
@@ -654,7 +654,7 @@ void Scene::CreateBuffers() {
             m_Device,
             BufferSpecification{.size = globalModelMatrices.size() * sizeof(glm::mat4), .type = BufferType::GPU});
 
-    constexpr size_t maxDrawIndirectCommands = 1024;
+    constexpr size_t maxDrawIndirectCommands = 4096;
     opaqueDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
             m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
