@@ -4,15 +4,16 @@
 
 layout (set = 0, binding = 0) uniform sampler2D textures2D[];
 
-layout (scalar, push_constant) uniform MaterialPushConstant {
-    mat4 model;
+layout (push_constant, scalar) uniform PushConsts {
     MaterialBuffer materialBufferAddress;
-    int materialIndex;
     LightsBuffer lightsBufferAddress;
+    CameraBuffer cameraBufferAddress;
+    DrawDataBuffer drawDataBufferAddress;
+    ModelMatricesBuffer modelMatricesBufferAddress;
     int directionLightIndex;
     int lightCount;
     int shadowMapTextureIndex;
-    CameraBuffer cameraBufferAddress;
+    int padding;
 } pc;
 
 layout (location = 0) in vec3 i_FragColor;
@@ -22,6 +23,8 @@ layout (location = 3) in vec2 i_UV1;
 layout (location = 4) in vec3 i_ViewVec;
 layout (location = 5) in vec3 i_FragPos;
 layout (location = 6) in vec4 i_FragPosLightSpace;
+layout (location = 7) flat in int i_DrawID;
+
 
 layout (location = 0) out vec4 o_Color;
 
@@ -29,8 +32,8 @@ const float PI = 3.1415926535897932384626433832795;
 const int PCF_SIZE = 3;
 
 vec3 GetNormal() {
-
-    Material material = pc.materialBufferAddress.materials[pc.materialIndex];
+    DrawData drawData = pc.drawDataBufferAddress.drawData[i_DrawID];
+    Material material = pc.materialBufferAddress.materials[drawData.materialIndex];
     vec3 N = normalize(i_Mormal);
 
     if (material.normalTextureIndex != -1) {
@@ -152,8 +155,8 @@ float CalculateShadow(vec4 fragPosLightSpace) {
 }
 
 void main() {
-
-    Material material = pc.materialBufferAddress.materials[pc.materialIndex];
+    DrawData drawData = pc.drawDataBufferAddress.drawData[i_DrawID];
+    Material material = pc.materialBufferAddress.materials[drawData.materialIndex];
     Light directionalLight = pc.lightsBufferAddress.lights[pc.directionLightIndex];
 
     vec4 color;
@@ -193,7 +196,7 @@ void main() {
     for (int i = 0; i < pc.lightCount; i++) {
         Light light = pc.lightsBufferAddress.lights[i];
         if (light.type == 0) { // If directionlight, skip
-            continue;
+                               continue;
         }
 
         L = normalize(light.position - i_FragPos);

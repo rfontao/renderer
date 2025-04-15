@@ -2,14 +2,16 @@
 
 #include <Application.h>
 
+#include <utility>
+
 #include "pch.h"
 
-Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath) : m_Device(device) {
+Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath,
+             std::shared_ptr<TextureCube> skyboxTexture) :
+    m_SkyboxTexture(std::move(skyboxTexture)), m_Device(std::move(device)) {
 
     camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                        (double) 1280 / (double) 720);
-
-    CreateBuffers();
+                    (double) 1280 / (double) 720);
 
     tinygltf::TinyGLTF gltfContext;
     tinygltf::Model glTFInput;
@@ -45,6 +47,9 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
     CreateVertexBuffer(vertexBuffer);
     CreateIndexBuffer(indexBuffer);
     CreateLights();
+
+    GenerateDrawCommands();
+    CreateBuffers();
 }
 
 void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
@@ -58,6 +63,67 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
             std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::VERTEX});
     m_VertexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
+
+    std::vector<Vertex> skyboxVertices = {
+            // Front face
+            {{-1.0f, -1.0f, 1.0f}},
+            {{1.0f, -1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f}},
+            {{-1.0f, 1.0f, 1.0f}},
+            {{-1.0f, -1.0f, 1.0f}},
+
+            // Back face
+            {{-1.0f, -1.0f, -1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{1.0f, -1.0f, -1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{-1.0f, -1.0f, -1.0f}},
+            {{-1.0f, 1.0f, -1.0f}},
+
+            // Left face
+            {{-1.0f, -1.0f, -1.0f}},
+            {{-1.0f, -1.0f, 1.0f}},
+            {{-1.0f, 1.0f, 1.0f}},
+            {{-1.0f, 1.0f, 1.0f}},
+            {{-1.0f, 1.0f, -1.0f}},
+            {{-1.0f, -1.0f, -1.0f}},
+
+            // Right face
+            {{1.0f, -1.0f, 1.0f}},
+            {{1.0f, -1.0f, -1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{1.0f, 1.0f, 1.0f}},
+            {{1.0f, -1.0f, 1.0f}},
+
+            // Top face
+            {{-1.0f, 1.0f, 1.0f}},
+            {{1.0f, 1.0f, 1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{1.0f, 1.0f, -1.0f}},
+            {{-1.0f, 1.0f, -1.0f}},
+            {{-1.0f, 1.0f, 1.0f}},
+
+            // Bottom face
+            {{-1.0f, -1.0f, -1.0f}},
+            {{1.0f, -1.0f, -1.0f}},
+            {{1.0f, -1.0f, 1.0f}},
+            {{1.0f, -1.0f, 1.0f}},
+            {{-1.0f, -1.0f, 1.0f}},
+            {{-1.0f, -1.0f, -1.0f}},
+    };
+
+    const VkDeviceSize skyboxBufferSize = sizeof(skyboxVertices[0]) * skyboxVertices.size();
+
+    const auto skyboxStagingBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{.size = skyboxBufferSize, .type = BufferType::STAGING});
+    skyboxStagingBuffer->From(skyboxVertices.data(), skyboxBufferSize);
+
+    m_SkyboxVertexBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{.size = skyboxBufferSize, .type = BufferType::VERTEX});
+    m_SkyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
+    skyboxStagingBuffer->Destroy();
 }
 
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
@@ -260,8 +326,8 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
         modelMatrix = glm::make_mat4x4(inputNode.matrix.data());
     }
 
-    modelMatrices.push_back(modelMatrix);
-    node->modelMatrixIndex = modelMatrices.size() - 1;
+    localModelMatrices.push_back(modelMatrix);
+    node->modelMatrixIndex = localModelMatrices.size() - 1;
 
     if (!inputNode.children.empty()) {
         for (int i: inputNode.children) {
@@ -421,93 +487,142 @@ void Scene::Destroy() {
     }
 }
 
-void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox, bool isShadowMap) {
+void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
     VkDeviceSize offsets[] = {0};
     VkBuffer vertexBuffers[] = {m_VertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    struct PBRPushConstants {
+        VkDeviceAddress materialsBufferAddress;
+        VkDeviceAddress lightsBufferAddress;
+        VkDeviceAddress cameraBufferAddress;
+        VkDeviceAddress drawDataBufferAddress;
+        VkDeviceAddress modelMatricesBufferAddress;
+        int32_t directionLightIndex;
+        uint32_t lightCount;
+        int32_t shadowMapTextureIndex;
+    };
+
+    PBRPushConstants pushConstants = {
+            materialsBuffer->GetAddress(),
+            lightsBuffer->GetAddress(),
+            cameraBuffer->GetAddress(),
+            opaqueDrawDataBuffer->GetAddress(),
+            modelMatricesBuffer->GetAddress(),
+            0,
+            static_cast<uint32_t>(m_Lights.size()),
+            800,
+    };
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PBRPushConstants), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             opaqueDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+
+    pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(PBRPushConstants), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+    VkDeviceSize offsets[] = {0};
+    VkBuffer vertexBuffers[] = {m_VertexBuffer->GetBuffer()};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    struct shadowPushConstants {
+        VkDeviceAddress lightBufferAddress;
+        VkDeviceAddress drawDataBufferAddress;
+        VkDeviceAddress modelMatricesBufferAddress;
+        int32_t directionalLightIndex;
+    };
+
+    auto pushConstants = shadowPushConstants{lightsBuffer->GetAddress(), opaqueDrawDataBuffer->GetAddress(),
+                                             modelMatricesBuffer->GetAddress(), 0};
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
+                       &pushConstants);
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(shadowPushConstants), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             opaqueDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+
+    pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(shadowPushConstants), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
+
+    VkDeviceSize offsets[] = {0};
+    VkBuffer vertexBuffers[] = {m_SkyboxVertexBuffer->GetBuffer()};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    struct SkyboxPushConstant {
+        VkDeviceAddress cameraBufferAddress;
+        uint32_t skyboxTextureIndex;
+    };
+
+    SkyboxPushConstant pushConstant{cameraBuffer->GetAddress(), 750};
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(SkyboxPushConstant), &pushConstant);
+    vkCmdDraw(commandBuffer, 36, 1, 0, 0);
+}
+
+void Scene::GenerateDrawCommands() {
+    globalModelMatrices.resize(localModelMatrices.size());
+
     // Render all nodes at top-level
     for (const auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node, OPAQUE, isSkybox, isShadowMap);
-    }
-
-    for (const auto &node: m_Nodes) {
-        DrawNode(commandBuffer, pipelineLayout, node, MASK, isSkybox, isShadowMap);
+        DrawNode(node);
     }
 }
 
-void Scene::DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
-                     bool isSkybox, bool isShadowMap) {
+void Scene::DrawNode(Node *node) {
     if (!node->meshIndices.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
         // TODO: Inefficient? -> Search for different scene graph implementations
-        glm::mat4 nodeMatrix = modelMatrices.at(node->modelMatrixIndex);
+        glm::mat4 nodeMatrix = localModelMatrices.at(node->modelMatrixIndex);
         Node *currentParent = node->parent;
         while (currentParent) {
-            glm::mat4 parentMatrix = modelMatrices.at(currentParent->modelMatrixIndex);
+            glm::mat4 parentMatrix = localModelMatrices.at(currentParent->modelMatrixIndex);
             nodeMatrix = parentMatrix * nodeMatrix;
             currentParent = currentParent->parent;
         }
-        // TODO Cleanup
-        // Pass the final matrix to the vertex shader using push constants
-        if (!isSkybox && isShadowMap) {
+        globalModelMatrices.at(node->modelMatrixIndex) = nodeMatrix;
 
-            struct shadowPushConstants {
-                glm::mat4 model;
-                VkDeviceAddress lightBufferAddress;
-                int32_t directionalLightIndex;
-            };
-
-            const auto pushConstants = shadowPushConstants{nodeMatrix, lightsBuffer->GetAddress(), 0};
-            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
-                               &pushConstants);
-        }
         for (const auto meshIndex: node->meshIndices) {
-            const auto& mesh = meshes[meshIndex];
+            const auto &mesh = meshes[meshIndex];
             if (mesh.indexCount > 0) {
                 // Get the texture index for this primitive
-                auto &material =
-                        mesh.materialIndex != -1 ? m_Materials[mesh.materialIndex] : m_DefaultMaterial;
+                const auto &material = mesh.materialIndex != -1 ? m_Materials[mesh.materialIndex] : m_DefaultMaterial;
 
-                if (alphaMode == OPAQUE && material.alphaMask != 0.0f)
-                    continue;
-
-                if (alphaMode == MASK && material.alphaMask != 1.0f)
-                    continue;
-
-
-                if (!isSkybox && !isShadowMap) {
-                    struct PBRPushConstants {
-                        glm::mat4 model;
-                        VkDeviceAddress materialsBufferAddress;
-                        int32_t materialIndex;
-                        VkDeviceAddress lightsBufferAddress;
-                        int32_t directionLightIndex;
-                        int32_t lightCount;
-                        int32_t shadowMapTextureIndex;
-                        VkDeviceAddress cameraBufferAddress;
-                    };
-
-                    const PBRPushConstants pushConstants = {nodeMatrix,
-                                                            materialsBuffer->GetAddress(),
-                                                            mesh.materialIndex,
-                                                            lightsBuffer->GetAddress(),
-                                                            0,
-                                                            static_cast<uint32_t>(m_Lights.size()),
-                                                            800,
-                                                            cameraBuffer->GetAddress()};
-                    vkCmdPushConstants(commandBuffer, pipelineLayout,
-                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                       sizeof(PBRPushConstants), &pushConstants);
+                VkDrawIndexedIndirectCommand drawIndirectCommand{
+                        .indexCount = mesh.indexCount,
+                        .instanceCount = 1,
+                        .firstIndex = mesh.firstIndex,
+                        .vertexOffset = 0,
+                        .firstInstance = 0,
+                };
+                if (material.alphaMask != 1.0f) {
+                    opaqueDrawIndirectCommands.emplace_back(drawIndirectCommand);
+                    opaqueDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
+                                                      .materialIndex = static_cast<uint32_t>(mesh.materialIndex)});
                 }
-
-                vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.firstIndex, 0, 0);
+                if (material.alphaMask != 0.0f) {
+                    transparentDrawIndirectCommands.emplace_back(drawIndirectCommand);
+                    transparentDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
+                                                           .materialIndex = static_cast<uint32_t>(mesh.materialIndex)});
+                }
             }
         }
     }
     for (const auto &child: node->children) {
-        DrawNode(commandBuffer, pipelineLayout, child, alphaMode, isSkybox, isShadowMap);
+        DrawNode(child);
     }
 }
 
@@ -528,10 +643,29 @@ void Scene::CreateBuffers() {
     materialsBuffer = std::make_shared<Buffer>(
             m_Device, BufferSpecification{.size = 128 * sizeof(Material), .type = BufferType::GPU});
 
-    constexpr int maxLights = 128;
+    constexpr size_t maxLights = 128;
     lightsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxLights * sizeof(Scene::Light), .type = BufferType::GPU});
+            m_Device, BufferSpecification{.size = maxLights * sizeof(Light), .type = BufferType::GPU});
 
     cameraBuffer = std::make_shared<Buffer>(
             m_Device, BufferSpecification{.size = sizeof(Camera::CameraData), .type = BufferType::GPU});
+
+    modelMatricesBuffer = std::make_shared<Buffer>(
+            m_Device,
+            BufferSpecification{.size = globalModelMatrices.size() * sizeof(glm::mat4), .type = BufferType::GPU});
+
+    constexpr size_t maxDrawIndirectCommands = 1024;
+    opaqueDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
+                                          .type = BufferType::GPU_INDIRECT});
+
+    transparentDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
+                                          .type = BufferType::GPU_INDIRECT});
+
+    opaqueDrawDataBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(DrawData), .type = BufferType::GPU});
+
+    transparentDrawDataBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(DrawData), .type = BufferType::GPU});
 }

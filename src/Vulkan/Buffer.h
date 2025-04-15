@@ -7,6 +7,7 @@ enum class BufferType {
     VERTEX,
     INDEX,
     GPU,
+    GPU_INDIRECT,
 };
 
 struct BufferSpecification {

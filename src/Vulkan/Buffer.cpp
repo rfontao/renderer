@@ -16,6 +16,8 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
                      VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     } else if (specification.type == BufferType::GPU) {
         usageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    } else if (specification.type == BufferType::GPU_INDIRECT) {
+        usageFlags = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
 
     VkBufferCreateInfo bufferInfo{
@@ -33,6 +35,8 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
     } else if (specification.type == BufferType::INDEX) {
         allocationFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     } else if (specification.type == BufferType::GPU) {
+        allocationFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    } else if (specification.type == BufferType::GPU_INDIRECT) {
         allocationFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     }
 

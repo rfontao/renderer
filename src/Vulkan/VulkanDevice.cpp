@@ -28,11 +28,22 @@ void VulkanDevice::Destroy() {
 
 void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
     VkPhysicalDeviceFeatures deviceFeatures{
+            .multiDrawIndirect = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
+    };
+
+    VkPhysicalDeviceVulkan11Features vulkan11Features{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+
+            // Shader Draw Parameters
+            .shaderDrawParameters = VK_TRUE,
     };
 
     VkPhysicalDeviceVulkan12Features vulkan12Features{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+
+            // Draw indirect count
+            .drawIndirectCount = VK_TRUE,
 
             // Descriptor Indexing
             .descriptorIndexing = VK_TRUE,
@@ -62,6 +73,7 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
     auto physicalDeviceSelectorReturn = physicalDeviceSelector.set_surface(m_Surface)
                                                 .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
                                                 .set_required_features(deviceFeatures)
+                                                .set_required_features_11(vulkan11Features)
                                                 .set_required_features_12(vulkan12Features)
                                                 .set_required_features_13(vulkan13Features)
                                                 .require_present()

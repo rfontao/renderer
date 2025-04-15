@@ -33,8 +33,8 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    imageInfo.extent.height = (uint32_t) m_Height;
-    imageInfo.extent.width = (uint32_t) m_Width;
+    imageInfo.extent.height = m_Height;
+    imageInfo.extent.width = m_Width;
     imageInfo.extent.depth = 1;
 
     if (specification.layers == 6) {

@@ -18,10 +18,9 @@ layout (push_constant, scalar) uniform PushConsts {
 
 void main()
 {
-    o_TexCoords = i_Position;
-
     Camera camera = pc.cameraBufferAddress.camera;
 
     mat4 viewNoTranslation = mat4(mat3(camera.view));
     gl_Position = camera.proj * viewNoTranslation * vec4(i_Position.xyz, 1.0);
+    o_TexCoords = i_Position;
 }

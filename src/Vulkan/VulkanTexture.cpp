@@ -17,7 +17,7 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
         throw std::runtime_error("Failed to get file information!");
     }
 
-    VkDeviceSize imageSize = width * height * 4 * 6;
+    const VkDeviceSize imageSize = width * height * 4 * 6;
     auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
 
     uint32_t offset = 0;
@@ -28,8 +28,8 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
             throw std::runtime_error("Failed to load texture!");
         }
 
-        VkDeviceSize faceSize = texWidth * texHeight * 4;
-        stagingBuffer->From(pixels, (size_t) faceSize, offset);
+        const VkDeviceSize faceSize = texWidth * texHeight * 4;
+        stagingBuffer->From(pixels, faceSize, offset);
         offset += faceSize;
 
         stbi_image_free(pixels);
@@ -38,8 +38,8 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
     // Note: Currently ignoring mipmap generation for cube maps
     ImageSpecification imageSpecification{
             .format = specification.format,
-            .width = specification.width,
-            .height = specification.height,
+            .width = (uint32_t) width,
+            .height = (uint32_t) height,
             .mipLevels = 1,
             .layers = 6,
     };

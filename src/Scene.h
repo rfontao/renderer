@@ -72,14 +72,21 @@ public:
         Type type{};
     };
 
+    struct DrawData {
+        uint32_t modelMatrixIndex{0};
+        uint32_t materialIndex{0};
+    };
+
     Scene() = default;
-
-    Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath);
-
+    Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath,
+          std::shared_ptr<TextureCube> skyboxTexture);
     void Destroy();
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, bool isSkybox = false,
-              bool isShadowMap = false);
+    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+
+    void GenerateDrawCommands();
 
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
@@ -90,8 +97,7 @@ public:
     Material m_DefaultMaterial;
 
 private:
-    void DrawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, Node *node, AlphaMode alphaMode,
-                  bool isSkybox = false, bool isShadowMap = false);
+    void DrawNode(Node *node);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);
@@ -111,19 +117,31 @@ public:
     std::vector<Material> m_Materials;
     std::vector<Node *> m_Nodes;
     std::vector<Mesh> meshes;
-    std::vector<glm::mat4> modelMatrices;
-
+    std::vector<glm::mat4> localModelMatrices;
+    std::vector<glm::mat4> globalModelMatrices;
     std::vector<Light> m_Lights;
+    std::vector<DrawData> opaqueDrawData;
+    std::vector<DrawData> transparentDrawData;
+
+    std::vector<VkDrawIndexedIndirectCommand> opaqueDrawIndirectCommands;
+    std::vector<VkDrawIndexedIndirectCommand> transparentDrawIndirectCommands;
 
     std::unique_ptr<Buffer> m_VertexBuffer;
     std::unique_ptr<Buffer> m_IndexBuffer;
 
+    std::shared_ptr<TextureCube> m_SkyboxTexture;
+    std::unique_ptr<Buffer> m_SkyboxVertexBuffer;
+
     std::shared_ptr<Buffer> materialsBuffer;
     std::shared_ptr<Buffer> lightsBuffer;
     std::shared_ptr<Buffer> cameraBuffer;
+    std::shared_ptr<Buffer> modelMatricesBuffer; // Global
+    std::shared_ptr<Buffer> opaqueDrawIndirectCommandsBuffer;
+    std::shared_ptr<Buffer> transparentDrawIndirectCommandsBuffer;
+    std::shared_ptr<Buffer> opaqueDrawDataBuffer;
+    std::shared_ptr<Buffer> transparentDrawDataBuffer;
 
     std::filesystem::path m_ResourcePath;
-
 
     Camera camera;
 

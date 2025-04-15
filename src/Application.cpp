@@ -44,13 +44,6 @@ void Application::InitVulkan() {
     };
     m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
-    m_UI = UI(m_Device, m_Instance, m_Window, this);
-    m_Scene = Scene(m_Device, m_ScenePaths[26]);
-
-    // Taken from
-    // https://github.com/SaschaWillems/Vulkan-Assets/blob/a27c0e584434d59b7c7a714e9180eefca6f0ec4b/models/cube.gltf
-    m_Skybox = Scene(m_Device, "models/cube.gltf");
-
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
     std::vector<std::filesystem::path> cubemapPaths = {
             "textures/cubemaps/vindelalven/posx.jpg", "textures/cubemaps/vindelalven/negx.jpg",
@@ -61,6 +54,9 @@ void Application::InitVulkan() {
     TextureSpecification cubemapTextureSpec{};
     m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
+    m_UI = UI(m_Device, m_Instance, m_Window, this);
+    m_Scene = Scene(m_Device, m_ScenePaths[26], m_CubemapTexture);
+
     TextureSpecification shadowmapTextureSpec{
             .format = ImageFormat::D16,
             .width = shadowSize,
@@ -70,6 +66,7 @@ void Application::InitVulkan() {
 
     CreateColorResources();
     CreateDepthResources();
+    CreateBindlessTexturesArray();
 
     stagingManager.InitializeStagingBuffers(m_Device);
 
@@ -80,7 +77,20 @@ void Application::InitVulkan() {
     auto cameraData = m_Scene.camera.GetCameraData();
     stagingManager.AddCopy(&cameraData, m_Scene.cameraBuffer->GetBuffer(), sizeof(cameraData));
 
-    CreateBindlessTexturesArray();
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
+                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
+                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
+                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
 }
 
 void Application::MainLoop() {
@@ -176,7 +186,10 @@ void Application::CreateInstance() {
     const auto &systemInfo = systemInfoRet.value();
 
     vkb::InstanceBuilder instanceBuilder;
-    instanceBuilder.set_app_name("Experimental Renderer").set_engine_name("None").require_api_version(1, 3, 0);
+    instanceBuilder.set_app_name("Experimental Renderer")
+            .set_engine_name("None")
+            .require_api_version(1, 3, 0)
+            .add_validation_feature_disable(VK_VALIDATION_FEATURE_DISABLE_UNIQUE_HANDLES_EXT);
 
     // of course dedicated variable for validation
     if (enableValidationLayers && systemInfo.validation_layers_available) {
@@ -229,14 +242,14 @@ void Application::CreateBindlessTexturesArray() {
 
     VkDescriptorSetLayoutBinding bindingLayoutInfo{};
     bindingLayoutInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindingLayoutInfo.descriptorCount = maxBindlessArrayTextureSize; // Specify other
+    bindingLayoutInfo.descriptorCount = maxBindlessArrayTextureSize;
     bindingLayoutInfo.binding = 0;
     bindingLayoutInfo.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     bindingLayoutInfo.pImmutableSamplers = nullptr;
 
     VkDescriptorBindingFlags bindingFlags =
             VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extendedInfo{};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{};
     extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
     extendedInfo.pNext = nullptr;
     extendedInfo.bindingCount = 1;
@@ -366,7 +379,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
-    m_Scene.Draw(commandBuffer, m_ShadowMapPipeline->GetLayout(), false, true);
+    m_Scene.DrawShadowMap(commandBuffer, m_ShadowMapPipeline->GetLayout());
 
     vkCmdEndRendering(commandBuffer);
 
@@ -443,18 +456,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
-    struct SkyboxPushConstant {
-        VkDeviceAddress cameraBufferAddress;
-        uint32_t skyboxTextureIndex;
-    };
 
-    SkyboxPushConstant pushConstant{m_Scene.cameraBuffer->GetAddress(), 750};
-    vkCmdPushConstants(commandBuffer, m_SkyboxPipeline->GetLayout(),
-                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SkyboxPushConstant),
-                       &pushConstant);
-    m_Skybox.Draw(commandBuffer, m_SkyboxPipeline->GetLayout(), true);
+    m_Scene.DrawSkybox(commandBuffer, m_SkyboxPipeline->GetLayout());
 
-    // TODO: Move to Scene class
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
@@ -474,7 +478,7 @@ void Application::DrawFrame() {
 
     vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
-    uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
+    const uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
         m_Scene.camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
@@ -577,7 +581,7 @@ void Application::ChangeScene() {
     m_ShouldChangeScene = false;
     vkDeviceWaitIdle(m_Device->GetDevice());
     m_Scene.Destroy();
-    m_Scene = Scene(m_Device, m_NextScenePath);
+    m_Scene = Scene(m_Device, m_NextScenePath, m_CubemapTexture);
 
     m_TextureDescriptors.clear();
     CreateBindlessTexturesArray();

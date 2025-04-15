@@ -50,3 +50,19 @@ struct Light {
 layout(std430, buffer_reference, buffer_reference_align = 8) buffer LightsBuffer {
     Light lights[];
 };
+
+
+struct DrawData {
+    uint modelMatrixIndex;
+    uint materialIndex;
+};
+
+layout(std430, buffer_reference, buffer_reference_align = 8) buffer DrawDataBuffer {
+    DrawData drawData[];
+};
+
+layout(std430, buffer_reference, buffer_reference_align = 8) buffer ModelMatricesBuffer {
+    mat4 matrices[];
+};
+
+
