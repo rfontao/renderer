@@ -346,6 +346,8 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
             auto vertexStart = static_cast<uint32_t>(vertexBuffer.size());
             uint32_t indexCount = 0;
 
+            glm::vec4 boundingSphere{0.0f};
+
             // Vertices
             {
                 const float *positionBuffer = nullptr;
@@ -363,6 +365,11 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                     positionBuffer = reinterpret_cast<const float *>(
                             &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                     vertexCount = accessor.count;
+
+                    auto min = glm::vec3{accessor.minValues[0], accessor.minValues[1], accessor.minValues[2]};
+                    auto max = glm::vec3{accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2]};
+                    float sphereRadius = glm::distance(min, max) / 2.0f;
+                    boundingSphere = glm::vec4((min + max) / 2.0f, sphereRadius);
                 }
                 // Get buffer data for vertex normals
                 if (glTFPrimitive.attributes.contains("NORMAL")) {
@@ -456,6 +463,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
             mesh.firstIndex = firstIndex;
             mesh.indexCount = indexCount;
             mesh.materialIndex = glTFPrimitive.material;
+            mesh.boundingSphere = boundingSphere;
 
             meshes.push_back(mesh);
             node->meshIndices.push_back(meshes.size() - 1);
@@ -572,16 +580,20 @@ void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineL
     vkCmdDraw(commandBuffer, 36, 1, 0, 0);
 }
 
-void Scene::GenerateDrawCommands() {
+void Scene::GenerateDrawCommands(bool frustumCulling) {
     globalModelMatrices.resize(localModelMatrices.size());
+    opaqueDrawData.clear();
+    transparentDrawData.clear();
+    opaqueDrawIndirectCommands.clear();
+    transparentDrawIndirectCommands.clear();
 
     // Render all nodes at top-level
     for (const auto &node: m_Nodes) {
-        DrawNode(node);
+        DrawNode(node, frustumCulling);
     }
 }
 
-void Scene::DrawNode(Node *node) {
+void Scene::DrawNode(Node *node, bool frustumCulling) {
     if (!node->meshIndices.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -598,6 +610,16 @@ void Scene::DrawNode(Node *node) {
         for (const auto meshIndex: node->meshIndices) {
             const auto &mesh = meshes[meshIndex];
             if (mesh.indexCount > 0) {
+
+                if (frustumCulling) {
+                    auto boundingSphereCenter = glm::vec3(mesh.boundingSphere);
+                    auto transformedBoundingSphere = glm::vec3(camera.GetProjectionMatrix() * camera.GetViewMatrix() *
+                                                               nodeMatrix * glm::vec4(boundingSphereCenter, 1.0f));
+                    if (!camera.DoesSphereIntersectFrustum(glm::vec4(transformedBoundingSphere, mesh.boundingSphere.w))) {
+                        continue;
+                    }
+                }
+
                 // Get the texture index for this primitive
                 const auto &material = mesh.materialIndex != -1 ? m_Materials[mesh.materialIndex] : m_DefaultMaterial;
 
@@ -621,8 +643,9 @@ void Scene::DrawNode(Node *node) {
             }
         }
     }
+
     for (const auto &child: node->children) {
-        DrawNode(child);
+        DrawNode(child, frustumCulling);
     }
 }
 

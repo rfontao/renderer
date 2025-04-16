@@ -338,6 +338,22 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                         copy.destination, 1, &copyInfo);
     }
 
+    // NOTE: This barrier is needed so that drawing only starts after the data has been copied
+    // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
+    VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                                   .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                   .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                   .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                                   .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+
+    VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memoryBarrier,
+    };
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -490,6 +506,24 @@ void Application::DrawFrame() {
     }
 
     UpdateUniformBuffer(m_CurrentFrame);
+
+    m_Scene.GenerateDrawCommands(true);
+
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
+                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
+                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
+                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
+                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+
+    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
+                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
+
     vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame]);
 
     vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], 0);
@@ -590,6 +624,7 @@ void Application::ChangeScene() {
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
     stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
+
     stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
                            m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
                            m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));

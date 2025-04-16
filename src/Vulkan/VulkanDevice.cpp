@@ -64,10 +64,15 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
             .bufferDeviceAddress = VK_TRUE,
     };
 
-    VkPhysicalDeviceVulkan13Features vulkan13Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+    VkPhysicalDeviceVulkan13Features vulkan13Features{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
 
-                                                      // Dynamic Rendering
-                                                      .dynamicRendering = VK_TRUE};
+            // Synchronization 2
+            .synchronization2 = VK_TRUE,
+
+            // Dynamic Rendering
+            .dynamicRendering = VK_TRUE,
+    };
 
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn = physicalDeviceSelector.set_surface(m_Surface)

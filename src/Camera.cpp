@@ -13,12 +13,64 @@ void Camera::UpdateVectors() {
 
     m_Right = glm::normalize(glm::cross(front, m_WorldUp));
     m_Up = glm::normalize(glm::cross(m_Right, front));
+
+    UpdateFrustum();
+}
+
+void Camera::UpdateFrustum() {
+    const auto matrix = GetProjectionMatrix() * GetViewMatrix();
+
+    // https://github.com/SaschaWillems/Vulkan/blob/master/base/frustum.hpp
+    // NOTE: the normal vectors are pointing outwards
+
+    // Left plane
+    m_Frustum.planes[0] = {matrix[0].w + matrix[0].x, matrix[1].w + matrix[1].x, matrix[2].w + matrix[2].x,
+                           matrix[3].w + matrix[3].x};
+
+    // Right plane
+    m_Frustum.planes[1] = {matrix[0].w - matrix[0].x, matrix[1].w - matrix[1].x, matrix[2].w - matrix[2].x,
+                           matrix[3].w - matrix[3].x};
+
+    // Top plane
+    m_Frustum.planes[2] = {matrix[0].w - matrix[0].y, matrix[1].w - matrix[1].y, matrix[2].w - matrix[2].y,
+                           matrix[3].w - matrix[3].y};
+
+    // Bottom plane
+    m_Frustum.planes[3] = {matrix[0].w + matrix[0].y, matrix[1].w + matrix[1].y, matrix[2].w + matrix[2].y,
+                           matrix[3].w + matrix[3].y};
+
+    // Near plane
+    m_Frustum.planes[4] = {matrix[0].w + matrix[0].z, matrix[1].w + matrix[1].z, matrix[2].w + matrix[2].z,
+                           matrix[3].w + matrix[3].z};
+
+    // Far plane
+    m_Frustum.planes[5] = {matrix[0].w - matrix[0].z, matrix[1].w - matrix[1].z, matrix[2].w - matrix[2].z,
+                           matrix[3].w - matrix[3].z};
+
+    // Normalize the planes
+    for (auto &plane: m_Frustum.planes) {
+        const float length = std::sqrt(plane.a * plane.a + plane.b * plane.b + plane.c * plane.c);
+        plane.a /= length;
+        plane.b /= length;
+        plane.c /= length;
+        plane.d /= length;
+    }
+}
+
+bool Camera::DoesSphereIntersectFrustum(glm::vec4 sphere) const {
+    for (const auto &plane: m_Frustum.planes) {
+        // Check if the sphere is inside the frustum
+        if (plane.a * sphere.x + plane.b * sphere.y + plane.c * sphere.z + plane.d <= -sphere.w) {
+            return false;
+        }
+    }
+    return true;
 }
 
 glm::mat4 Camera::GetViewMatrix() const { return glm::lookAt(m_Position, m_FocusPoint, m_Up); }
 
 glm::mat4 Camera::GetProjectionMatrix() const {
-    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.1, 500.0);
+    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.1, 10000.0);
     proj[1][1] *= -1;
     return proj;
 }
@@ -107,11 +159,14 @@ void Camera::HandleMovement(MovementDirection direction) {
             m_FocusPoint = m_FocusPoint + m_Right * cameraMovementSpeed;
             break;
     }
+
+    UpdateVectors();
 }
 
 void Camera::HandleMouseScroll(double scrollAmount) {
     constexpr double zoomSensitivity = 1.0;
     m_YFov -= scrollAmount * zoomSensitivity;
+    UpdateVectors();
 }
 
 Camera::CameraData Camera::GetCameraData() const {

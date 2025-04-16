@@ -21,6 +21,7 @@ public:
         uint32_t firstIndex{0};
         uint32_t indexCount{0};
         int32_t materialIndex{-1};
+        glm::vec4 boundingSphere{0.0f}; // x, y, z, radius
     };
 
     struct Material {
@@ -86,7 +87,7 @@ public:
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
     void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
-    void GenerateDrawCommands();
+    void GenerateDrawCommands(bool frustumCulling = true);
 
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
@@ -97,7 +98,7 @@ public:
     Material m_DefaultMaterial;
 
 private:
-    void DrawNode(Node *node);
+    void DrawNode(Node *node, bool frustumCulling = true);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);

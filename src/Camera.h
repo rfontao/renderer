@@ -1,5 +1,14 @@
 #pragma once
 
+// https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
+struct Plane {
+    float a, b, c, d; // ax + by + cz + d = 0
+};
+
+struct Frustum {
+    std::array<Plane, 6> planes; // left, right, top, bottom, near, far
+};
+
 class Camera {
 public:
     enum CameraMode { LOOKAT, FREE };
@@ -28,8 +37,11 @@ public:
 
     [[nodiscard]] CameraData GetCameraData() const;
 
+    bool DoesSphereIntersectFrustum(glm::vec4 sphere) const;
+
 private:
     void UpdateVectors();
+    void UpdateFrustum();
 
     CameraMode m_Mode = FREE;
 
@@ -48,4 +60,6 @@ private:
     bool m_MoveCamera = false; // Right mouse button is pressed
 
     double m_MouseSensitivity = 0.005f;
+
+    Frustum m_Frustum;
 };
