@@ -83,11 +83,14 @@ public:
           std::shared_ptr<TextureCube> skyboxTexture);
     void Destroy();
 
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
-    void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
+    void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
+    void DrawDebugFrustum(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cameraIndex) const;
 
     void GenerateDrawCommands(bool frustumCulling = true);
+
+    void UpdateCameraDatas();
 
     std::vector<Texture> m_Textures;
     std::vector<TextureSampler> m_TextureSamplers;
@@ -130,12 +133,16 @@ public:
     std::unique_ptr<Buffer> m_VertexBuffer;
     std::unique_ptr<Buffer> m_IndexBuffer;
 
+
+    std::unique_ptr<Buffer> m_frustumVertexBuffer;
+    std::unique_ptr<Buffer> m_frustumIndexBuffer;
+
     std::shared_ptr<TextureCube> m_SkyboxTexture;
     std::unique_ptr<Buffer> m_SkyboxVertexBuffer;
 
     std::shared_ptr<Buffer> materialsBuffer;
     std::shared_ptr<Buffer> lightsBuffer;
-    std::shared_ptr<Buffer> cameraBuffer;
+    std::shared_ptr<Buffer> camerasBuffer;
     std::shared_ptr<Buffer> modelMatricesBuffer; // Global
     std::shared_ptr<Buffer> opaqueDrawIndirectCommandsBuffer;
     std::shared_ptr<Buffer> transparentDrawIndirectCommandsBuffer;
@@ -144,7 +151,8 @@ public:
 
     std::filesystem::path m_ResourcePath;
 
-    Camera camera;
+    std::vector<Camera> cameras;
+    std::vector<Camera::CameraData> cameraDatas;
 
     std::shared_ptr<VulkanDevice> m_Device;
 };

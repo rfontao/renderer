@@ -176,3 +176,31 @@ Camera::CameraData Camera::GetCameraData() const {
             .position = m_Position,
     };
 }
+
+std::vector<glm::vec3> Camera::GenerateFrustumVertices() {
+    UpdateVectors();
+
+    // Frustum corners in NDC
+    static std::vector<glm::vec4> ndcCorners = {
+            {-1, -1, 0, 1}, {1, -1, 0, 1}, {1, 1, 0, 1}, {-1, 1, 0, 1}, // Near plane
+            {-1, -1, 1, 1}, {1, -1, 1, 1}, {1, 1, 1, 1}, {-1, 1, 1, 1} // Far plane
+    };
+
+    const glm::mat4 invVP = glm::inverse(GetProjectionMatrix() * GetViewMatrix());
+
+    std::vector<glm::vec3> frustumVertices;
+    for (const auto &corner: ndcCorners) {
+        glm::vec4 worldPos = invVP * corner;
+        frustumVertices.push_back(glm::vec3(worldPos) / worldPos.w); // Perspective divide
+    }
+
+    return frustumVertices;
+}
+
+std::vector<uint32_t> Camera::GenerateFrustumLineIndices() {
+    return {
+            0, 1, 1, 2, 2, 3, 3, 0, // Near plane
+            4, 5, 5, 6, 6, 7, 7, 4, // Far plane
+            0, 4, 1, 5, 2, 6, 3, 7 // Connecting lines
+    };
+}

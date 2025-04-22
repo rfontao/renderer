@@ -9,7 +9,7 @@ struct Camera {
 };
 
 layout(std430, buffer_reference, buffer_reference_align = 8) buffer CameraBuffer {
-    Camera camera;
+    Camera cameras[];
 };
 
 struct Material {

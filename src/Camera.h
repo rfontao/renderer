@@ -39,6 +39,9 @@ public:
 
     bool DoesSphereIntersectFrustum(glm::vec4 sphere) const;
 
+    std::vector<glm::vec3> GenerateFrustumVertices();
+    static std::vector<uint32_t> GenerateFrustumLineIndices();
+
 private:
     void UpdateVectors();
     void UpdateFrustum();

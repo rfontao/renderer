@@ -12,13 +12,13 @@ layout (location = 0) out vec3 o_TexCoords;
 
 layout (push_constant, scalar) uniform PushConsts {
     CameraBuffer cameraBufferAddress;
+    int cameraIndex;
     int skyboxTextureIndex;
-    vec2 padding;
+    int padding;
 } pc;
 
-void main()
-{
-    Camera camera = pc.cameraBufferAddress.camera;
+void main() {
+    Camera camera = pc.cameraBufferAddress.cameras[pc.cameraIndex];
 
     mat4 viewNoTranslation = mat4(mat3(camera.view));
     gl_Position = camera.proj * viewNoTranslation * vec4(i_Position.xyz, 1.0);

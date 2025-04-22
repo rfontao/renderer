@@ -11,7 +11,7 @@ layout (push_constant, scalar) uniform PushConsts {
     int directionLightIndex;
     int lightCount;
     int shadowMapTextureIndex;
-    int padding;
+    int cameraIndex;
 } pc;
 
 layout (location = 0) in vec3 i_Position;
@@ -32,7 +32,7 @@ layout (location = 7) flat out int o_DrawID;
 // https://github.com/SaschaWillems/Vulkan-glTF-PBR/blob/master/data/shaders/pbr.vert
 void main() {
     Light direcitonalLight = pc.lightsBufferAddress.lights[pc.directionLightIndex];
-    Camera camera = pc.cameraBufferAddress.camera;
+    Camera camera = pc.cameraBufferAddress.cameras[pc.cameraIndex];
 
     DrawData drawData = pc.drawDataBufferAddress.drawData[gl_DrawID];
     mat4 modelMatrix = pc.modelMatricesBufferAddress.matrices[drawData.modelMatrixIndex];

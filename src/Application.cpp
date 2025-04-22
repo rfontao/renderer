@@ -44,6 +44,14 @@ void Application::InitVulkan() {
     };
     m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
+    VulkanPipeline::PipelineSpecification frustumSpec{
+            .vertShaderPath = "shaders/frustum.vert.spv",
+            .fragShaderPath = "shaders/frustum.frag.spv",
+            .cullingMode = VulkanPipeline::CullingMode::NONE,
+            .wireframe = true,
+    };
+    m_debugFrustumPipeline = std::make_shared<VulkanPipeline>(m_Device, frustumSpec);
+
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
     std::vector<std::filesystem::path> cubemapPaths = {
             "textures/cubemaps/vindelalven/posx.jpg", "textures/cubemaps/vindelalven/negx.jpg",
@@ -74,8 +82,14 @@ void Application::InitVulkan() {
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
     stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
                            m_Scene.m_Lights.size() * sizeof(Scene::Light));
-    auto cameraData = m_Scene.camera.GetCameraData();
-    stagingManager.AddCopy(&cameraData, m_Scene.cameraBuffer->GetBuffer(), sizeof(cameraData));
+
+    m_Scene.UpdateCameraDatas();
+    stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
+                           sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
+
+    auto frustumVertices = m_Scene.cameras[0].GenerateFrustumVertices();
+    stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
+                           frustumVertices.size() * sizeof(glm::vec3));
 
     stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
                            m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
@@ -147,10 +161,10 @@ void Application::InitWindow() {
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
-                app->m_Scene.camera.SetMove(true);
+                app->m_Scene.cameras[app->cameraIndexControlling].SetMove(true);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             } else if (action == GLFW_RELEASE) {
-                app->m_Scene.camera.SetMove(false);
+                app->m_Scene.cameras[app->cameraIndexControlling].SetMove(false);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
         }
@@ -158,24 +172,30 @@ void Application::InitWindow() {
 
     glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, double xPosIn, double yPosIn) {
         auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Scene.camera.HandleMouseMovement(xPosIn, yPosIn);
+        app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
     });
 
     glfwSetScrollCallback(m_Window, [](GLFWwindow *w, double xScroll, double yScroll) {
         auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Scene.camera.HandleMouseScroll(yScroll);
+        app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseScroll(yScroll);
     });
 }
 
 void Application::HandleKeys() {
+
+    auto &camera = m_Scene.cameras[cameraIndexControlling];
+
     if (glfwGetKey(m_Window, GLFW_KEY_W) == GLFW_PRESS)
-        m_Scene.camera.HandleMovement(Camera::MovementDirection::FRONT);
+        camera.HandleMovement(Camera::MovementDirection::FRONT);
     if (glfwGetKey(m_Window, GLFW_KEY_A) == GLFW_PRESS)
-        m_Scene.camera.HandleMovement(Camera::MovementDirection::LEFT);
+        camera.HandleMovement(Camera::MovementDirection::LEFT);
     if (glfwGetKey(m_Window, GLFW_KEY_S) == GLFW_PRESS)
-        m_Scene.camera.HandleMovement(Camera::MovementDirection::BACK);
+        camera.HandleMovement(Camera::MovementDirection::BACK);
     if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
-        m_Scene.camera.HandleMovement(Camera::MovementDirection::RIGHT);
+        camera.HandleMovement(Camera::MovementDirection::RIGHT);
+
+    if (glfwGetKey(m_Window, GLFW_KEY_TAB) == GLFW_PRESS)
+        cameraIndexControlling = (cameraIndexControlling + 1) % m_Scene.cameras.size();
 }
 
 void Application::CreateInstance() {
@@ -480,6 +500,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                             &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
 
+    if (drawDebugFrustum) {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_debugFrustumPipeline->GetPipeline());
+        m_Scene.DrawDebugFrustum(commandBuffer, m_debugFrustumPipeline->GetLayout(), 1);
+    }
+
     m_UI.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
@@ -497,7 +522,7 @@ void Application::DrawFrame() {
     const uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-        m_Scene.camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();
@@ -507,7 +532,7 @@ void Application::DrawFrame() {
 
     UpdateUniformBuffer(m_CurrentFrame);
 
-    m_Scene.GenerateDrawCommands(true);
+    m_Scene.GenerateDrawCommands(frustumCulling);
 
     stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
                            m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
@@ -550,7 +575,7 @@ void Application::DrawFrame() {
 
     bool resourceNeedResizing = m_Swapchain->Present(imageIndex, m_CurrentFrame);
     if (resourceNeedResizing) {
-        m_Scene.camera.SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();
@@ -570,8 +595,13 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
-    auto cameraData = m_Scene.camera.GetCameraData();
-    stagingManager.AddCopy(&cameraData, m_Scene.cameraBuffer->GetBuffer(), sizeof(cameraData));
+    m_Scene.UpdateCameraDatas();
+    stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
+                           sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
+
+    auto frustumVertices = m_Scene.cameras[0].GenerateFrustumVertices();
+    stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
+                           frustumVertices.size() * sizeof(glm::vec3));
 
     // NOTE(RF): Directional light moving test
     m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));

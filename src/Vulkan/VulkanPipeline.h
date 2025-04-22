@@ -19,6 +19,7 @@ public:
         bool depthBiasEnable{false};
         bool blendEnable{true};
         bool enableDepthTesting{true};
+        bool wireframe{false};
     };
 
     struct DescriptorSetLayoutData {

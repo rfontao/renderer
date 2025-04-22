@@ -1,4 +1,6 @@
 #include "VulkanPipeline.h"
+
+#include <utility>
 #include "pch.h"
 
 #include "spirv_reflect.h"
@@ -387,7 +389,7 @@ static uint32_t FormatSize(VkFormat format) {
 }
 
 VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification) :
-    m_Device(device), spec(pipelineSpecification) {
+    spec(pipelineSpecification), m_Device(std::move(device)) {
     auto vertShaderCode = ReadFile(pipelineSpecification.vertShaderPath);
     auto fragShaderCode = ReadFile(pipelineSpecification.fragShaderPath);
 
@@ -528,7 +530,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         VkDescriptorBindingFlags flags =
                 VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
-        // Must be outside if otherwise crashes :)
+        // Must be outside, otherwise crashes :)
         VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags{};
         bindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
         bindingFlags.pNext = nullptr;
@@ -582,7 +584,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .topology = spec.wireframe ? VK_PRIMITIVE_TOPOLOGY_LINE_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
             .primitiveRestartEnable = VK_FALSE,
     };
 
@@ -658,7 +660,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
             .pSetLayouts = m_DescriptorSetLayouts.data(),
-            .pushConstantRangeCount = (uint32_t) pushConstantRanges.size(),
+            .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
             .pPushConstantRanges = pushConstantRanges.data(),
     };
 

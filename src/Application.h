@@ -79,8 +79,16 @@ public:
     constexpr static float shadowDepthBias{2.00f};
     constexpr static float shadowDepthSlope{1.0f};
 
+    size_t cameraIndexControlling{0};
+    static constexpr size_t cameraIndexDrawing{0};
+
+    static constexpr bool frustumCulling{true};
+    static constexpr bool drawDebugFrustum{false};
+
     std::shared_ptr<Texture2D> m_ShadowDepthTexture;
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
+
+    std::shared_ptr<VulkanPipeline> m_debugFrustumPipeline;
 
     StagingManager stagingManager;
 

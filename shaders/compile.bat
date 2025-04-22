@@ -6,3 +6,6 @@
 
 %VK_SDK_PATH%/Bin/glslc.exe shadowmap.vert -o shadowmap.vert.spv
 %VK_SDK_PATH%/Bin/glslc.exe shadowmap.frag -o shadowmap.frag.spv
+
+%VK_SDK_PATH%/Bin/glslc.exe frustum.vert -o frustum.vert.spv
+%VK_SDK_PATH%/Bin/glslc.exe frustum.frag -o frustum.frag.spv

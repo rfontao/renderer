@@ -6,8 +6,9 @@ layout (set = 0, binding = 0) uniform samplerCube texturesCube[];
 
 layout (push_constant, scalar) uniform PushConsts {
     CameraBuffer cameraBufferAddress;
+    int cameraIndex;
     int skyboxTextureIndex;
-    vec2 padding;
+    int padding;
 } pc;
 
 layout (location = 0) in vec3 i_texCoords;

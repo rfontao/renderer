@@ -13,7 +13,7 @@ layout (push_constant, scalar) uniform PushConsts {
     int directionLightIndex;
     int lightCount;
     int shadowMapTextureIndex;
-    int padding;
+    int cameraIndex;
 } pc;
 
 layout (location = 0) in vec3 i_FragColor;
