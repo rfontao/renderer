@@ -7,6 +7,7 @@ layout (scalar, push_constant) uniform PushConsts {
     DrawDataBuffer drawDataBufferAddress;
     ModelMatricesBuffer modelMatricesBufferAddress;
     int directionLightIndex;
+    int padding;
 } pc;
 
 layout (location = 0) in vec3 i_Position;

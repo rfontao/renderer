@@ -99,6 +99,7 @@ void VulkanDevice::CreateLogicalDevice() {
     m_Device = deviceRet.value();
 
     m_GraphicsQueue = m_Device.get_queue(vkb::QueueType::graphics).value();
+    m_ComputeQueue = m_Device.get_queue(vkb::QueueType::compute).value();
     m_PresentQueue = m_Device.get_queue(vkb::QueueType::present).value();
 }
 

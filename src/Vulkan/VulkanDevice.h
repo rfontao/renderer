@@ -35,6 +35,7 @@ private:
     VkSurfaceKHR m_Surface;
 
     VkQueue m_GraphicsQueue;
+    VkQueue m_ComputeQueue;
     VkQueue m_PresentQueue;
 
     VkCommandPool m_CommandPool;
