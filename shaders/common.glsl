@@ -55,6 +55,7 @@ layout(std430, buffer_reference, buffer_reference_align = 8) buffer LightsBuffer
 struct DrawData {
     uint modelMatrixIndex;
     uint materialIndex;
+    vec4 boundingSphere;
 };
 
 layout(std430, buffer_reference, buffer_reference_align = 8) buffer DrawDataBuffer {

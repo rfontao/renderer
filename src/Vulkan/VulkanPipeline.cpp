@@ -390,17 +390,23 @@ static uint32_t FormatSize(VkFormat format) {
 
 VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification) :
     spec(pipelineSpecification), m_Device(std::move(device)) {
-    auto vertShaderCode = ReadFile(pipelineSpecification.vertShaderPath);
-    auto fragShaderCode = ReadFile(pipelineSpecification.fragShaderPath);
 
-    VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+    bool isCompute = !pipelineSpecification.compShaderPath.empty();
+    std::vector<std::vector<char>> shaderSources;
+    if (!isCompute) {
+        auto vertShaderCode = ReadFile(pipelineSpecification.vertShaderPath);
+        auto fragShaderCode = ReadFile(pipelineSpecification.fragShaderPath);
+        shaderSources.push_back(vertShaderCode);
+        shaderSources.push_back(fragShaderCode);
+    } else {
+        shaderSources.push_back(ReadFile(pipelineSpecification.compShaderPath));
+    }
 
     std::unordered_map<uint32_t, DescriptorSetLayoutData> setLayouts;
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     std::vector<VkPushConstantRange> pushConstantRanges;
     VkVertexInputBindingDescription bindingDescription{};
-    for (auto code: {vertShaderCode, fragShaderCode}) {
+    for (auto code: shaderSources) {
         SpvReflectShaderModule module = {};
         SpvReflectResult result = spvReflectCreateShaderModule(code.size(), code.data(), &module);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
@@ -547,21 +553,43 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                  "Failed to create descriptor set layout!");
     }
 
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vertShaderModule,
-            .pName = "main",
-    };
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    std::vector<VkShaderModule> shaderModules;
+    if (!isCompute) {
+        VkShaderModule vertShaderModule = CreateShaderModule(shaderSources[0]);
+        VkShaderModule fragShaderModule = CreateShaderModule(shaderSources[1]);
+        shaderModules.push_back(vertShaderModule);
+        shaderModules.push_back(fragShaderModule);
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = fragShaderModule,
-            .pName = "main",
-    };
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo{
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                .module = vertShaderModule,
+                .pName = "main",
+        };
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo{
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .module = fragShaderModule,
+                .pName = "main",
+        };
+
+        shaderStages.push_back(vertShaderStageInfo);
+        shaderStages.push_back(fragShaderStageInfo);
+    } else {
+        VkShaderModule compShaderModule = CreateShaderModule(shaderSources[0]);
+        shaderModules.push_back(compShaderModule);
+
+        VkPipelineShaderStageCreateInfo compShaderStageInfo{
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                .module = compShaderModule,
+                .pName = "main",
+        };
+
+        shaderStages.push_back(compShaderStageInfo);
+    }
 
     std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
@@ -686,31 +714,46 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         };
     }
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{
-            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            .pNext = &pipelineRenderingInfo,
-            .stageCount = 2,
-            .pStages = shaderStages,
-            .pVertexInputState = &vertexInputInfo,
-            .pInputAssemblyState = &inputAssembly,
-            .pViewportState = &viewportState,
-            .pRasterizationState = &rasterizer,
-            .pMultisampleState = &multisampling,
-            .pDepthStencilState = &depthStencil,
-            .pColorBlendState = &colorBlending,
-            .pDynamicState = &dynamicState,
-            .layout = m_Layout,
-            // .renderPass = renderPass, -> no longer needed because of dynamic rendering
-            .renderPass = VK_NULL_HANDLE,
-            .subpass = 0,
-            .basePipelineHandle = VK_NULL_HANDLE,
-    };
 
-    VK_CHECK(vkCreateGraphicsPipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline),
-             "Failed to create graphics pipeline!");
+    if (isCompute) {
+        VkComputePipelineCreateInfo pipelineInfo{
+                .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                .stage = shaderStages[0],
+                .layout = m_Layout,
+        };
+        VK_CHECK(
+                vkCreateComputePipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline),
+                "Failed to create graphics pipeline!");
+    } else {
+        VkGraphicsPipelineCreateInfo pipelineInfo{
+                .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                .pNext = &pipelineRenderingInfo,
+                .stageCount = static_cast<uint32_t>(shaderStages.size()),
+                .pStages = shaderStages.data(),
+                .pVertexInputState = &vertexInputInfo,
+                .pInputAssemblyState = &inputAssembly,
+                .pViewportState = &viewportState,
+                .pRasterizationState = &rasterizer,
+                .pMultisampleState = &multisampling,
+                .pDepthStencilState = &depthStencil,
+                .pColorBlendState = &colorBlending,
+                .pDynamicState = &dynamicState,
+                .layout = m_Layout,
+                // .renderPass = renderPass, -> no longer needed because of dynamic rendering
+                .renderPass = VK_NULL_HANDLE,
+                .subpass = 0,
+                .basePipelineHandle = VK_NULL_HANDLE,
+        };
 
-    vkDestroyShaderModule(m_Device->GetDevice(), fragShaderModule, nullptr);
-    vkDestroyShaderModule(m_Device->GetDevice(), vertShaderModule, nullptr);
+        VK_CHECK(vkCreateGraphicsPipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+                                           &m_Pipeline),
+                 "Failed to create graphics pipeline!");
+    }
+
+
+    for (const auto &shaderModule: shaderModules) {
+        vkDestroyShaderModule(m_Device->GetDevice(), shaderModule, nullptr);
+    }
 }
 
 VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<char> &code) const {

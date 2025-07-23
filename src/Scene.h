@@ -76,6 +76,7 @@ public:
     struct DrawData {
         uint32_t modelMatrixIndex{0};
         uint32_t materialIndex{0};
+        glm::vec4 boundingSphere{0.0f};
     };
 
     Scene() = default;
@@ -144,10 +145,13 @@ public:
     std::shared_ptr<Buffer> lightsBuffer;
     std::shared_ptr<Buffer> camerasBuffer;
     std::shared_ptr<Buffer> modelMatricesBuffer; // Global
+
     std::shared_ptr<Buffer> opaqueDrawIndirectCommandsBuffer;
     std::shared_ptr<Buffer> transparentDrawIndirectCommandsBuffer;
     std::shared_ptr<Buffer> opaqueDrawDataBuffer;
     std::shared_ptr<Buffer> transparentDrawDataBuffer;
+
+    std::shared_ptr<Buffer> meshesBuffer;
 
     std::filesystem::path m_ResourcePath;
 

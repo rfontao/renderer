@@ -15,6 +15,7 @@ public:
     struct PipelineSpecification {
         std::filesystem::path vertShaderPath;
         std::filesystem::path fragShaderPath;
+        std::filesystem::path compShaderPath;
         CullingMode cullingMode{CullingMode::BACK};
         bool depthBiasEnable{false};
         bool blendEnable{true};

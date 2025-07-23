@@ -9,3 +9,5 @@
 
 %VK_SDK_PATH%/Bin/glslc.exe frustum.vert -o frustum.vert.spv
 %VK_SDK_PATH%/Bin/glslc.exe frustum.frag -o frustum.frag.spv
+
+%VK_SDK_PATH%/Bin/glslc.exe frustumCulling.comp -o frustumCulling.comp.spv

@@ -683,12 +683,14 @@ void Scene::DrawNode(Node *node, bool frustumCulling) {
                 if (material.alphaMask != 1.0f) {
                     opaqueDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     opaqueDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
-                                                      .materialIndex = static_cast<uint32_t>(mesh.materialIndex)});
+                                                      .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
+                                                      .boundingSphere = mesh.boundingSphere});
                 }
                 if (material.alphaMask != 0.0f) {
                     transparentDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     transparentDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
-                                                           .materialIndex = static_cast<uint32_t>(mesh.materialIndex)});
+                                                           .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
+                                                           .boundingSphere = mesh.boundingSphere});
                 }
             }
         }
@@ -728,7 +730,7 @@ void Scene::CreateBuffers() {
             m_Device,
             BufferSpecification{.size = globalModelMatrices.size() * sizeof(glm::mat4), .type = BufferType::GPU});
 
-    constexpr size_t maxDrawIndirectCommands = 4096;
+    constexpr size_t maxDrawIndirectCommands = 8192;
     opaqueDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
             m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
@@ -742,4 +744,8 @@ void Scene::CreateBuffers() {
 
     transparentDrawDataBuffer = std::make_shared<Buffer>(
             m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(DrawData), .type = BufferType::GPU});
+
+    constexpr size_t maxMeshes = 16384;
+    meshesBuffer = std::make_shared<Buffer>(
+            m_Device, BufferSpecification{.size = maxMeshes * sizeof(DrawData), .type = BufferType::GPU});
 }

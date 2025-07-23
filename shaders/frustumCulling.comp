@@ -1,0 +1,60 @@
+#version 460
+
+#include "common.glsl"
+
+struct VkDrawIndexedIndirectCommand {
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	int  vertexOffset;
+	uint firstInstance;
+};
+
+layout(std430, buffer_reference, buffer_reference_align = 8) buffer CommandBuffer {
+	VkDrawIndexedIndirectCommand commands[];
+};
+
+layout (push_constant, scalar) uniform PushConsts {
+    vec4 frustumPlanes[6];
+    CommandBuffer commandBufferAddress;
+    DrawDataBuffer drawDataBufferAddress;
+    ModelMatricesBuffer modelMatricesBufferAddress;
+} pc;
+
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+bool IsVisible(uint commandIndex) {
+    vec4 sphere = pc.drawDataBufferAddress.drawData[commandIndex].boundingSphere;
+    mat4 modelMatrix = pc.modelMatricesBufferAddress.matrices[pc.drawDataBufferAddress.drawData[commandIndex].modelMatrixIndex];
+
+    vec3 center = vec3(modelMatrix * vec4(sphere.xyz, 1.0f));
+    float radius = sphere.w;
+    if (pc.frustumPlanes[0].x * center.x + pc.frustumPlanes[0].y * center.y + pc.frustumPlanes[0].z * center.z + pc.frustumPlanes[0].w <= -radius) {
+        return false;
+    }
+    if (pc.frustumPlanes[1].x * center.x + pc.frustumPlanes[1].y * center.y + pc.frustumPlanes[1].z * center.z + pc.frustumPlanes[1].w <= -radius) {
+        return false;
+    }
+    if (pc.frustumPlanes[2].x * center.x + pc.frustumPlanes[2].y * center.y + pc.frustumPlanes[2].z * center.z + pc.frustumPlanes[2].w <= -radius) {
+        return false;
+    }
+    if (pc.frustumPlanes[3].x * center.x + pc.frustumPlanes[3].y * center.y + pc.frustumPlanes[3].z * center.z + pc.frustumPlanes[3].w <= -radius) {
+        return false;
+    }
+    if (pc.frustumPlanes[4].x * center.x + pc.frustumPlanes[4].y * center.y + pc.frustumPlanes[4].z * center.z + pc.frustumPlanes[4].w <= -radius) {
+        return false;
+    }
+    if (pc.frustumPlanes[5].x * center.x + pc.frustumPlanes[5].y * center.y + pc.frustumPlanes[5].z * center.z + pc.frustumPlanes[5].w <= -radius) {
+        return false;
+    }
+    return true;
+}
+
+
+// NOTE(RF): The plan atm is to set instanceCount to 0 if the mesh is not visible
+//           In the future we should compact the buffer
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    pc.commandBufferAddress.commands[index].instanceCount = IsVisible(index) ? 1 : 0;
+}

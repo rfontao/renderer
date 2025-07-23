@@ -52,6 +52,11 @@ void Application::InitVulkan() {
     };
     m_debugFrustumPipeline = std::make_shared<VulkanPipeline>(m_Device, frustumSpec);
 
+    VulkanPipeline::PipelineSpecification frustumCullingSpec{
+            .compShaderPath = "shaders/frustumCulling.comp.spv",
+    };
+    m_FrustumCullingPipeline = std::make_shared<VulkanPipeline>(m_Device, frustumCullingSpec);
+
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
     std::vector<std::filesystem::path> cubemapPaths = {
             "textures/cubemaps/vindelalven/posx.jpg", "textures/cubemaps/vindelalven/negx.jpg",
@@ -522,7 +527,8 @@ void Application::DrawFrame() {
     const uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() /
+                                                           (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();
@@ -575,7 +581,8 @@ void Application::DrawFrame() {
 
     bool resourceNeedResizing = m_Swapchain->Present(imageIndex, m_CurrentFrame);
     if (resourceNeedResizing) {
-        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() / (double) m_Swapchain->GetHeight());
+        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() /
+                                                           (double) m_Swapchain->GetHeight());
         m_ColorImage->Destroy();
         CreateColorResources();
         m_DepthImage->Destroy();

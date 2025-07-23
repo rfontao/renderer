@@ -89,6 +89,7 @@ public:
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
 
     std::shared_ptr<VulkanPipeline> m_debugFrustumPipeline;
+    std::shared_ptr<VulkanPipeline> m_FrustumCullingPipeline;
 
     StagingManager stagingManager;
 
