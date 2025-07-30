@@ -3,15 +3,15 @@
 #include "common.glsl"
 
 struct VkDrawIndexedIndirectCommand {
-	uint indexCount;
-	uint instanceCount;
-	uint firstIndex;
-	int  vertexOffset;
-	uint firstInstance;
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
 };
 
-layout(std430, buffer_reference, buffer_reference_align = 8) buffer CommandBuffer {
-	VkDrawIndexedIndirectCommand commands[];
+layout (std430, buffer_reference, buffer_reference_align = 8) buffer CommandBuffer {
+    VkDrawIndexedIndirectCommand commands[];
 };
 
 layout (push_constant, scalar) uniform PushConsts {
@@ -19,6 +19,7 @@ layout (push_constant, scalar) uniform PushConsts {
     CommandBuffer commandBufferAddress;
     DrawDataBuffer drawDataBufferAddress;
     ModelMatricesBuffer modelMatricesBufferAddress;
+    vec2 padding;
 } pc;
 
 
@@ -29,7 +30,16 @@ bool IsVisible(uint commandIndex) {
     mat4 modelMatrix = pc.modelMatricesBufferAddress.matrices[pc.drawDataBufferAddress.drawData[commandIndex].modelMatrixIndex];
 
     vec3 center = vec3(modelMatrix * vec4(sphere.xyz, 1.0f));
+
+    // Account for non uniform scaling
     float radius = sphere.w;
+    vec3 scale;
+    scale.x = length(modelMatrix[0].xyz);
+    scale.y = length(modelMatrix[1].xyz);
+    scale.z = length(modelMatrix[2].xyz);
+    float maxScale = max(max(scale.x, scale.y), scale.z);
+    radius *= maxScale;
+
     if (pc.frustumPlanes[0].x * center.x + pc.frustumPlanes[0].y * center.y + pc.frustumPlanes[0].z * center.z + pc.frustumPlanes[0].w <= -radius) {
         return false;
     }
@@ -56,5 +66,7 @@ bool IsVisible(uint commandIndex) {
 //           In the future we should compact the buffer
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    pc.commandBufferAddress.commands[index].instanceCount = IsVisible(index) ? 1 : 0;
+    if (!IsVisible(index)) {
+        pc.commandBufferAddress.commands[index].instanceCount = 0;
+    }
 }

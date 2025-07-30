@@ -62,7 +62,8 @@ void VulkanSwapchain::Recreate() {
 }
 
 void VulkanSwapchain::Create() {
-    const vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
+    vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
+    swapchainBuilder.set_desired_min_image_count(MAX_FRAMES_IN_FLIGHT);
     auto swapRet = swapchainBuilder.build();
     if (!swapRet) {
         throw std::runtime_error("Failed to build swapchain");

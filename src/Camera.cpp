@@ -17,60 +17,63 @@ void Camera::UpdateVectors() {
     UpdateFrustum();
 }
 
+// https://github.com/PacktPublishing/3D-Graphics-Rendering-Cookbook-Second-Edition/blob/main/shared/UtilsMath.h
 void Camera::UpdateFrustum() {
-    const auto matrix = GetProjectionMatrix() * GetViewMatrix();
-
-    // https://github.com/SaschaWillems/Vulkan/blob/master/base/frustum.hpp
-    // NOTE: the normal vectors are pointing outwards
-
-    // Left plane
-    m_Frustum.planes[0] = {matrix[0].w + matrix[0].x, matrix[1].w + matrix[1].x, matrix[2].w + matrix[2].x,
-                           matrix[3].w + matrix[3].x};
-
-    // Right plane
-    m_Frustum.planes[1] = {matrix[0].w - matrix[0].x, matrix[1].w - matrix[1].x, matrix[2].w - matrix[2].x,
-                           matrix[3].w - matrix[3].x};
-
-    // Top plane
-    m_Frustum.planes[2] = {matrix[0].w - matrix[0].y, matrix[1].w - matrix[1].y, matrix[2].w - matrix[2].y,
-                           matrix[3].w - matrix[3].y};
-
-    // Bottom plane
-    m_Frustum.planes[3] = {matrix[0].w + matrix[0].y, matrix[1].w + matrix[1].y, matrix[2].w + matrix[2].y,
-                           matrix[3].w + matrix[3].y};
-
-    // Near plane
-    m_Frustum.planes[4] = {matrix[0].w + matrix[0].z, matrix[1].w + matrix[1].z, matrix[2].w + matrix[2].z,
-                           matrix[3].w + matrix[3].z};
-
-    // Far plane
-    m_Frustum.planes[5] = {matrix[0].w - matrix[0].z, matrix[1].w - matrix[1].z, matrix[2].w - matrix[2].z,
-                           matrix[3].w - matrix[3].z};
-
-    // Normalize the planes
-    for (auto &plane: m_Frustum.planes) {
-        const float length = std::sqrt(plane.a * plane.a + plane.b * plane.b + plane.c * plane.c);
-        plane.a /= length;
-        plane.b /= length;
-        plane.c /= length;
-        plane.d /= length;
-    }
+    auto proj = GetProjectionMatrix();
+    proj[1][1] *= -1; // Vulkan uses a different coordinate system for the projection matrix
+    const auto viewProj = proj * GetViewMatrix();
+    m_Frustum.planes[0] = glm::vec4(viewProj[3] + viewProj[0]); // left
+    m_Frustum.planes[1] = glm::vec4(viewProj[3] - viewProj[0]); // right
+    m_Frustum.planes[2] = glm::vec4(viewProj[3] + viewProj[1]); // bottom
+    m_Frustum.planes[3] = glm::vec4(viewProj[3] - viewProj[1]); // top
+    m_Frustum.planes[4] = glm::vec4(viewProj[3] + viewProj[2]); // near
+    m_Frustum.planes[5] = glm::vec4(viewProj[3] - viewProj[2]); // far
 }
 
 bool Camera::DoesSphereIntersectFrustum(glm::vec4 sphere) const {
     for (const auto &plane: m_Frustum.planes) {
         // Check if the sphere is inside the frustum
-        if (plane.a * sphere.x + plane.b * sphere.y + plane.c * sphere.z + plane.d <= -sphere.w) {
+        if (plane.x * sphere.x + plane.y * sphere.y + plane.z * sphere.z + plane.w <= -sphere.w) {
             return false;
         }
     }
     return true;
 }
 
+std::vector<glm::vec3> Camera::GenerateFrustumVertices() {
+    UpdateVectors();
+
+    // Frustum corners in NDC
+    static std::vector<glm::vec4> ndcCorners = {
+            {-1, -1, -1, 1}, {1, -1, -1, 1}, {1, 1, -1, 1}, {-1, 1, -1, 1}, // Near plane
+            {-1, -1, 1, 1},  {1, -1, 1, 1},  {1, 1, 1, 1},  {-1, 1, 1, 1} // Far plane
+    };
+
+    auto proj = GetProjectionMatrix();
+    proj[1][1] *= -1; // Vulkan uses a different coordinate system for the projection matrix
+    const glm::mat4 invVP = glm::inverse(proj * GetViewMatrix());
+
+    std::vector<glm::vec3> frustumVertices;
+    for (const auto &corner: ndcCorners) {
+        glm::vec4 worldPos = invVP * corner;
+        frustumVertices.push_back(glm::vec3(worldPos) / worldPos.w); // Perspective divide
+    }
+
+    return frustumVertices;
+}
+
+std::vector<uint32_t> Camera::GenerateFrustumLineIndices() {
+    return {
+            0, 1, 1, 2, 2, 3, 3, 0, // Near plane
+            4, 5, 5, 6, 6, 7, 7, 4, // Far plane
+            0, 4, 1, 5, 2, 6, 3, 7 // Connecting lines
+    };
+}
+
 glm::mat4 Camera::GetViewMatrix() const { return glm::lookAt(m_Position, m_FocusPoint, m_Up); }
 
 glm::mat4 Camera::GetProjectionMatrix() const {
-    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.1, 10000.0);
+    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.5, 1000.0);
     proj[1][1] *= -1;
     return proj;
 }
@@ -174,33 +177,5 @@ Camera::CameraData Camera::GetCameraData() const {
             .view = GetViewMatrix(),
             .proj = GetProjectionMatrix(),
             .position = m_Position,
-    };
-}
-
-std::vector<glm::vec3> Camera::GenerateFrustumVertices() {
-    UpdateVectors();
-
-    // Frustum corners in NDC
-    static std::vector<glm::vec4> ndcCorners = {
-            {-1, -1, 0, 1}, {1, -1, 0, 1}, {1, 1, 0, 1}, {-1, 1, 0, 1}, // Near plane
-            {-1, -1, 1, 1}, {1, -1, 1, 1}, {1, 1, 1, 1}, {-1, 1, 1, 1} // Far plane
-    };
-
-    const glm::mat4 invVP = glm::inverse(GetProjectionMatrix() * GetViewMatrix());
-
-    std::vector<glm::vec3> frustumVertices;
-    for (const auto &corner: ndcCorners) {
-        glm::vec4 worldPos = invVP * corner;
-        frustumVertices.push_back(glm::vec3(worldPos) / worldPos.w); // Perspective divide
-    }
-
-    return frustumVertices;
-}
-
-std::vector<uint32_t> Camera::GenerateFrustumLineIndices() {
-    return {
-            0, 1, 1, 2, 2, 3, 3, 0, // Near plane
-            4, 5, 5, 6, 6, 7, 7, 4, // Far plane
-            0, 4, 1, 5, 2, 6, 3, 7 // Connecting lines
     };
 }

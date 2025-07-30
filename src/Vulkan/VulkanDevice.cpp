@@ -74,6 +74,13 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
             .dynamicRendering = VK_TRUE,
     };
 
+    VkPhysicalDeviceVulkan14Features vulkan14Features{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
+
+            // Dynamic rendering local read (allows barriers to be used with dynamic rendering)
+            .dynamicRenderingLocalRead = VK_TRUE,
+    };
+
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn = physicalDeviceSelector.set_surface(m_Surface)
                                                 .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
@@ -81,6 +88,7 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
                                                 .set_required_features_11(vulkan11Features)
                                                 .set_required_features_12(vulkan12Features)
                                                 .set_required_features_13(vulkan13Features)
+                                                .set_required_features_14(vulkan14Features)
                                                 .require_present()
                                                 .select();
     if (!physicalDeviceSelectorReturn) {
@@ -160,8 +168,8 @@ void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
             .pCommandBuffers = &commandBuffer,
     };
 
-    vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_GraphicsQueue);
+    VK_CHECK(vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer!");
+    VK_CHECK(vkQueueWaitIdle(m_GraphicsQueue), "Failed to wait for command buffer submission!");
 
     vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
 }

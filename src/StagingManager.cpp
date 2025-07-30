@@ -13,6 +13,8 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
     }
 }
 void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
+    assert(stagingBuffers[currentFrame].currentOffset + size <= stagingBuffers[currentFrame].buffer->GetSize());
+
     // TODO: Check bounds
     queuedBufferCopies.push_back({
             .destination = dstBuffer,
@@ -23,6 +25,34 @@ void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     // Copy data to staging buffer
     stagingBuffers[currentFrame].buffer->From(src, size, stagingBuffers[currentFrame].currentOffset);
     stagingBuffers[currentFrame].currentOffset += size;
+}
+void StagingManager::Flush(VkCommandBuffer commandBuffer) {
+    for (const auto &copy: queuedBufferCopies) {
+        VkBufferCopy copyInfo{
+                .srcOffset = copy.offset,
+                .dstOffset = 0,
+                .size = copy.size,
+        };
+        vkCmdCopyBuffer(commandBuffer, stagingBuffers[currentFrame].buffer->GetBuffer(), copy.destination, 1,
+                        &copyInfo);
+    }
+
+    VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                                   .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT ,
+                                   .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                   .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                   .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+
+    VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memoryBarrier,
+    };
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+    stagingBuffers[currentFrame].currentOffset = 0;
+    queuedBufferCopies.clear();
 }
 
 void StagingManager::NextFrame() {

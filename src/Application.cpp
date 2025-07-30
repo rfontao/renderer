@@ -21,6 +21,8 @@ void Application::InitVulkan() {
     m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
     m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
 
+    debugDraw = std::make_unique<DebugDraw>(m_Device);
+
     VulkanPipeline::PipelineSpecification graphicsSpec{
             .vertShaderPath = "shaders/pbr.vert.spv",
             .fragShaderPath = "shaders/pbr_bindless.frag.spv",
@@ -44,13 +46,13 @@ void Application::InitVulkan() {
     };
     m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
 
-    VulkanPipeline::PipelineSpecification frustumSpec{
-            .vertShaderPath = "shaders/frustum.vert.spv",
-            .fragShaderPath = "shaders/frustum.frag.spv",
+    VulkanPipeline::PipelineSpecification debugDrawSpec{
+            .vertShaderPath = "shaders/DebugDraw.vert.spv",
+            .fragShaderPath = "shaders/DebugDraw.frag.spv",
             .cullingMode = VulkanPipeline::CullingMode::NONE,
             .wireframe = true,
     };
-    m_debugFrustumPipeline = std::make_shared<VulkanPipeline>(m_Device, frustumSpec);
+    debugDrawPipeline = std::make_shared<VulkanPipeline>(m_Device, debugDrawSpec);
 
     VulkanPipeline::PipelineSpecification frustumCullingSpec{
             .compShaderPath = "shaders/frustumCulling.comp.spv",
@@ -92,7 +94,7 @@ void Application::InitVulkan() {
     stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
                            sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
 
-    auto frustumVertices = m_Scene.cameras[0].GenerateFrustumVertices();
+    auto frustumVertices = m_Scene.cameras[1].GenerateFrustumVertices();
     stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
                            frustumVertices.size() * sizeof(glm::vec3));
 
@@ -161,7 +163,7 @@ void Application::InitWindow() {
         app->m_Swapchain->m_NeedsResizing = true;
     });
 
-    glfwSetMouseButtonCallback(m_Window, [](GLFWwindow *w, int button, int action, int mods) {
+    glfwSetMouseButtonCallback(m_Window, [](GLFWwindow *w, const int button, const int action, int mods) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
@@ -175,14 +177,21 @@ void Application::InitWindow() {
         }
     });
 
-    glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, double xPosIn, double yPosIn) {
-        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+    glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, const double xPosIn, const double yPosIn) {
+        auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
         app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
     });
 
-    glfwSetScrollCallback(m_Window, [](GLFWwindow *w, double xScroll, double yScroll) {
-        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(w));
+    glfwSetScrollCallback(m_Window, [](GLFWwindow *w, const double xScroll, const double yScroll) {
+        auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
         app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseScroll(yScroll);
+    });
+
+    glfwSetKeyCallback(m_Window, [](GLFWwindow *w, const int key, int scancode, const int action, int mods) {
+        auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
+        if (key == GLFW_KEY_TAB && action == GLFW_RELEASE) {
+            app->cameraIndexControlling = (app->cameraIndexControlling + 1) % app->m_Scene.cameras.size();
+        }
     });
 }
 
@@ -198,9 +207,6 @@ void Application::HandleKeys() {
         camera.HandleMovement(Camera::MovementDirection::BACK);
     if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::RIGHT);
-
-    if (glfwGetKey(m_Window, GLFW_KEY_TAB) == GLFW_PRESS)
-        cameraIndexControlling = (cameraIndexControlling + 1) % m_Scene.cameras.size();
 }
 
 void Application::CreateInstance() {
@@ -218,7 +224,10 @@ void Application::CreateInstance() {
 
     // of course dedicated variable for validation
     if (enableValidationLayers && systemInfo.validation_layers_available) {
-        instanceBuilder.enable_validation_layers().use_default_debug_messenger();
+        instanceBuilder.enable_validation_layers()
+                .enable_layer("VK_LAYER_LUNARG_crash_diagnostic")
+                // .enable_layer("VK_LAYER_LUNARG_api_dump")
+                .use_default_debug_messenger();
     }
 
     uint32_t glfwExtensionCount = 0;
@@ -353,31 +362,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         throw std::runtime_error("Failed to begin recording command buffer!");
     }
 
-    for (const auto &copy: stagingManager.queuedBufferCopies) {
-        VkBufferCopy copyInfo{
-                .srcOffset = copy.offset,
-                .dstOffset = 0,
-                .size = copy.size,
-        };
-        vkCmdCopyBuffer(commandBuffer, stagingManager.stagingBuffers[stagingManager.currentFrame].buffer->GetBuffer(),
-                        copy.destination, 1, &copyInfo);
-    }
-
-    // NOTE: This barrier is needed so that drawing only starts after the data has been copied
-    // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
-    VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                   .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                   .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
-                                   .dstStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-                                   .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
-
-    VkDependencyInfo dependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .memoryBarrierCount = 1,
-            .pMemoryBarriers = &memoryBarrier,
-    };
-
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+    stagingManager.Flush(commandBuffer);
 
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
@@ -397,7 +382,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .pDepthAttachment = &shadowDepthAttachment,
     };
 
-    m_ShadowDepthTexture->GetImage()->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED,
+    m_ShadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
                                                        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
@@ -423,6 +408,37 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     m_Scene.DrawShadowMap(commandBuffer, m_ShadowMapPipeline->GetLayout());
 
     vkCmdEndRendering(commandBuffer);
+
+    struct FrustumCullingPushConstants {
+        Frustum frustum;
+        VkDeviceAddress commandBufferAddress;
+        VkDeviceAddress drawDataAddress;
+        VkDeviceAddress modelMatricesAddress;
+    } frustumCullingPushConstants = {.frustum = m_Scene.cameras[1].GetFrustum(),
+                                     .commandBufferAddress = m_Scene.opaqueDrawIndirectCommandsBuffer->GetAddress(),
+                                     .drawDataAddress = m_Scene.opaqueDrawDataBuffer->GetAddress(),
+                                     .modelMatricesAddress = m_Scene.modelMatricesBuffer->GetAddress()};
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_FrustumCullingPipeline->GetPipeline());
+    vkCmdPushConstants(commandBuffer, m_FrustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                       sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
+    vkCmdDispatch(commandBuffer, (m_Scene.opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
+
+    // NOTE: This barrier is needed so that drawing only starts after the culling is performed
+    // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
+    VkMemoryBarrier2 cullingMemoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                                          .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                          .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                          .dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+                                          .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+
+    VkDependencyInfo cullingDependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &cullingMemoryBarrier,
+    };
+
+    vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
 
     VkDescriptorImageInfo imageInfo{
             .sampler = m_ShadowDepthTexture->GetSampler(),
@@ -474,8 +490,8 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
 
     m_Swapchain->GetImage(imageIndex)
-            ->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    m_DepthImage->TransitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+            ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    m_DepthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     VkViewport viewport{
@@ -494,28 +510,101 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    // Skybox
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
 
     m_Scene.DrawSkybox(commandBuffer, m_SkyboxPipeline->GetLayout());
 
+    // Scene Rendering
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
 
-    if (drawDebugFrustum) {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_debugFrustumPipeline->GetPipeline());
-        m_Scene.DrawDebugFrustum(commandBuffer, m_debugFrustumPipeline->GetLayout(), 1);
-    }
+    // if (drawDebugFrustum) {
+    //     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugDrawPipeline->GetPipeline());
+    //     m_Scene.DrawDebugFrustum(commandBuffer, debugDrawPipeline->GetLayout(), 0);
+    // }
 
     m_UI.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
 
+    const VkImageMemoryBarrier2 depthBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                             .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                                             .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                             .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+                                             .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                             .image = m_DepthImage->GetImage(),
+                                             .subresourceRange = {
+                                                     .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                     .levelCount = 1,
+                                                     .layerCount = 1,
+                                             }};
+
+    const VkImageMemoryBarrier2 graphicsBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            .image = m_Swapchain->GetImage(imageIndex)->GetImage(),
+            .subresourceRange =
+                    {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .levelCount = 1,
+                            .layerCount = 1,
+                    },
+    };
+
+    std::array barriers = {depthBarrier, graphicsBarrier};
+    VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = barriers.size(),
+            .pImageMemoryBarriers = barriers.data(),
+    };
+
+    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+    // New rendering info
+    VkRenderingAttachmentInfo colorAttachment2{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_Swapchain->GetImageView(imageIndex),
+            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
+            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
+            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    colorAttachment2.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    VkRenderingAttachmentInfo depthAttachment2{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = m_DepthImage->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    depthAttachment2.clearValue.depthStencil = {1.0f, 0};
+
+    VkRenderingInfo renderInfo2{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachment2,
+            .pDepthAttachment = &depthAttachment2,
+            //            .pStencilAttachment = &depthAttachment,
+    };
+
+    // debugDraw->DrawSphere({0.0, 0.0, 0.0}, 10.0, {1.0, 0.0, 0.0});
+    // debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, m_Scene, renderInfo2);
+
     m_Swapchain->GetImage(imageIndex)
-            ->TransitionLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
 }
@@ -591,6 +680,7 @@ void Application::DrawFrame() {
     m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     stagingManager.NextFrame();
+    debugDraw->EndFrame();
 
     if (m_ShouldChangeScene)
         ChangeScene();
@@ -606,7 +696,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
                            sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
 
-    auto frustumVertices = m_Scene.cameras[0].GenerateFrustumVertices();
+    auto frustumVertices = m_Scene.cameras[1].GenerateFrustumVertices();
     stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
                            frustumVertices.size() * sizeof(glm::vec3));
 

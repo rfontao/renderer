@@ -1,12 +1,7 @@
 #pragma once
 
-// https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
-struct Plane {
-    float a, b, c, d; // ax + by + cz + d = 0
-};
-
 struct Frustum {
-    std::array<Plane, 6> planes; // left, right, top, bottom, near, far
+    std::array<glm::vec4, 6> planes; // left, right, top, bottom, near, far
 };
 
 class Camera {
@@ -21,6 +16,7 @@ public:
     [[nodiscard]] glm::mat4 GetViewMatrix() const;
     [[nodiscard]] glm::mat4 GetProjectionMatrix() const;
     [[nodiscard]] glm::vec3 GetPosition() const { return m_Position; }
+    [[nodiscard]] Frustum GetFrustum() const { return m_Frustum; }
 
     void SetAspectRatio(double aspectRatio) { m_AspectRatio = aspectRatio; }
 
@@ -47,6 +43,8 @@ private:
     void UpdateFrustum();
 
     CameraMode m_Mode = FREE;
+
+    glm::vec4 transform;
 
     glm::vec3 m_Position;
     glm::vec3 m_Up;

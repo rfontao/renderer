@@ -44,6 +44,8 @@ public:
     void Destroy();
 
     void TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
+    void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout);
+
     void CopyBufferData(Buffer &buffer, uint32_t layerCount = 1);
     void GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool cube = false);
 

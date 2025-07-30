@@ -583,6 +583,7 @@ void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
     vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
                              transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
+
 void Scene::DrawDebugFrustum(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
                              uint32_t cameraIndex) const {
     VkDeviceSize offsets[] = {0};
@@ -596,7 +597,7 @@ void Scene::DrawDebugFrustum(VkCommandBuffer commandBuffer, VkPipelineLayout pip
         uint32_t cameraIndex;
     };
 
-    auto pushConstants = frustumPushConstants{{1.0f, 0.0f, 0.0f}, camerasBuffer->GetAddress(), cameraIndex};
+    auto pushConstants = frustumPushConstants{{0.0f, 0.0f, 1.0f}, camerasBuffer->GetAddress(), cameraIndex};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                        &pushConstants);
     // Draw the frustum

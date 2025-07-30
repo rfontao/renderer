@@ -88,9 +88,6 @@ void Buffer::From(void *src, VkDeviceSize srcSize, uint32_t offset) {
 void Buffer::FromBuffer(Buffer *src) {
     VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
 
-    if (specification.size == 3147204) {
-        int a = 0;
-    }
     VkBufferCopy copyRegion{
             .size = specification.size,
     };

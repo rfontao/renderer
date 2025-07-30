@@ -28,11 +28,12 @@ public:
 
     void AddCopy(void* src, VkBuffer dstBuffer, VkDeviceSize size);
 
+    void Flush(VkCommandBuffer commandBuffer);
+
+    // Queued buffer copies for the current frame
     std::vector<BufferCopy> queuedBufferCopies;
     // Staging buffers for each frame in flight
     std::array<StagingBuffer, 2> stagingBuffers;
-
-    // Queued buffer copies for the current frame
 
     uint32_t currentFrame = 0;
 
