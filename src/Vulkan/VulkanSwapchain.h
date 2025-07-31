@@ -45,7 +45,7 @@ private:
     vkb::Swapchain m_Swapchain;
     std::vector<std::shared_ptr<VulkanImage>> m_Images;
 
-    GLFWwindow *m_Window;
+    GLFWwindow *m_Window {nullptr};
 
     std::vector<VkFence> m_WaitFences;
     std::vector<VkSemaphore> m_ImageAvailableSemaphores;
