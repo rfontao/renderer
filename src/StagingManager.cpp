@@ -2,9 +2,10 @@
 
 #include "StagingManager.h"
 
-void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device) {
+void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device, const uint32_t framesInFlight) {
     this->device = device;
 
+    stagingBuffers.resize(framesInFlight);
     for (auto &stagingBuffer: stagingBuffers) {
         // 64 MB staging buffer
         stagingBuffer = {std::make_unique<Buffer>(
@@ -12,6 +13,7 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
                          0};
     }
 }
+
 void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     assert(stagingBuffers[currentFrame].currentOffset + size <= stagingBuffers[currentFrame].buffer->GetSize());
 
@@ -26,6 +28,7 @@ void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     stagingBuffers[currentFrame].buffer->From(src, size, stagingBuffers[currentFrame].currentOffset);
     stagingBuffers[currentFrame].currentOffset += size;
 }
+
 void StagingManager::Flush(VkCommandBuffer commandBuffer) {
     for (const auto &copy: queuedBufferCopies) {
         VkBufferCopy copyInfo{
@@ -37,11 +40,12 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
                         &copyInfo);
     }
 
+    // TODO(RF): Check if this is correct
     VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                   .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT ,
-                                   .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                   .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                   .srcAccessMask = VK_ACCESS_2_NONE_KHR,
                                    .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                   .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+                                   .dstAccessMask = VK_ACCESS_2_NONE_KHR};
 
     VkDependencyInfo dependencyInfo{
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -56,7 +60,7 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
 }
 
 void StagingManager::NextFrame() {
-    currentFrame = (currentFrame + 1) % 2;
+    currentFrame = (currentFrame + 1) % stagingBuffers.size();
     stagingBuffers[currentFrame].currentOffset = 0;
     queuedBufferCopies.clear();
 }

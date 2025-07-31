@@ -8,6 +8,8 @@
 class VulkanImage;
 class VulkanDevice;
 
+constexpr uint32_t requestedFramesInFlight = 2;
+
 class VulkanSwapchain {
 public:
     VulkanSwapchain() = default;
@@ -31,7 +33,7 @@ public:
     [[nodiscard]] VkExtent2D GetExtent() const { return m_Swapchain.extent; }
     [[nodiscard]] VkFormat GetImageFormat() const { return m_Swapchain.image_format; }
 
-    int MAX_FRAMES_IN_FLIGHT = 2;
+    uint32_t numFramesInFlight {0};
     bool m_NeedsResizing = false;
 private:
     void Create();

@@ -3,8 +3,6 @@
 #include "Application.h"
 #include "Vulkan/VulkanPipeline.h"
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
 void Application::Run() {
     InitWindow();
     InitVulkan();
@@ -83,7 +81,7 @@ void Application::InitVulkan() {
     CreateDepthResources();
     CreateBindlessTexturesArray();
 
-    stagingManager.InitializeStagingBuffers(m_Device);
+    stagingManager.InitializeStagingBuffers(m_Device, m_Swapchain->numFramesInFlight);
 
     stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
@@ -612,6 +610,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 void Application::DrawFrame() {
 
     vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame]);
 
     const uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
     // Recreate swapchain
@@ -644,8 +643,6 @@ void Application::DrawFrame() {
     stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
                            m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
 
-    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame]);
-
     vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], 0);
     RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
 
@@ -677,7 +674,7 @@ void Application::DrawFrame() {
         m_DepthImage->Destroy();
         CreateDepthResources();
     }
-    m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    m_CurrentFrame = (m_CurrentFrame + 1) % m_Swapchain->numFramesInFlight;
 
     stagingManager.NextFrame();
     debugDraw->EndFrame();

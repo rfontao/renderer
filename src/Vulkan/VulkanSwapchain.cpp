@@ -1,18 +1,18 @@
-#include "pch.h"
 #include "VulkanSwapchain.h"
+#include "pch.h"
 
 #include <utility>
 
-#include "VulkanDevice.h"
 #include "Utils.h"
+#include "VulkanDevice.h"
 
-VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) : m_Window(window),
-    m_Device(std::move(device)) {
+VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) :
+    m_Window(window), m_Device(std::move(device)) {
     Create();
 }
 
 void VulkanSwapchain::Destroy() {
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (size_t i = 0; i < numFramesInFlight; i++) {
         vkDestroySemaphore(m_Device->GetDevice(), m_RenderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(m_Device->GetDevice(), m_ImageAvailableSemaphores[i], nullptr);
         vkDestroyFence(m_Device->GetDevice(), m_WaitFences[i], nullptr);
@@ -38,10 +38,10 @@ void VulkanSwapchain::Recreate() {
     vkDeviceWaitIdle(m_Device->GetDevice());
 
     vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
-    auto swapRet = swapchainBuilder
-            .set_old_swapchain(m_Swapchain)
-            .build();
-    if (!swapRet){
+    auto swapRet = swapchainBuilder.set_old_swapchain(m_Swapchain)
+                           .set_desired_min_image_count(requestedFramesInFlight)
+                           .build();
+    if (!swapRet) {
         // If it failed to create a swapchain, the old swapchain handle is invalid.
         m_Swapchain.swapchain = VK_NULL_HANDLE;
     }
@@ -54,8 +54,9 @@ void VulkanSwapchain::Recreate() {
     m_Swapchain = swapRet.value();
 
     auto swapchainImages = m_Swapchain.get_images().value();
+    numFramesInFlight = swapchainImages.size();
     // Create swapchain images
-    m_Images.resize(swapchainImages.size());
+    m_Images.resize(numFramesInFlight);
     for (size_t i = 0; i < m_Images.size(); ++i) {
         m_Images[i] = std::make_shared<VulkanImage>(m_Device, swapchainImages[i]);
     }
@@ -63,7 +64,7 @@ void VulkanSwapchain::Recreate() {
 
 void VulkanSwapchain::Create() {
     vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
-    swapchainBuilder.set_desired_min_image_count(MAX_FRAMES_IN_FLIGHT);
+    swapchainBuilder.set_desired_min_image_count(requestedFramesInFlight);
     auto swapRet = swapchainBuilder.build();
     if (!swapRet) {
         throw std::runtime_error("Failed to build swapchain");
@@ -72,43 +73,44 @@ void VulkanSwapchain::Create() {
 
     // Create swapchain images
     auto swapchainImages = m_Swapchain.get_images().value();
+    numFramesInFlight = swapchainImages.size();
     m_Images.resize(swapchainImages.size());
     for (size_t i = 0; i < m_Images.size(); ++i) {
         m_Images[i] = std::make_shared<VulkanImage>(m_Device, swapchainImages[i]);
     }
 
     // Sync objects
-    m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_WaitFences.resize(MAX_FRAMES_IN_FLIGHT);
+    m_ImageAvailableSemaphores.resize(numFramesInFlight);
+    m_RenderFinishedSemaphores.resize(numFramesInFlight);
+    m_WaitFences.resize(numFramesInFlight);
 
     VkSemaphoreCreateInfo semaphoreInfo{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
 
     VkFenceCreateInfo fenceInfo{
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT, // Used to no hand program on first frame draw
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT, // Used to no hand program on first frame draw
     };
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+    for (size_t i = 0; i < numFramesInFlight; ++i) {
         if (vkCreateSemaphore(m_Device->GetDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) !=
-            VK_SUCCESS ||
+                    VK_SUCCESS ||
             vkCreateSemaphore(m_Device->GetDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) !=
-            VK_SUCCESS ||
+                    VK_SUCCESS ||
             vkCreateFence(m_Device->GetDevice(), &fenceInfo, nullptr, &m_WaitFences[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create swapchain sync objects!");
         }
     }
 
     // Command buffers
-    m_CommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    m_CommandBuffers.resize(numFramesInFlight);
 
     VkCommandBufferAllocateInfo allocInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = m_Device->GetCommandPool(),
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = (uint32_t) m_CommandBuffers.size(),
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = m_Device->GetCommandPool(),
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = (uint32_t) m_CommandBuffers.size(),
     };
 
     VK_CHECK(vkAllocateCommandBuffers(m_Device->GetDevice(), &allocInfo, m_CommandBuffers.data()),
@@ -118,9 +120,7 @@ void VulkanSwapchain::Create() {
 uint32_t VulkanSwapchain::AcquireNextImage(uint32_t currentFrame) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(m_Device->GetDevice(), m_Swapchain, UINT64_MAX,
-                                            m_ImageAvailableSemaphores[currentFrame],
-                                            VK_NULL_HANDLE,
-                                            &imageIndex);
+                                            m_ImageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     // Handle window resizing and minimization
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -137,12 +137,12 @@ bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
     VkSwapchainKHR swapChains[] = {m_Swapchain};
     VkSemaphore signalSemaphores[] = {m_RenderFinishedSemaphores[currentFrame]};
     VkPresentInfoKHR presentInfo{
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signalSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapChains,
-        .pImageIndices = &imageIndex,
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = signalSemaphores,
+            .swapchainCount = 1,
+            .pSwapchains = swapChains,
+            .pImageIndices = &imageIndex,
     };
 
     VkResult result = vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
@@ -157,13 +157,9 @@ bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
     return false;
 }
 
-std::shared_ptr<VulkanImage> VulkanSwapchain::GetImage(uint32_t index) const {
-    return m_Images[index];
-}
+std::shared_ptr<VulkanImage> VulkanSwapchain::GetImage(uint32_t index) const { return m_Images[index]; }
 
-VkImageView VulkanSwapchain::GetImageView(uint32_t index) const {
-    return m_Images[index]->GetImageView();
-}
+VkImageView VulkanSwapchain::GetImageView(uint32_t index) const { return m_Images[index]->GetImageView(); }
 
 VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
     for (const auto &availableFormat: availableFormats) {
@@ -195,15 +191,12 @@ VkExtent2D VulkanSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap
         int width, height;
         glfwGetFramebufferSize(m_Window, &width, &height);
 
-        VkExtent2D actualExtent = {
-            (uint32_t) width,
-            (uint32_t) height
-        };
+        VkExtent2D actualExtent = {(uint32_t) width, (uint32_t) height};
 
-        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width,
-                                        capabilities.maxImageExtent.width);
-        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height,
-                                         capabilities.maxImageExtent.height);
+        actualExtent.width =
+                std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        actualExtent.height =
+                std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
         return actualExtent;
     }
