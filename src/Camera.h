@@ -38,6 +38,8 @@ public:
     std::vector<glm::vec3> GenerateFrustumVertices();
     static std::vector<uint32_t> GenerateFrustumLineIndices();
 
+    glm::vec3 m_FocusPoint;
+
 private:
     void UpdateVectors();
     void UpdateFrustum();
@@ -50,7 +52,6 @@ private:
     glm::vec3 m_Up;
     glm::vec3 m_Right;
     glm::vec3 m_WorldUp;
-    glm::vec3 m_FocusPoint;
 
     double m_AspectRatio;
     double m_YFov;

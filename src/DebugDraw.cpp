@@ -10,11 +10,10 @@ void DebugDraw::DrawLine(const glm::vec3 &start, const glm::vec3 &end, const glm
     vertices.push_back({.position = end, .color = color});
 }
 
-void DebugDraw::DrawAxis(const glm::vec3 &origin, const double length, const glm::vec3 &xColor, const glm::vec3 &yColor,
-                         const glm::vec3 &zColor) {
-    DrawLine(origin, origin + glm::vec3(length, 0.0, 0.0), xColor); // X axis
-    DrawLine(origin, origin + glm::vec3(0.0, length, 0.0), yColor); // Y axis
-    DrawLine(origin, origin + glm::vec3(0.0, 0.0, length), zColor); // Z axis
+void DebugDraw::DrawAxis(const glm::vec3 &origin, const double length) {
+    DrawLine(origin, origin + glm::vec3(length, 0.0, 0.0), {1.0, 0.0, 0.0}); // X axis
+    DrawLine(origin, origin + glm::vec3(0.0, length, 0.0), {0.0, 1.0, 0.0}); // Y axis
+    DrawLine(origin, origin + glm::vec3(0.0, 0.0, length), {0.0, 0.0, 1.0}); // Z axis
 }
 
 void DebugDraw::DrawPoint(const glm::vec3 &coords, const glm::vec3 &color) {
@@ -26,13 +25,28 @@ void DebugDraw::DrawPoint(const glm::vec3 &coords, const glm::vec3 &color) {
 
 void DebugDraw::DrawSphere(const glm::vec3 &center, const double radius, const glm::vec3 &color) {
     constexpr int segments = 16;
+    // XY plane
     for (int i = 0; i < segments; ++i) {
-        const double theta1 = i / segments * glm::pi<double>() * 2.0;
-        const double theta2 = (i + 1) / segments * glm::pi<double>() * 2.0;
-
+        double theta1 = static_cast<double>(i) / segments * glm::pi<double>() * 2.0;
+        double theta2 = static_cast<double>(i + 1) / segments * glm::pi<double>() * 2.0;
         glm::vec3 p1 = center + glm::vec3(radius * cos(theta1), radius * sin(theta1), 0.0);
         glm::vec3 p2 = center + glm::vec3(radius * cos(theta2), radius * sin(theta2), 0.0);
-
+        DrawLine(p1, p2, color);
+    }
+    // XZ plane
+    for (int i = 0; i < segments; ++i) {
+        double theta1 = static_cast<double>(i) / segments * glm::pi<double>() * 2.0;
+        double theta2 = static_cast<double>(i + 1) / segments * glm::pi<double>() * 2.0;
+        glm::vec3 p1 = center + glm::vec3(radius * cos(theta1), 0.0, radius * sin(theta1));
+        glm::vec3 p2 = center + glm::vec3(radius * cos(theta2), 0.0, radius * sin(theta2));
+        DrawLine(p1, p2, color);
+    }
+    // YZ plane
+    for (int i = 0; i < segments; ++i) {
+        double theta1 = static_cast<double>(i) / segments * glm::pi<double>() * 2.0;
+        double theta2 = static_cast<double>(i + 1) / segments * glm::pi<double>() * 2.0;
+        glm::vec3 p1 = center + glm::vec3(0.0, radius * cos(theta1), radius * sin(theta1));
+        glm::vec3 p2 = center + glm::vec3(0.0, radius * cos(theta2), radius * sin(theta2));
         DrawLine(p1, p2, color);
     }
 }
@@ -68,8 +82,8 @@ void DebugDraw::Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManag
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugPipeline.GetPipeline());
 
     constexpr VkDeviceSize offsets[] = {0};
-    const VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    const VkBuffer vertexBuffersArray[] = {vertexBuffer->GetBuffer()};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffersArray, offsets);
 
     const struct DebugDrawPushConstants {
         VkDeviceAddress cameraBufferAddress;
@@ -77,11 +91,11 @@ void DebugDraw::Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManag
     } pushConstants = {scene.camerasBuffer->GetAddress(), 0};
     vkCmdPushConstants(commandBuffer, debugPipeline.GetLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                        &pushConstants);
-    vkCmdDraw(commandBuffer, vertices.size(), 0, 0, 0);
+    vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
     vkCmdEndRendering(commandBuffer);
 }
 
 void DebugDraw::EndFrame() {
     vertices.clear();
-    // vertexBuffer->Destroy();
+    currentFrame = (currentFrame + 1) % 2;
 }

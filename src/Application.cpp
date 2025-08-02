@@ -92,10 +92,6 @@ void Application::InitVulkan() {
     stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
                            sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
 
-    auto frustumVertices = m_Scene.cameras[1].GenerateFrustumVertices();
-    stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
-                           frustumVertices.size() * sizeof(glm::vec3));
-
     stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
                            m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
                            m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -222,8 +218,9 @@ void Application::CreateInstance() {
 
     // of course dedicated variable for validation
     if (enableValidationLayers && systemInfo.validation_layers_available) {
-        instanceBuilder.enable_validation_layers()
-                .enable_layer("VK_LAYER_LUNARG_crash_diagnostic")
+        instanceBuilder
+                .enable_validation_layers()
+                // .enable_layer("VK_LAYER_LUNARG_crash_diagnostic")
                 // .enable_layer("VK_LAYER_LUNARG_api_dump")
                 .use_default_debug_messenger();
     }
@@ -520,51 +517,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
                             &m_BindlessTexturesSet, 0, nullptr);
     m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
-
-    // if (drawDebugFrustum) {
-    //     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugDrawPipeline->GetPipeline());
-    //     m_Scene.DrawDebugFrustum(commandBuffer, debugDrawPipeline->GetLayout(), 0);
-    // }
-
     m_UI.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
-
-    const VkImageMemoryBarrier2 depthBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                             .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-                                             .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                             .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-                                             .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                             .image = m_DepthImage->GetImage(),
-                                             .subresourceRange = {
-                                                     .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                     .levelCount = 1,
-                                                     .layerCount = 1,
-                                             }};
-
-    const VkImageMemoryBarrier2 graphicsBarrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            .image = m_Swapchain->GetImage(imageIndex)->GetImage(),
-            .subresourceRange =
-                    {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .levelCount = 1,
-                            .layerCount = 1,
-                    },
-    };
-
-    std::array barriers = {depthBarrier, graphicsBarrier};
-    VkDependencyInfo dependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = barriers.size(),
-            .pImageMemoryBarriers = barriers.data(),
-    };
-
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
     // New rendering info
     VkRenderingAttachmentInfo colorAttachment2{
@@ -598,11 +553,13 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             //            .pStencilAttachment = &depthAttachment,
     };
 
-    // debugDraw->DrawSphere({0.0, 0.0, 0.0}, 10.0, {1.0, 0.0, 0.0});
-    // debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, m_Scene, renderInfo2);
+    debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
+    debugDraw->DrawSphere({0.0, 0.0, 0.0}, 5.0, {1.0, 0.0, 0.0});
+    debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, m_Scene, renderInfo2);
 
     m_Swapchain->GetImage(imageIndex)
-            ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                               VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(commandBuffer), "Failed to record command buffer!");
 }
@@ -692,10 +649,6 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     m_Scene.UpdateCameraDatas();
     stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
                            sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
-
-    auto frustumVertices = m_Scene.cameras[1].GenerateFrustumVertices();
-    stagingManager.AddCopy(frustumVertices.data(), m_Scene.m_frustumVertexBuffer->GetBuffer(),
-                           frustumVertices.size() * sizeof(glm::vec3));
 
     // NOTE(RF): Directional light moving test
     m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));

@@ -132,9 +132,6 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     m_SkyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
     skyboxStagingBuffer->Destroy();
 
-    constexpr VkDeviceSize frustumBufferSize = sizeof(glm::vec3) * 8;
-    m_frustumVertexBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.size = frustumBufferSize, .type = BufferType::VERTEX});
 }
 
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
@@ -148,18 +145,6 @@ void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
             std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::INDEX});
     m_IndexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
-
-
-    std::vector<int32_t> frustumIndices = {0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7};
-    VkDeviceSize frustumIndexBufferSize = frustumIndices.size() * sizeof(int32_t);
-
-    const auto frustumStagingBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.size = frustumIndexBufferSize, .type = BufferType::STAGING});
-    frustumStagingBuffer->From(frustumIndices.data(), frustumIndexBufferSize);
-    m_frustumIndexBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.size = frustumIndexBufferSize, .type = BufferType::INDEX});
-    m_frustumIndexBuffer->FromBuffer(frustumStagingBuffer.get());
-    frustumStagingBuffer->Destroy();
 }
 
 void Scene::LoadImages(tinygltf::Model &input) {
@@ -584,41 +569,19 @@ void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
                              transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
 
-void Scene::DrawDebugFrustum(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
-                             uint32_t cameraIndex) const {
-    VkDeviceSize offsets[] = {0};
-    VkBuffer vertexBuffers[] = {m_frustumVertexBuffer->GetBuffer()};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_frustumIndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    struct frustumPushConstants {
-        glm::vec3 color;
-        VkDeviceAddress cameraBufferAddress;
-        uint32_t cameraIndex;
-    };
-
-    auto pushConstants = frustumPushConstants{{0.0f, 0.0f, 1.0f}, camerasBuffer->GetAddress(), cameraIndex};
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
-                       &pushConstants);
-    // Draw the frustum
-    vkCmdDrawIndexed(commandBuffer, 24, 1, 0, 0, 0);
-}
-
 void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
 
     VkDeviceSize offsets[] = {0};
     VkBuffer vertexBuffers[] = {m_SkyboxVertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    struct SkyboxPushConstant {
+    const struct SkyboxPushConstant {
         VkDeviceAddress cameraBufferAddress;
         uint32_t cameraIndex;
         uint32_t skyboxTextureIndex;
-    };
-
-    SkyboxPushConstant pushConstant{camerasBuffer->GetAddress(), Application::cameraIndexDrawing, 750};
+    } pushConstants {camerasBuffer->GetAddress(), Application::cameraIndexDrawing, 750};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(SkyboxPushConstant), &pushConstant);
+                       sizeof(SkyboxPushConstant), &pushConstants);
     vkCmdDraw(commandBuffer, 36, 1, 0, 0);
 }
 

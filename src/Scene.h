@@ -87,7 +87,6 @@ public:
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
     void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
-    void DrawDebugFrustum(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t cameraIndex) const;
 
     void GenerateDrawCommands(bool frustumCulling = true);
 
@@ -133,10 +132,6 @@ public:
 
     std::unique_ptr<Buffer> m_VertexBuffer;
     std::unique_ptr<Buffer> m_IndexBuffer;
-
-
-    std::unique_ptr<Buffer> m_frustumVertexBuffer;
-    std::unique_ptr<Buffer> m_frustumIndexBuffer;
 
     std::shared_ptr<TextureCube> m_SkyboxTexture;
     std::unique_ptr<Buffer> m_SkyboxVertexBuffer;

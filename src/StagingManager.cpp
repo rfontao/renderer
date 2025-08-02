@@ -14,6 +14,7 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
     }
 }
 
+//TODO: Duplicate vertex buffer on GPU????
 void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     assert(stagingBuffers[currentFrame].currentOffset + size <= stagingBuffers[currentFrame].buffer->GetSize());
 
@@ -30,6 +31,10 @@ void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
 }
 
 void StagingManager::Flush(VkCommandBuffer commandBuffer) {
+    if (queuedBufferCopies.empty()) {
+        return;
+    }
+
     for (const auto &copy: queuedBufferCopies) {
         VkBufferCopy copyInfo{
                 .srcOffset = copy.offset,
@@ -42,10 +47,10 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
 
     // TODO(RF): Check if this is correct
     VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                   .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                   .srcAccessMask = VK_ACCESS_2_NONE_KHR,
+                                   .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                   .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
                                    .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                   .dstAccessMask = VK_ACCESS_2_NONE_KHR};
+                                   .dstAccessMask = VK_ACCESS_2_NONE};
 
     VkDependencyInfo dependencyInfo{
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -55,7 +60,8 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
 
     vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
-    stagingBuffers[currentFrame].currentOffset = 0;
+    // NOTE: Clear the queued copies after flushing but don't reset the current offset because the staging buffer is still
+    //       needed for when the vkCmdCopyBuffer is actually executed ;-;
     queuedBufferCopies.clear();
 }
 
