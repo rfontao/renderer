@@ -38,21 +38,17 @@ void Camera::UpdateFrustum() {
 
 bool Camera::IsAABBFullyOutsideFrustum(const AABB &aabb) const {
     // Realtime rendering 3rd edition book section 22.10.1
-    const auto _planeIntersectsAABB = [](const glm::vec4 &plane, const AABB &box) {
-        const glm::vec3 center = (box.min + box.max) * 0.5f;
-        const glm::vec3 halfSize = (box.max - box.min) * 0.5f;
+    const glm::vec3 center = (aabb.min + aabb.max) * 0.5f;
+    const glm::vec3 halfSize = (aabb.max - aabb.min) * 0.5f;
 
+    for (const auto &plane: m_Frustum.planes) {
         const float extent =
                 halfSize.x * std::abs(plane.x) + halfSize.y * std::abs(plane.y) + halfSize.z * std::abs(plane.z);
 
         const float s = glm::dot(glm::vec3(plane), center) + plane.w;
-
-        return s >= -extent;
-    };
-
-    for (const auto &plane: m_Frustum.planes) {
-        if (!_planeIntersectsAABB(plane, aabb)) {
-            return true; // AABB is outside the frustum
+        if (s < -extent) {
+            // The AABB is fully outside the frustum
+            return true;
         }
     }
     return false;
