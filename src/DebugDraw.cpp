@@ -50,6 +50,68 @@ void DebugDraw::DrawSphere(const glm::vec3 &center, const double radius, const g
         DrawLine(p1, p2, color);
     }
 }
+void DebugDraw::DrawAABB(const AABB &aabb, const glm::vec3 &color) {
+    glm::vec3 min = aabb.min;
+    glm::vec3 max = aabb.max;
+
+    // Bottom square
+    DrawLine({min.x, min.y, min.z}, {max.x, min.y, min.z}, color);
+    DrawLine({max.x, min.y, min.z}, {max.x, min.y, max.z}, color);
+    DrawLine({max.x, min.y, max.z}, {min.x, min.y, max.z}, color);
+    DrawLine({min.x, min.y, max.z}, {min.x, min.y, min.z}, color);
+
+    // Top square
+    DrawLine({min.x, max.y, min.z}, {max.x, max.y, min.z}, color);
+    DrawLine({max.x, max.y, min.z}, {max.x, max.y, max.z}, color);
+    DrawLine({max.x, max.y, max.z}, {min.x, max.y, max.z}, color);
+    DrawLine({min.x, max.y, max.z}, {min.x, max.y, min.z}, color);
+
+    // Vertical edges
+    DrawLine({min.x, min.y, min.z}, {min.x, max.y, min.z}, color);
+    DrawLine({max.x, min.y, min.z}, {max.x, max.y, min.z}, color);
+    DrawLine({max.x, min.y, max.z}, {max.x, max.y, max.z}, color);
+    DrawLine({min.x, min.y, max.z}, {min.x, max.y, max.z}, color);
+}
+
+void DebugDraw::DrawFrustum(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &color) {
+    // Clip space corners
+    constexpr static std::array clipCorners = {
+        glm::vec4(-1, -1, 0, 1), // Near bottom-left
+        glm::vec4(1, -1, 0, 1),  // Near bottom-right
+        glm::vec4(1, 1, 0, 1),   // Near top-right
+        glm::vec4(-1, 1, 0, 1),  // Near top-left
+        glm::vec4(-1, -1, 1, 1), // Far bottom-left
+        glm::vec4(1, -1, 1, 1),  // Far bottom-right
+        glm::vec4(1, 1, 1, 1),   // Far top-right
+        glm::vec4(-1, 1, 1, 1),  // Far top-left
+    };
+
+    const glm::mat4 invViewProj = glm::inverse(proj * view);
+    std::array<glm::vec3, 8> worldCorners;
+
+    for (size_t i = 0; i < 8; ++i) {
+        glm::vec4 worldPos = invViewProj * clipCorners[i];
+        worldCorners[i] = glm::vec3(worldPos) / worldPos.w;
+    }
+
+    // Near plane
+    DrawLine(worldCorners[0], worldCorners[1], color);
+    DrawLine(worldCorners[1], worldCorners[2], color);
+    DrawLine(worldCorners[2], worldCorners[3], color);
+    DrawLine(worldCorners[3], worldCorners[0], color);
+
+    // Far plane
+    DrawLine(worldCorners[4], worldCorners[5], color);
+    DrawLine(worldCorners[5], worldCorners[6], color);
+    DrawLine(worldCorners[6], worldCorners[7], color);
+    DrawLine(worldCorners[7], worldCorners[4], color);
+
+    // Connect near and far planes
+    DrawLine(worldCorners[0], worldCorners[4], color);
+    DrawLine(worldCorners[1], worldCorners[5], color);
+    DrawLine(worldCorners[2], worldCorners[6], color);
+    DrawLine(worldCorners[3], worldCorners[7], color);
+}
 
 void DebugDraw::Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManager, const VulkanPipeline &debugPipeline,
                      const Scene &scene, const VkRenderingInfo &renderingInfo) {
@@ -62,23 +124,6 @@ void DebugDraw::Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManag
     stagingManager.Flush(commandBuffer);
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-    VkViewport viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) 1280,
-            .height = (float) 800,
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-    };
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{
-            .offset = {0, 0},
-            .extent = {1280, 800},
-    };
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugPipeline.GetPipeline());
 
     constexpr VkDeviceSize offsets[] = {0};

@@ -4,10 +4,12 @@ struct Frustum {
     std::array<glm::vec4, 6> planes; // left, right, top, bottom, near, far
 };
 
+struct AABB;
+
 class Camera {
 public:
-    enum CameraMode { LOOKAT, FREE };
-    enum MovementDirection { FRONT, BACK, LEFT, RIGHT };
+    enum struct CameraMode { LOOKAT, FREE };
+    enum struct MovementDirection { FRONT, BACK, LEFT, RIGHT };
 
     Camera() = default;
     Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
@@ -33,10 +35,7 @@ public:
 
     [[nodiscard]] CameraData GetCameraData() const;
 
-    bool DoesSphereIntersectFrustum(glm::vec4 sphere) const;
-
-    std::vector<glm::vec3> GenerateFrustumVertices();
-    static std::vector<uint32_t> GenerateFrustumLineIndices();
+    [[nodiscard]] bool IsAABBFullyOutsideFrustum(const AABB& aabb) const;
 
     glm::vec3 m_FocusPoint;
 
@@ -44,7 +43,7 @@ private:
     void UpdateVectors();
     void UpdateFrustum();
 
-    CameraMode m_Mode = FREE;
+    CameraMode m_Mode = CameraMode::FREE;
 
     glm::vec4 transform;
 

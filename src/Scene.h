@@ -3,7 +3,14 @@
 #include "Vulkan/Buffer.h"
 #include "Vulkan/VulkanTexture.h"
 
-#include <Camera.h>
+#include "Camera.h"
+
+class DebugDraw;
+
+struct AABB {
+    glm::vec3 min;
+    glm::vec3 max;
+};
 
 class Scene {
 public:
@@ -21,7 +28,7 @@ public:
         uint32_t firstIndex{0};
         uint32_t indexCount{0};
         int32_t materialIndex{-1};
-        glm::vec4 boundingSphere{0.0f}; // x, y, z, radius
+        AABB boundingBox{};
     };
 
     struct Material {
@@ -81,14 +88,14 @@ public:
 
     Scene() = default;
     Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath,
-          std::shared_ptr<TextureCube> skyboxTexture);
+          std::shared_ptr<TextureCube> skyboxTexture, DebugDraw &debugDraw);
     void Destroy();
 
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
     void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
 
-    void GenerateDrawCommands(bool frustumCulling = true);
+    void GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling = true);
 
     void UpdateCameraDatas();
 
@@ -101,7 +108,7 @@ public:
     Material m_DefaultMaterial;
 
 private:
-    void DrawNode(Node *node, bool frustumCulling = true);
+    void DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling = true);
 
     void CreateIndexBuffer(std::vector<uint32_t> &indices);
     void CreateVertexBuffer(std::vector<Vertex> &vertices);

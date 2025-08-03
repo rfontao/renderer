@@ -2,10 +2,9 @@
 
 #include "StagingManager.h"
 
-void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device, const uint32_t framesInFlight) {
+void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device) {
     this->device = device;
 
-    stagingBuffers.resize(framesInFlight);
     for (auto &stagingBuffer: stagingBuffers) {
         // 64 MB staging buffer
         stagingBuffer = {std::make_unique<Buffer>(

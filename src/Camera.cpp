@@ -1,15 +1,17 @@
-#include "Camera.h"
 #include "pch.h"
 
-Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint, double aspectRatio,
-               double yFov) :
-    m_Position(position), m_WorldUp(worldUp), m_FocusPoint(focusPoint), m_Up(worldUp), m_AspectRatio(aspectRatio),
+#include "Camera.h"
+#include "Scene.h"
+
+Camera::Camera(const glm::vec3 &position, const glm::vec3 &worldUp, const glm::vec3 &focusPoint,
+               const double aspectRatio, const double yFov) :
+    m_FocusPoint(focusPoint), m_Position(position), m_Up(worldUp), m_WorldUp(worldUp), m_AspectRatio(aspectRatio),
     m_YFov(yFov) {
     UpdateVectors();
 }
 
 void Camera::UpdateVectors() {
-    glm::vec3 front = glm::normalize(m_FocusPoint - m_Position);
+    const glm::vec3 front = glm::normalize(m_FocusPoint - m_Position);
 
     m_Right = glm::normalize(glm::cross(front, m_WorldUp));
     m_Up = glm::normalize(glm::cross(m_Right, front));
@@ -19,61 +21,47 @@ void Camera::UpdateVectors() {
 
 // https://github.com/PacktPublishing/3D-Graphics-Rendering-Cookbook-Second-Edition/blob/main/shared/UtilsMath.h
 void Camera::UpdateFrustum() {
-    auto proj = GetProjectionMatrix();
-    proj[1][1] *= -1; // Vulkan uses a different coordinate system for the projection matrix
-    const auto viewProj = proj * GetViewMatrix();
+    const auto viewProj = glm::transpose(GetProjectionMatrix() * GetViewMatrix());
     m_Frustum.planes[0] = glm::vec4(viewProj[3] + viewProj[0]); // left
     m_Frustum.planes[1] = glm::vec4(viewProj[3] - viewProj[0]); // right
     m_Frustum.planes[2] = glm::vec4(viewProj[3] + viewProj[1]); // bottom
     m_Frustum.planes[3] = glm::vec4(viewProj[3] - viewProj[1]); // top
     m_Frustum.planes[4] = glm::vec4(viewProj[3] + viewProj[2]); // near
     m_Frustum.planes[5] = glm::vec4(viewProj[3] - viewProj[2]); // far
+
+    // Normalize planes
+    for (auto &plane: m_Frustum.planes) {
+        const float length = glm::length(glm::vec3(plane));
+        plane /= length;
+    }
 }
 
-bool Camera::DoesSphereIntersectFrustum(glm::vec4 sphere) const {
+bool Camera::IsAABBFullyOutsideFrustum(const AABB &aabb) const {
+    // Realtime rendering 3rd edition book section 22.10.1
+    const auto _planeIntersectsAABB = [](const glm::vec4 &plane, const AABB &box) {
+        const glm::vec3 center = (box.min + box.max) * 0.5f;
+        const glm::vec3 halfSize = (box.max - box.min) * 0.5f;
+
+        const float extent =
+                halfSize.x * std::abs(plane.x) + halfSize.y * std::abs(plane.y) + halfSize.z * std::abs(plane.z);
+
+        const float s = glm::dot(glm::vec3(plane), center) + plane.w;
+
+        return s >= -extent;
+    };
+
     for (const auto &plane: m_Frustum.planes) {
-        // Check if the sphere is inside the frustum
-        if (plane.x * sphere.x + plane.y * sphere.y + plane.z * sphere.z + plane.w <= -sphere.w) {
-            return false;
+        if (!_planeIntersectsAABB(plane, aabb)) {
+            return true; // AABB is outside the frustum
         }
     }
-    return true;
-}
-
-std::vector<glm::vec3> Camera::GenerateFrustumVertices() {
-    UpdateVectors();
-
-    // Frustum corners in NDC
-    static std::vector<glm::vec4> ndcCorners = {
-            {-1, -1, -1, 1}, {1, -1, -1, 1}, {1, 1, -1, 1}, {-1, 1, -1, 1}, // Near plane
-            {-1, -1, 1, 1},  {1, -1, 1, 1},  {1, 1, 1, 1},  {-1, 1, 1, 1} // Far plane
-    };
-
-    auto proj = GetProjectionMatrix();
-    proj[1][1] *= -1; // Vulkan uses a different coordinate system for the projection matrix
-    const glm::mat4 invVP = glm::inverse(proj * GetViewMatrix());
-
-    std::vector<glm::vec3> frustumVertices;
-    for (const auto &corner: ndcCorners) {
-        glm::vec4 worldPos = invVP * corner;
-        frustumVertices.push_back(glm::vec3(worldPos) / worldPos.w); // Perspective divide
-    }
-
-    return frustumVertices;
-}
-
-std::vector<uint32_t> Camera::GenerateFrustumLineIndices() {
-    return {
-            0, 1, 1, 2, 2, 3, 3, 0, // Near plane
-            4, 5, 5, 6, 6, 7, 7, 4, // Far plane
-            0, 4, 1, 5, 2, 6, 3, 7 // Connecting lines
-    };
+    return false;
 }
 
 glm::mat4 Camera::GetViewMatrix() const { return glm::lookAt(m_Position, m_FocusPoint, m_Up); }
 
 glm::mat4 Camera::GetProjectionMatrix() const {
-    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.5, 1000.0);
+    glm::mat4 proj = glm::perspective(glm::radians(m_YFov), m_AspectRatio, 0.5, 150.0);
     proj[1][1] *= -1;
     return proj;
 }
@@ -95,7 +83,7 @@ void Camera::HandleMouseMovement(double xPos, double yPos) {
         m_FirstMouse = false;
     }
 
-    if (m_Mode == FREE) {
+    if (m_Mode == CameraMode::FREE) {
 
         double xOffset = xPos - m_LastMouseX;
         double yOffset = m_LastMouseY - yPos; // reversed since y-coordinates go from bottom to top
@@ -113,8 +101,6 @@ void Camera::HandleMouseMovement(double xPos, double yPos) {
         glm::vec3 front = m_Position - m_FocusPoint;
         front = glm::vec3(glm::vec4(front, 1.0f) * rot);
         m_FocusPoint = m_Position - front;
-
-        UpdateVectors();
     } else {
         double xOffset = xPos - m_LastMouseX;
         double yOffset = m_LastMouseY - yPos; // reversed since y-coordinates go from bottom to top
@@ -131,33 +117,33 @@ void Camera::HandleMouseMovement(double xPos, double yPos) {
         glm::vec3 front = m_Position - m_FocusPoint;
         front = glm::vec3(glm::vec4(front, 1.0f) * rot);
         m_Position = m_FocusPoint + front;
-        UpdateVectors();
     }
+    UpdateVectors();
 }
 
 void Camera::HandleMovement(MovementDirection direction) {
     if (!m_MoveCamera)
         return;
 
-    if (m_Mode == LOOKAT)
+    if (m_Mode == CameraMode::LOOKAT)
         return;
 
     constexpr float cameraMovementSpeed = 0.005f;
     glm::vec3 front = m_Position - m_FocusPoint;
     switch (direction) {
-        case FRONT:
+        case MovementDirection::FRONT:
             m_Position = m_Position - front * cameraMovementSpeed;
             m_FocusPoint = m_FocusPoint - front * cameraMovementSpeed;
             break;
-        case BACK:
+        case MovementDirection::BACK:
             m_Position = m_Position + front * cameraMovementSpeed;
             m_FocusPoint = m_FocusPoint + front * cameraMovementSpeed;
             break;
-        case LEFT:
+        case MovementDirection::LEFT:
             m_Position = m_Position - m_Right * cameraMovementSpeed;
             m_FocusPoint = m_FocusPoint - m_Right * cameraMovementSpeed;
             break;
-        case RIGHT:
+        case MovementDirection::RIGHT:
             m_Position = m_Position + m_Right * cameraMovementSpeed;
             m_FocusPoint = m_FocusPoint + m_Right * cameraMovementSpeed;
             break;

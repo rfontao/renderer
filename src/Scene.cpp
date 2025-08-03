@@ -7,7 +7,7 @@
 #include "pch.h"
 
 Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath,
-             std::shared_ptr<TextureCube> skyboxTexture) :
+             std::shared_ptr<TextureCube> skyboxTexture, DebugDraw &debugDraw) :
     m_SkyboxTexture(std::move(skyboxTexture)), m_Device(std::move(device)) {
 
     cameras.resize(2);
@@ -55,7 +55,7 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
     CreateIndexBuffer(indexBuffer);
     CreateLights();
 
-    GenerateDrawCommands();
+    GenerateDrawCommands(debugDraw);
     CreateBuffers();
 }
 
@@ -131,7 +131,6 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
             m_Device, BufferSpecification{.size = skyboxBufferSize, .type = BufferType::VERTEX});
     m_SkyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
     skyboxStagingBuffer->Destroy();
-
 }
 
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
@@ -354,7 +353,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
             auto vertexStart = static_cast<uint32_t>(vertexBuffer.size());
             uint32_t indexCount = 0;
 
-            glm::vec4 boundingSphere{0.0f};
+            AABB aabb = {};
 
             // Vertices
             {
@@ -374,10 +373,8 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
                             &(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
                     vertexCount = accessor.count;
 
-                    auto min = glm::vec3{accessor.minValues[0], accessor.minValues[1], accessor.minValues[2]};
-                    auto max = glm::vec3{accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2]};
-                    float sphereRadius = glm::distance(min, max) / 2.0f;
-                    boundingSphere = glm::vec4((min + max) / 2.0f, sphereRadius);
+                    aabb.min = glm::vec3{accessor.minValues[0], accessor.minValues[1], accessor.minValues[2]};
+                    aabb.max = glm::vec3{accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2]};
                 }
                 // Get buffer data for vertex normals
                 if (glTFPrimitive.attributes.contains("NORMAL")) {
@@ -471,7 +468,7 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
             mesh.firstIndex = firstIndex;
             mesh.indexCount = indexCount;
             mesh.materialIndex = glTFPrimitive.material;
-            mesh.boundingSphere = boundingSphere;
+            mesh.boundingBox = aabb;
 
             meshes.push_back(mesh);
             node->meshIndices.push_back(meshes.size() - 1);
@@ -579,13 +576,13 @@ void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineL
         VkDeviceAddress cameraBufferAddress;
         uint32_t cameraIndex;
         uint32_t skyboxTextureIndex;
-    } pushConstants {camerasBuffer->GetAddress(), Application::cameraIndexDrawing, 750};
+    } pushConstants{camerasBuffer->GetAddress(), Application::cameraIndexDrawing, 750};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(SkyboxPushConstant), &pushConstants);
     vkCmdDraw(commandBuffer, 36, 1, 0, 0);
 }
 
-void Scene::GenerateDrawCommands(bool frustumCulling) {
+void Scene::GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling) {
     globalModelMatrices.resize(localModelMatrices.size());
     opaqueDrawData.clear();
     transparentDrawData.clear();
@@ -594,7 +591,7 @@ void Scene::GenerateDrawCommands(bool frustumCulling) {
 
     // Render all nodes at top-level
     for (const auto &node: m_Nodes) {
-        DrawNode(node, frustumCulling);
+        DrawNode(node, debugDraw, frustumCulling);
     }
 }
 
@@ -606,7 +603,7 @@ void Scene::UpdateCameraDatas() {
     }
 }
 
-void Scene::DrawNode(Node *node, bool frustumCulling) {
+void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
     if (!node->meshIndices.empty()) {
         // Pass the node's matrix via push constants
         // Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -624,14 +621,34 @@ void Scene::DrawNode(Node *node, bool frustumCulling) {
             const auto &mesh = meshes[meshIndex];
             if (mesh.indexCount > 0) {
 
-                Camera &camera = cameras[0];
+                Camera &camera = cameras[1];
+
                 if (frustumCulling) {
-                    auto boundingSphereCenter = glm::vec3(mesh.boundingSphere);
-                    auto transformedBoundingSphere = glm::vec3(nodeMatrix * glm::vec4(boundingSphereCenter, 1.0f));
-                    if (!camera.DoesSphereIntersectFrustum(
-                                glm::vec4(transformedBoundingSphere, mesh.boundingSphere.w))) {
+                    const std::array corners = {
+                        mesh.boundingBox.min,
+                        glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.min.y, mesh.boundingBox.min.z),
+                        glm::vec3(mesh.boundingBox.min.x, mesh.boundingBox.max.y, mesh.boundingBox.min.z),
+                        glm::vec3(mesh.boundingBox.min.x, mesh.boundingBox.min.y, mesh.boundingBox.max.z),
+                        glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.max.y, mesh.boundingBox.min.z),
+                        glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.min.y, mesh.boundingBox.max.z),
+                        glm::vec3(mesh.boundingBox.min.x, mesh.boundingBox.max.y, mesh.boundingBox.max.z),
+                        mesh.boundingBox.max
+                    };
+
+                    glm::vec3 newMin( std::numeric_limits<double>::max() );
+                    glm::vec3 newMax( std::numeric_limits<double>::lowest() );
+                    for (size_t i = 0; i < 8; ++i) {
+                        glm::vec4 transformed = nodeMatrix * glm::vec4(corners[i], 1.0f);
+                        glm::vec3 p = glm::vec3(transformed);
+                        newMin = glm::min(newMin, p);
+                        newMax = glm::max(newMax, p);
+                    }
+                    AABB aabb = {.min = newMin, .max = newMax};
+                    if (camera.IsAABBFullyOutsideFrustum(aabb)) {
+                        // debugDraw.DrawAABB(aabb, {1.0f, 0.0f, 0.0f});
                         continue;
                     }
+                    // debugDraw.DrawAABB(aabb, {0.0f, 1.0f, 0.0f});
                 }
 
                 // Get the texture index for this primitive
@@ -648,20 +665,20 @@ void Scene::DrawNode(Node *node, bool frustumCulling) {
                     opaqueDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     opaqueDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
                                                       .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
-                                                      .boundingSphere = mesh.boundingSphere});
+                                                      .boundingSphere = glm::vec4()});
                 }
                 if (material.alphaMask != 0.0f) {
                     transparentDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     transparentDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
                                                            .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
-                                                           .boundingSphere = mesh.boundingSphere});
+                                                           .boundingSphere = glm::vec4()});
                 }
             }
         }
     }
 
     for (const auto &child: node->children) {
-        DrawNode(child, frustumCulling);
+        DrawNode(child, debugDraw, frustumCulling);
     }
 }
 

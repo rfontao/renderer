@@ -68,7 +68,7 @@ void Application::InitVulkan() {
     m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
-    m_Scene = Scene(m_Device, m_ScenePaths[26], m_CubemapTexture);
+    m_Scene = Scene(m_Device, m_ScenePaths[26], m_CubemapTexture, *debugDraw);
 
     TextureSpecification shadowmapTextureSpec{
             .format = ImageFormat::D16,
@@ -81,7 +81,7 @@ void Application::InitVulkan() {
     CreateDepthResources();
     CreateBindlessTexturesArray();
 
-    stagingManager.InitializeStagingBuffers(m_Device, m_Swapchain->numFramesInFlight);
+    stagingManager.InitializeStagingBuffers(m_Device);
 
     stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
                            m_Scene.m_Materials.size() * sizeof(Scene::Material));
@@ -404,36 +404,37 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
-    struct FrustumCullingPushConstants {
-        Frustum frustum;
-        VkDeviceAddress commandBufferAddress;
-        VkDeviceAddress drawDataAddress;
-        VkDeviceAddress modelMatricesAddress;
-    } frustumCullingPushConstants = {.frustum = m_Scene.cameras[1].GetFrustum(),
-                                     .commandBufferAddress = m_Scene.opaqueDrawIndirectCommandsBuffer->GetAddress(),
-                                     .drawDataAddress = m_Scene.opaqueDrawDataBuffer->GetAddress(),
-                                     .modelMatricesAddress = m_Scene.modelMatricesBuffer->GetAddress()};
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_FrustumCullingPipeline->GetPipeline());
-    vkCmdPushConstants(commandBuffer, m_FrustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
-    vkCmdDispatch(commandBuffer, (m_Scene.opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
-
-    // NOTE: This barrier is needed so that drawing only starts after the culling is performed
+    // struct FrustumCullingPushConstants {
+    //     Frustum frustum;
+    //     VkDeviceAddress commandBufferAddress;
+    //     VkDeviceAddress drawDataAddress;
+    //     VkDeviceAddress modelMatricesAddress;
+    // } frustumCullingPushConstants = {.frustum = m_Scene.cameras[1].GetFrustum(),
+    //                                  .commandBufferAddress = m_Scene.opaqueDrawIndirectCommandsBuffer->GetAddress(),
+    //                                  .drawDataAddress = m_Scene.opaqueDrawDataBuffer->GetAddress(),
+    //                                  .modelMatricesAddress = m_Scene.modelMatricesBuffer->GetAddress()};
+    //
+    // vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_FrustumCullingPipeline->GetPipeline());
+    // vkCmdPushConstants(commandBuffer, m_FrustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+    //                    sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
+    // vkCmdDispatch(commandBuffer, (m_Scene.opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
+    //
+    // // NOTE: This barrier is needed so that drawing only starts after the culling is performed
+    // //
     // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
-    VkMemoryBarrier2 cullingMemoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                          .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                                          .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
-                                          .dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
-                                          .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
-
-    VkDependencyInfo cullingDependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .memoryBarrierCount = 1,
-            .pMemoryBarriers = &cullingMemoryBarrier,
-    };
-
-    vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
+    // VkMemoryBarrier2 cullingMemoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+    //                                       .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+    //                                       .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+    //                                       .dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+    //                                       .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+    //
+    // VkDependencyInfo cullingDependencyInfo{
+    //         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+    //         .memoryBarrierCount = 1,
+    //         .pMemoryBarriers = &cullingMemoryBarrier,
+    // };
+    //
+    // vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
 
     VkDescriptorImageInfo imageInfo{
             .sampler = m_ShadowDepthTexture->GetSampler(),
@@ -521,6 +522,48 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdEndRendering(commandBuffer);
 
+    // TODO: Evaluate if these are needed
+    // const VkImageMemoryBarrier2 depthBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+    //                                          .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+    //                                          .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+    //                                          .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+    //                                          .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+    //                                          .image = m_DepthImage->GetImage(),
+    //                                          .subresourceRange = {
+    //                                                  .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+    //                                                  .levelCount = 1,
+    //                                                  .layerCount = 1,
+    //                                          }};
+    //
+    //
+    // const VkImageMemoryBarrier2 graphicsBarrier{
+    //         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+    //         .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+    //         .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    //         .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+    //         .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    //         .image = m_Swapchain->GetImage(imageIndex)->GetImage(),
+    //         .subresourceRange =
+    //                 {
+    //                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    //                         .levelCount = 1,
+    //                         .layerCount = 1,
+    //                 },
+    // };
+    //
+    //
+    // std::array barriers = {depthBarrier, graphicsBarrier};
+    //
+    //
+    // VkDependencyInfo dependencyInfo{
+    //         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+    //         .imageMemoryBarrierCount = barriers.size(),
+    //         .pImageMemoryBarriers = barriers.data(),
+    // };
+    //
+    //
+    // vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
     // New rendering info
     VkRenderingAttachmentInfo colorAttachment2{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -554,7 +597,8 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
 
     debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
-    debugDraw->DrawSphere({0.0, 0.0, 0.0}, 5.0, {1.0, 0.0, 0.0});
+    debugDraw->DrawFrustum(m_Scene.cameras[1].GetViewMatrix(), m_Scene.cameras[1].GetProjectionMatrix(),
+                           {0.0, 0.0, 1.0});
     debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, m_Scene, renderInfo2);
 
     m_Swapchain->GetImage(imageIndex)
@@ -583,7 +627,7 @@ void Application::DrawFrame() {
 
     UpdateUniformBuffer(m_CurrentFrame);
 
-    m_Scene.GenerateDrawCommands(frustumCulling);
+    m_Scene.GenerateDrawCommands(*debugDraw, frustumCulling);
 
     stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
                            m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
@@ -692,7 +736,7 @@ void Application::ChangeScene() {
     m_ShouldChangeScene = false;
     vkDeviceWaitIdle(m_Device->GetDevice());
     m_Scene.Destroy();
-    m_Scene = Scene(m_Device, m_NextScenePath, m_CubemapTexture);
+    m_Scene = Scene(m_Device, m_NextScenePath, m_CubemapTexture, *debugDraw);
 
     m_TextureDescriptors.clear();
     CreateBindlessTexturesArray();

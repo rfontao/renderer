@@ -21,7 +21,7 @@ public:
 
     StagingManager() = default;
 
-    void InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device, uint32_t framesInFlight);
+    void InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device);
     void Destroy();
 
     void NextFrame();
@@ -33,7 +33,7 @@ public:
     // Queued buffer copies for the current frame
     std::vector<BufferCopy> queuedBufferCopies;
     // Staging buffers for each frame in flight
-    std::vector<StagingBuffer> stagingBuffers;
+    std::array<StagingBuffer, 2> stagingBuffers;
 
     uint32_t currentFrame = 0;
 
