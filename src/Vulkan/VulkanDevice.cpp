@@ -85,7 +85,7 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
     auto physicalDeviceSelectorReturn =
             physicalDeviceSelector.set_surface(m_Surface)
                     .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-                    .add_required_extension(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)
+                    // .add_required_extension(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)
                     .set_required_features(deviceFeatures)
                     .set_required_features_11(vulkan11Features)
                     .set_required_features_12(vulkan12Features)

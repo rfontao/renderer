@@ -51,11 +51,15 @@ layout(std430, buffer_reference, buffer_reference_align = 8) buffer LightsBuffer
     Light lights[];
 };
 
+struct AABB {
+    vec3 min;
+    vec3 max;
+};
 
 struct DrawData {
     uint modelMatrixIndex;
     uint materialIndex;
-    vec4 boundingSphere;
+    AABB aabb;
 };
 
 layout(std430, buffer_reference, buffer_reference_align = 8) buffer DrawDataBuffer {

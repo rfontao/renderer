@@ -83,7 +83,7 @@ public:
     struct DrawData {
         uint32_t modelMatrixIndex{0};
         uint32_t materialIndex{0};
-        glm::vec4 boundingSphere{0.0f};
+        AABB boundingBox{};
     };
 
     Scene() = default;
@@ -95,7 +95,7 @@ public:
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
     void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
 
-    void GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling = true);
+    void GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling = false);
 
     void UpdateCameraDatas();
 

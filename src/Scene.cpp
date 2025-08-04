@@ -516,17 +516,15 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
         uint32_t lightCount;
         int32_t shadowMapTextureIndex;
         int32_t cameraIndex;
-    };
-
-    PBRPushConstants pushConstants = {materialsBuffer->GetAddress(),
-                                      lightsBuffer->GetAddress(),
-                                      camerasBuffer->GetAddress(),
-                                      opaqueDrawDataBuffer->GetAddress(),
-                                      modelMatricesBuffer->GetAddress(),
-                                      0,
-                                      static_cast<uint32_t>(m_Lights.size()),
-                                      800,
-                                      Application::cameraIndexDrawing};
+    } pushConstants{materialsBuffer->GetAddress(),
+                    lightsBuffer->GetAddress(),
+                    camerasBuffer->GetAddress(),
+                    opaqueDrawDataBuffer->GetAddress(),
+                    modelMatricesBuffer->GetAddress(),
+                    0,
+                    static_cast<uint32_t>(m_Lights.size()),
+                    800,
+                    Application::cameraIndexDrawing};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PBRPushConstants), &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
@@ -550,10 +548,8 @@ void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
         VkDeviceAddress drawDataBufferAddress;
         VkDeviceAddress modelMatricesBufferAddress;
         int32_t directionalLightIndex;
-    };
-
-    auto pushConstants = shadowPushConstants{lightsBuffer->GetAddress(), opaqueDrawDataBuffer->GetAddress(),
-                                             modelMatricesBuffer->GetAddress(), 0};
+    } pushConstants{lightsBuffer->GetAddress(), opaqueDrawDataBuffer->GetAddress(), modelMatricesBuffer->GetAddress(),
+                    0};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants),
                        &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
@@ -621,10 +617,9 @@ void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
             const auto &mesh = meshes[meshIndex];
             if (mesh.indexCount > 0) {
 
-                Camera &camera = cameras[1];
+                Camera &camera = cameras[0];
 
-                if (frustumCulling) {
-                    const std::array corners = {
+                const std::array corners = {
                         mesh.boundingBox.min,
                         glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.min.y, mesh.boundingBox.min.z),
                         glm::vec3(mesh.boundingBox.min.x, mesh.boundingBox.max.y, mesh.boundingBox.min.z),
@@ -632,18 +627,18 @@ void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
                         glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.max.y, mesh.boundingBox.min.z),
                         glm::vec3(mesh.boundingBox.max.x, mesh.boundingBox.min.y, mesh.boundingBox.max.z),
                         glm::vec3(mesh.boundingBox.min.x, mesh.boundingBox.max.y, mesh.boundingBox.max.z),
-                        mesh.boundingBox.max
-                    };
+                        mesh.boundingBox.max};
 
-                    glm::vec3 newMin( std::numeric_limits<double>::max() );
-                    glm::vec3 newMax( std::numeric_limits<double>::lowest() );
-                    for (size_t i = 0; i < 8; ++i) {
-                        glm::vec4 transformed = nodeMatrix * glm::vec4(corners[i], 1.0f);
-                        glm::vec3 p = glm::vec3(transformed);
-                        newMin = glm::min(newMin, p);
-                        newMax = glm::max(newMax, p);
-                    }
-                    AABB aabb = {.min = newMin, .max = newMax};
+                glm::vec3 newMin(std::numeric_limits<float>::max());
+                glm::vec3 newMax(std::numeric_limits<float>::lowest());
+                for (size_t i = 0; i < 8; ++i) {
+                    glm::vec4 transformed = nodeMatrix * glm::vec4(corners[i], 1.0f);
+                    auto p = glm::vec3(transformed);
+                    newMin = glm::min(newMin, p);
+                    newMax = glm::max(newMax, p);
+                }
+                AABB aabb = {.min = newMin, .max = newMax};
+                if (frustumCulling) {
                     if (camera.IsAABBFullyOutsideFrustum(aabb)) {
                         // debugDraw.DrawAABB(aabb, {1.0f, 0.0f, 0.0f});
                         continue;
@@ -665,13 +660,13 @@ void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
                     opaqueDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     opaqueDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
                                                       .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
-                                                      .boundingSphere = glm::vec4()});
+                                                      .boundingBox = aabb});
                 }
                 if (material.alphaMask != 0.0f) {
                     transparentDrawIndirectCommands.emplace_back(drawIndirectCommand);
                     transparentDrawData.push_back(DrawData{.modelMatrixIndex = node->modelMatrixIndex,
                                                            .materialIndex = static_cast<uint32_t>(mesh.materialIndex),
-                                                           .boundingSphere = glm::vec4()});
+                                                           .boundingBox = aabb});
                 }
             }
         }

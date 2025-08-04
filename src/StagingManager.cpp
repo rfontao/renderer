@@ -13,7 +13,7 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
     }
 }
 
-//TODO: Duplicate vertex buffer on GPU????
+// TODO: Duplicate vertex buffer on GPU????
 void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     assert(stagingBuffers[currentFrame].currentOffset + size <= stagingBuffers[currentFrame].buffer->GetSize());
 
@@ -34,6 +34,7 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
         return;
     }
 
+    std::vector<VkBufferMemoryBarrier2> memoryBarriers;
     for (const auto &copy: queuedBufferCopies) {
         VkBufferCopy copyInfo{
                 .srcOffset = copy.offset,
@@ -42,25 +43,28 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
         };
         vkCmdCopyBuffer(commandBuffer, stagingBuffers[currentFrame].buffer->GetBuffer(), copy.destination, 1,
                         &copyInfo);
+
+        memoryBarriers.push_back({
+                .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .buffer = copy.destination,
+                .size = VK_WHOLE_SIZE,
+        });
     }
 
-    // TODO(RF): Check if this is correct
-    VkMemoryBarrier2 memoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                   .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-                                   .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                   .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                                   .dstAccessMask = VK_ACCESS_2_NONE};
-
-    VkDependencyInfo dependencyInfo{
+    const VkDependencyInfo dependencyInfo{
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .memoryBarrierCount = 1,
-            .pMemoryBarriers = &memoryBarrier,
+            .bufferMemoryBarrierCount = static_cast<uint32_t>(memoryBarriers.size()),
+            .pBufferMemoryBarriers = memoryBarriers.data(),
     };
 
     vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
-    // NOTE: Clear the queued copies after flushing but don't reset the current offset because the staging buffer is still
-    //       needed for when the vkCmdCopyBuffer is actually executed ;-;
+    // NOTE: Clear the queued copies after flushing but don't reset the current offset because the staging buffer is
+    // still needed for when the vkCmdCopyBuffer is actually executed ;-;
     queuedBufferCopies.clear();
 }
 

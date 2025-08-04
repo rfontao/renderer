@@ -84,7 +84,7 @@ public:
     size_t cameraIndexControlling{0};
     static constexpr size_t cameraIndexDrawing{0};
 
-    static constexpr bool frustumCulling{true};
+    static constexpr bool frustumCulling{false};
 
     std::shared_ptr<Texture2D> m_ShadowDepthTexture;
     std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
