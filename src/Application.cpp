@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "Application.h"
+#include "Vulkan/Utils.h"
 #include "Vulkan/VulkanPipeline.h"
 
 void Application::Run() {
@@ -11,6 +12,9 @@ void Application::Run() {
 }
 
 void Application::InitVulkan() {
+
+    VK_CHECK(volkInitialize(), "Failed to initialize Volk");
+
     CreateInstance();
 
     FindScenePaths("models");
@@ -64,13 +68,14 @@ void Application::InitVulkan() {
             "textures/cubemaps/vindelalven/posz.jpg", "textures/cubemaps/vindelalven/negz.jpg",
     };
 
-    TextureSpecification cubemapTextureSpec{};
+    TextureSpecification cubemapTextureSpec{.name = "Skybox cubemap texture"};
     m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
 
     m_UI = UI(m_Device, m_Instance, m_Window, this);
     m_Scene = Scene(m_Device, m_ScenePaths[26], m_CubemapTexture, *debugDraw);
 
     TextureSpecification shadowmapTextureSpec{
+            .name = "Shadow Depth Texture",
             .format = ImageFormat::D16,
             .width = shadowSize,
             .height = shadowSize,
@@ -213,8 +218,9 @@ void Application::CreateInstance() {
     vkb::InstanceBuilder instanceBuilder;
     instanceBuilder.set_app_name("Experimental Renderer")
             .set_engine_name("None")
-            .require_api_version(1, 3, 0)
-            .add_validation_feature_disable(VK_VALIDATION_FEATURE_DISABLE_UNIQUE_HANDLES_EXT);
+            .require_api_version(1, 4, 0)
+            .add_validation_feature_disable(VK_VALIDATION_FEATURE_DISABLE_UNIQUE_HANDLES_EXT)
+            .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     // of course dedicated variable for validation
     if (enableValidationLayers && systemInfo.validation_layers_available) {
@@ -243,6 +249,8 @@ void Application::CreateInstance() {
     }
 
     m_Instance = instanceRet.value();
+
+    volkLoadInstance(m_Instance);
 }
 
 VkSurfaceKHR Application::CreateSurface() const {
@@ -719,6 +727,7 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
 
 void Application::CreateDepthResources() {
     ImageSpecification imageSpecification{
+            .name = "Depth Image",
             .format = ImageFormat::D32,
             .usage = ImageUsage::Attachment,
             .width = m_Swapchain->GetWidth(),
@@ -731,6 +740,7 @@ void Application::CreateDepthResources() {
 
 void Application::CreateColorResources() {
     ImageSpecification imageSpecification{
+            .name = "Color Image",
             .format = ImageFormat::R8G8B8A8_SRGB,
             .usage = ImageUsage::Attachment,
             .width = m_Swapchain->GetWidth(),

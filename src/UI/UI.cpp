@@ -1,18 +1,18 @@
-#include <span>
 #include "pch.h"
+
+#include <span>
 #include "UI.h"
+
+#include "Vulkan/Utils.h"
 
 #include "Application.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app) : m_Device(
-        device), m_App(app) {
-    constexpr VkDescriptorPoolSize pool_sizes[] =
-            {
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}
-            };
-    VkDescriptorPoolCreateInfo poolInfo {};
+UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app) :
+    m_Device(std::move(device)), m_App(app) {
+    constexpr VkDescriptorPoolSize pool_sizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
+    VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     poolInfo.maxSets = 1;
@@ -25,8 +25,8 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     (void) io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -66,7 +66,6 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
     ImGui_ImplVulkan_Init(&initInfo);
-
 
     VkCommandBuffer cmd = m_Device->BeginSingleTimeCommands();
     ImGui_ImplVulkan_CreateFontsTexture();

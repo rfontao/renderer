@@ -1,8 +1,8 @@
-#include "pch.h"
 #include "VulkanTexture.h"
+#include "pch.h"
 
-#include "Utils.h"
 #include "Buffer.h"
+#include "Utils.h"
 #include "VulkanImage.h"
 
 
@@ -18,7 +18,8 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
     }
 
     const VkDeviceSize imageSize = width * height * 4 * 6;
-    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
+    auto stagingBuffer =
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
 
     uint32_t offset = 0;
     for (const auto &path: paths) { // Should be 6
@@ -37,6 +38,7 @@ TextureCube::TextureCube(std::shared_ptr<VulkanDevice> device, TextureSpecificat
 
     // Note: Currently ignoring mipmap generation for cube maps
     ImageSpecification imageSpecification{
+            .name = specification.name,
             .format = specification.format,
             .width = (uint32_t) width,
             .height = (uint32_t) height,
@@ -68,12 +70,14 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
         mipLevelCount = (uint32_t) (std::floor(std::log2(std::max(texWidth, texHeight))) + 1);
     }
 
-    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
+    auto stagingBuffer =
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
     stagingBuffer->From(pixels, imageSize);
 
     stbi_image_free(pixels);
 
     ImageSpecification imageSpecification{
+            .name = specification.name,
             .format = specification.format,
             .width = specification.width,
             .height = specification.height,
@@ -102,6 +106,7 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
 
     // TODO: Review usage later
     ImageSpecification imageSpecification{
+            .name = specification.name,
             .format = specification.format,
             .usage = ImageUsage::Attachment,
             .width = specification.width,
@@ -123,10 +128,12 @@ Texture2D::Texture2D(std::shared_ptr<VulkanDevice> device, TextureSpecification 
 
     int channels = GetChannels(specification.format);
     VkDeviceSize imageSize = specification.width * specification.height * channels;
-    auto stagingBuffer = std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
+    auto stagingBuffer =
+            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = imageSize, .type = BufferType::STAGING});
     stagingBuffer->From(pixels, imageSize);
 
     ImageSpecification imageSpecification{
+            .name = specification.name,
             .format = specification.format,
             .width = specification.width,
             .height = specification.height,
@@ -170,7 +177,7 @@ void VulkanTexture::SetSampler(const TextureSampler &sampler) {
             .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
             .compareOp = VK_COMPARE_OP_NEVER,
             .minLod = 0.0f, // (float) mipLevels / 2, <- Force enable low mip maps
-            .maxLod = (float) 10.0f, //TODO
+            .maxLod = (float) 10.0f, // TODO
             .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
             .unnormalizedCoordinates = VK_FALSE,
     };

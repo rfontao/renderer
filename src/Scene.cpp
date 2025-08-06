@@ -62,12 +62,13 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
 void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    const auto stagingBuffer =
-            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::STAGING});
+    const auto stagingBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{
+                              .name = "Vertex Buffer Staging Buffer", .size = bufferSize, .type = BufferType::STAGING});
     stagingBuffer->From(vertices.data(), bufferSize);
 
-    m_VertexBuffer =
-            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::VERTEX});
+    m_VertexBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{.name = "Vertex Buffer", .size = bufferSize, .type = BufferType::VERTEX});
     m_VertexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
 
@@ -124,11 +125,13 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     const VkDeviceSize skyboxBufferSize = sizeof(skyboxVertices[0]) * skyboxVertices.size();
 
     const auto skyboxStagingBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.size = skyboxBufferSize, .type = BufferType::STAGING});
+            m_Device, BufferSpecification{
+                              .name = "Skybox Staging Buffer", .size = skyboxBufferSize, .type = BufferType::STAGING});
     skyboxStagingBuffer->From(skyboxVertices.data(), skyboxBufferSize);
 
     m_SkyboxVertexBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.size = skyboxBufferSize, .type = BufferType::VERTEX});
+            m_Device,
+            BufferSpecification{.name = "Skybox Vertex Buffer", .size = skyboxBufferSize, .type = BufferType::VERTEX});
     m_SkyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
     skyboxStagingBuffer->Destroy();
 }
@@ -136,12 +139,13 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
 void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    const auto stagingBuffer =
-            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::STAGING});
+    const auto stagingBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{
+                              .name = "Index Buffer Staging Buffer", .size = bufferSize, .type = BufferType::STAGING});
     stagingBuffer->From(indices.data(), bufferSize);
 
-    m_IndexBuffer =
-            std::make_unique<Buffer>(m_Device, BufferSpecification{.size = bufferSize, .type = BufferType::INDEX});
+    m_IndexBuffer = std::make_unique<Buffer>(
+            m_Device, BufferSpecification{.name = "Index Buffer", .size = bufferSize, .type = BufferType::INDEX});
     m_IndexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
 }
@@ -153,7 +157,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
 
         // Load from disk
         if (!glTFImage.uri.empty()) {
-            TextureSpecification spec{.width = static_cast<uint32_t>(glTFImage.width),
+            TextureSpecification spec{.name = glTFImage.name,
+                                      .width = static_cast<uint32_t>(glTFImage.width),
                                       .height = static_cast<uint32_t>(glTFImage.height),
                                       .generateMipMaps = true};
             m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, m_ResourcePath / glTFImage.uri);
@@ -177,7 +182,8 @@ void Scene::LoadImages(tinygltf::Model &input) {
                 buffer = &glTFImage.image[0];
                 bufferSize = glTFImage.image.size();
             }
-            TextureSpecification spec{.width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
+            TextureSpecification spec{
+                    .name = glTFImage.name, .width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
             m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, buffer);
             if (deleteBuffer) {
                 delete[] buffer;
@@ -187,7 +193,7 @@ void Scene::LoadImages(tinygltf::Model &input) {
 
     // Default image/texture
     std::array<unsigned char, 1 * 1 * 4> pixels = {128, 128, 128, 255};
-    TextureSpecification spec{.width = 1, .height = 1};
+    TextureSpecification spec{.name = "Default Texture", .width = 1, .height = 1};
     m_Images[m_Images.size() - 1] = std::make_shared<Texture2D>(m_Device, spec, pixels.data());
 }
 
@@ -692,36 +698,48 @@ void Scene::CreateLights() {
 void Scene::CreateBuffers() {
 
     materialsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = 128 * sizeof(Material), .type = BufferType::GPU});
+            m_Device,
+            BufferSpecification{.name = "Materials Buffer", .size = 128 * sizeof(Material), .type = BufferType::GPU});
 
     constexpr size_t maxLights = 128;
     lightsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxLights * sizeof(Light), .type = BufferType::GPU});
+            m_Device,
+            BufferSpecification{.name = "Lights Buffer", .size = maxLights * sizeof(Light), .type = BufferType::GPU});
 
     constexpr size_t maxCameras = 8;
-    camerasBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = sizeof(Camera::CameraData) * maxCameras, .type = BufferType::GPU});
+    camerasBuffer =
+            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Cameras Buffer",
+                                                                   .size = sizeof(Camera::CameraData) * maxCameras,
+                                                                   .type = BufferType::GPU});
 
     modelMatricesBuffer = std::make_shared<Buffer>(
-            m_Device,
-            BufferSpecification{.size = globalModelMatrices.size() * sizeof(glm::mat4), .type = BufferType::GPU});
+            m_Device, BufferSpecification{.name = "Model Matrices Buffer",
+                                          .size = globalModelMatrices.size() * sizeof(glm::mat4),
+                                          .type = BufferType::GPU});
 
     constexpr size_t maxDrawIndirectCommands = 8192;
     opaqueDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
+            m_Device, BufferSpecification{.name = "Opaque Draw Indirect Commands Buffer",
+                                          .size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
 
     transparentDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
+            m_Device, BufferSpecification{.name = "Transparent Draw Indirect Commands Buffer",
+                                          .size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
 
-    opaqueDrawDataBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(DrawData), .type = BufferType::GPU});
+    opaqueDrawDataBuffer =
+            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Opaque Draw Data Buffer",
+                                                                   .size = maxDrawIndirectCommands * sizeof(DrawData),
+                                                                   .type = BufferType::GPU});
 
-    transparentDrawDataBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxDrawIndirectCommands * sizeof(DrawData), .type = BufferType::GPU});
+    transparentDrawDataBuffer =
+            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Transparent Draw Data Buffer",
+                                                                   .size = maxDrawIndirectCommands * sizeof(DrawData),
+                                                                   .type = BufferType::GPU});
 
     constexpr size_t maxMeshes = 16384;
-    meshesBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.size = maxMeshes * sizeof(DrawData), .type = BufferType::GPU});
+    meshesBuffer = std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Meshes Buffer",
+                                                                          .size = maxMeshes * sizeof(DrawData),
+                                                                          .type = BufferType::GPU});
 }

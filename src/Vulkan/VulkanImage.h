@@ -25,6 +25,7 @@ enum class ImageUsage {
 };
 
 struct ImageSpecification {
+    std::string name;
     ImageFormat format{ImageFormat::R8G8B8A8};
     ImageUsage usage{ImageUsage::Texture};
     uint32_t width{1};

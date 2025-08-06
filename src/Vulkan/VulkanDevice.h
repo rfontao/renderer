@@ -1,9 +1,7 @@
 #pragma once
 #include "../pch.h"
 
-#include "Utils.h"
 #include "VkBootstrap.h"
-#include "VulkanSwapchain.h"
 
 class VulkanDevice {
 public:

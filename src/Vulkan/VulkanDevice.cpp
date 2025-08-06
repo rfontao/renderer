@@ -1,6 +1,8 @@
-#include "VulkanDevice.h"
-#include "VkBootstrap.h"
 #include "pch.h"
+
+#include "VkBootstrap.h"
+#include "Vulkan/Utils.h"
+#include "VulkanDevice.h"
 
 VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Surface(surface) {
     PickPhysicalDevice(instance);
@@ -10,12 +12,16 @@ VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Sur
     CreateDescriptorPool();
 
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_4;
     allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
     allocatorCreateInfo.device = m_Device;
     allocatorCreateInfo.instance = instance;
     allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    //    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+
+    VmaVulkanFunctions vulkanFunctions;
+    VK_CHECK(vmaImportVulkanFunctionsFromVolk(&allocatorCreateInfo, &vulkanFunctions), "Failed to load VMA functions!");
+    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+
     vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator);
 }
 
@@ -85,6 +91,7 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
     auto physicalDeviceSelectorReturn =
             physicalDeviceSelector.set_surface(m_Surface)
                     .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
+                    .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
                     // .add_required_extension(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)
                     .set_required_features(deviceFeatures)
                     .set_required_features_11(vulkan11Features)
@@ -107,6 +114,8 @@ void VulkanDevice::CreateLogicalDevice() {
         throw std::runtime_error("Failed to create logical device!");
     }
     m_Device = deviceRet.value();
+
+    volkLoadDevice(m_Device);
 
     m_GraphicsQueue = m_Device.get_queue(vkb::QueueType::graphics).value();
     m_ComputeQueue = m_Device.get_queue(vkb::QueueType::compute).value();

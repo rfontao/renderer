@@ -4,6 +4,7 @@
 #include "Utils.h"
 #include "VulkanDevice.h"
 #include "VulkanImage.h"
+#include "DebugMarkers.h"
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecification &specification) :
     m_Device(device), m_Width(specification.width), m_Height(specification.height) {
@@ -65,6 +66,8 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
 
     VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
              "Failed to create texture image view!");
+
+    DebugMarkers::ImageMarker(m_Device, m_Image, specification.name);
 }
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) :
@@ -84,6 +87,7 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) :
 
     VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
              "Failed to create texture image view!");
+    DebugMarkers::ImageMarker(m_Device, m_Image, "Swapchain Image");
 }
 
 void VulkanImage::Destroy() {

@@ -3,8 +3,6 @@
 #include <string>
 #include <memory>
 
-#include "vulkan/vulkan.h"
-
 #include "VulkanImage.h"
 
 enum class TextureWrapMode {
@@ -24,6 +22,7 @@ struct TextureSampler {
 };
 
 struct TextureSpecification {
+    std::string name;
     ImageFormat format{ImageFormat::R8G8B8A8};
     uint32_t width{1};
     uint32_t height{1};

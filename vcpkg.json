@@ -9,6 +9,7 @@
     "vulkan-memory-allocator",
     "tinygltf",
     "draco",
+    "volk",
     {
       "name": "imgui",
       "features": [

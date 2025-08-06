@@ -1,9 +1,10 @@
-#include "VulkanPipeline.h"
-
-#include <utility>
 #include "pch.h"
 
+#include <utility>
+
+#include "VulkanPipeline.h"
 #include "spirv_reflect.h"
+#include "Utils.h"
 
 // https://github.com/KhronosGroup/SPIRV-Reflect/blob/master/examples/main_io_variables.cpp
 static uint32_t FormatSize(VkFormat format) {

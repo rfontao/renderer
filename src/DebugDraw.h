@@ -9,8 +9,9 @@ class DebugDraw {
 public:
     DebugDraw() = delete;
     explicit DebugDraw(std::shared_ptr<VulkanDevice> device) : device(std::move(device)) {
-        vertexBuffer = std::make_unique<Buffer>(
-                this->device, BufferSpecification{.size = 65535 * sizeof(Vertex), .type = BufferType::VERTEX});
+        vertexBuffer = std::make_unique<Buffer>(this->device, BufferSpecification{.name = "DebugDraw Vertex Buffer",
+                                                                                  .size = 65535 * sizeof(Vertex),
+                                                                                  .type = BufferType::VERTEX});
     }
 
     void DrawLine(const glm::vec3 &start, const glm::vec3 &end, const glm::vec3 &color);
@@ -18,7 +19,7 @@ public:
     void DrawPoint(const glm::vec3 &coords, const glm::vec3 &color);
     void DrawSphere(const glm::vec3 &center, double radius, const glm::vec3 &color);
     void DrawAABB(const AABB &aabb, const glm::vec3 &color);
-    void DrawFrustum(const glm::mat4& view, const glm::mat4& proj, const glm::vec3 &color);
+    void DrawFrustum(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &color);
 
     void BeginFrame();
     void Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManager, const VulkanPipeline &debugPipeline,
