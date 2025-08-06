@@ -3,7 +3,7 @@
 #include "DebugDraw.h"
 
 #include "Application.h"
-#include "StagingManager.h"
+#include "GPUDataUploader.h"
 
 void DebugDraw::DrawLine(const glm::vec3 &start, const glm::vec3 &end, const glm::vec3 &color) {
     vertices.push_back({.position = start, .color = color});
@@ -113,14 +113,13 @@ void DebugDraw::DrawFrustum(const glm::mat4 &view, const glm::mat4 &proj, const 
     DrawLine(worldCorners[3], worldCorners[7], color);
 }
 
-void DebugDraw::Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManager, const VulkanPipeline &debugPipeline,
+void DebugDraw::Draw(VkCommandBuffer commandBuffer, GPUDataUploader &stagingManager, const VulkanPipeline &debugPipeline,
                      const Scene &scene, const VkRenderingInfo &renderingInfo) {
     if (vertices.empty()) {
         return;
     }
 
-    const VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-    stagingManager.AddCopy(vertices.data(), vertexBuffer->GetBuffer(), bufferSize);
+    stagingManager.AddCopy(vertices, vertexBuffer->GetBuffer());
     stagingManager.Flush(commandBuffer);
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);

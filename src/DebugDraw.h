@@ -4,7 +4,7 @@
 #include "Vulkan/Buffer.h"
 #include "Vulkan/VulkanPipeline.h"
 
-class StagingManager;
+class GPUDataUploader;
 class DebugDraw {
 public:
     DebugDraw() = delete;
@@ -22,7 +22,7 @@ public:
     void DrawFrustum(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &color);
 
     void BeginFrame();
-    void Draw(VkCommandBuffer commandBuffer, StagingManager &stagingManager, const VulkanPipeline &debugPipeline,
+    void Draw(VkCommandBuffer commandBuffer, GPUDataUploader &stagingManager, const VulkanPipeline &debugPipeline,
               const Scene &scene, const VkRenderingInfo &renderingInfo);
     void EndFrame();
 

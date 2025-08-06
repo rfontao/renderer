@@ -5,7 +5,7 @@
 
 #include "Vulkan/Buffer.h"
 
-class StagingManager {
+class GPUDataUploader {
 public:
 
     struct StagingBuffer {
@@ -19,7 +19,7 @@ public:
         VkDeviceSize size;
     };
 
-    StagingManager() = default;
+    GPUDataUploader() = default;
 
     void InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device);
     void Destroy();
@@ -27,6 +27,11 @@ public:
     void NextFrame();
 
     void AddCopy(void* src, VkBuffer dstBuffer, VkDeviceSize size);
+
+    template <typename T>
+    void AddCopy(std::vector<T>& vector, VkBuffer dstBuffer) {
+        AddCopy(vector.data(), dstBuffer, vector.size() * sizeof(T));
+    }
 
     void Flush(VkCommandBuffer commandBuffer);
 

@@ -88,29 +88,20 @@ void Application::InitVulkan() {
 
     stagingManager.InitializeStagingBuffers(m_Device);
 
-    stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
-                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
-    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
-                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
+    stagingManager.AddCopy(m_Scene.m_Materials, m_Scene.materialsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
 
     m_Scene.UpdateCameraDatas();
-    stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
-                           sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
+    stagingManager.AddCopy(m_Scene.cameraDatas, m_Scene.camerasBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
-                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
-                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
-                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
+    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
 }
 
 void Application::MainLoop() {
@@ -651,20 +642,14 @@ void Application::DrawFrame() {
 
     m_Scene.GenerateDrawCommands(*debugDraw, frustumCulling);
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
-                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
-                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
-                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
+    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
 
     vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], 0);
     RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
@@ -713,16 +698,14 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
     m_Scene.UpdateCameraDatas();
-    stagingManager.AddCopy(m_Scene.cameraDatas.data(), m_Scene.camerasBuffer->GetBuffer(),
-                           sizeof(Camera::CameraData) * m_Scene.cameraDatas.size());
+    stagingManager.AddCopy(m_Scene.cameraDatas, m_Scene.camerasBuffer->GetBuffer());
 
     // NOTE(RF): Directional light moving test
     m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
     m_Scene.m_Lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
     m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
                                               glm::vec3(0.0f, -1.0f, 0.0f)),
-    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
-                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
+    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
 }
 
 void Application::CreateDepthResources() {
@@ -765,25 +748,17 @@ void Application::ChangeScene() {
     m_TextureDescriptors.clear();
     CreateBindlessTexturesArray();
 
-    stagingManager.AddCopy(m_Scene.m_Materials.data(), m_Scene.materialsBuffer->GetBuffer(),
-                           m_Scene.m_Materials.size() * sizeof(Scene::Material));
-    stagingManager.AddCopy(m_Scene.m_Lights.data(), m_Scene.lightsBuffer->GetBuffer(),
-                           m_Scene.m_Lights.size() * sizeof(Scene::Light));
+    stagingManager.AddCopy(m_Scene.m_Materials, m_Scene.materialsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands.data(),
-                           m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.opaqueDrawData.data(), m_Scene.opaqueDrawDataBuffer->GetBuffer(),
-                           m_Scene.opaqueDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands.data(),
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer(),
-                           m_Scene.transparentDrawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    stagingManager.AddCopy(m_Scene.transparentDrawData.data(), m_Scene.transparentDrawDataBuffer->GetBuffer(),
-                           m_Scene.transparentDrawData.size() * sizeof(Scene::DrawData));
+    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
+                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices.data(), m_Scene.modelMatricesBuffer->GetBuffer(),
-                           m_Scene.globalModelMatrices.size() * sizeof(glm::mat4));
+    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {

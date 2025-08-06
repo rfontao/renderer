@@ -1,7 +1,7 @@
 #pragma once
 
+#include "GPUDataUploader.h"
 #include "Scene.h"
-#include "StagingManager.h"
 #include "UI/UI.h"
 #include "Vulkan/VulkanDevice.h"
 #include "Vulkan/VulkanImage.h"
@@ -92,7 +92,7 @@ public:
     std::shared_ptr<VulkanPipeline> debugDrawPipeline;
     std::shared_ptr<VulkanPipeline> m_FrustumCullingPipeline;
 
-    StagingManager stagingManager;
+    GPUDataUploader stagingManager;
     std::unique_ptr<DebugDraw> debugDraw;
 
 #ifdef NDEBUG

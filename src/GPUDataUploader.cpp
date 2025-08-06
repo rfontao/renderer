@@ -1,8 +1,8 @@
 #include "pch.h"
 
-#include "StagingManager.h"
+#include "GPUDataUploader.h"
 
-void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device) {
+void GPUDataUploader::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> device) {
     this->device = device;
 
     for (size_t i = 0; i < stagingBuffers.size(); ++i) {
@@ -17,7 +17,7 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
 }
 
 // TODO: Duplicate vertex buffer on GPU????
-void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
+void GPUDataUploader::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     assert(stagingBuffers[currentFrame].currentOffset + size <= stagingBuffers[currentFrame].buffer->GetSize());
 
     // TODO: Check bounds
@@ -32,7 +32,7 @@ void StagingManager::AddCopy(void *src, VkBuffer dstBuffer, VkDeviceSize size) {
     stagingBuffers[currentFrame].currentOffset += size;
 }
 
-void StagingManager::Flush(VkCommandBuffer commandBuffer) {
+void GPUDataUploader::Flush(VkCommandBuffer commandBuffer) {
     if (queuedBufferCopies.empty()) {
         return;
     }
@@ -71,13 +71,13 @@ void StagingManager::Flush(VkCommandBuffer commandBuffer) {
     queuedBufferCopies.clear();
 }
 
-void StagingManager::NextFrame() {
+void GPUDataUploader::NextFrame() {
     currentFrame = (currentFrame + 1) % stagingBuffers.size();
     stagingBuffers[currentFrame].currentOffset = 0;
     queuedBufferCopies.clear();
 }
 
-void StagingManager::Destroy() {
+void GPUDataUploader::Destroy() {
     for (const auto &stagingBuffer: stagingBuffers) {
         stagingBuffer.buffer->Destroy();
     }
