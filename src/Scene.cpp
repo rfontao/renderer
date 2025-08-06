@@ -8,7 +8,7 @@
 
 Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &scenePath,
              std::shared_ptr<TextureCube> skyboxTexture, DebugDraw &debugDraw) :
-    m_SkyboxTexture(std::move(skyboxTexture)), m_Device(std::move(device)) {
+    skyboxTexture(std::move(skyboxTexture)), device(std::move(device)) {
 
     cameras.resize(2);
     cameras[0] = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f),
@@ -36,7 +36,7 @@ Scene::Scene(std::shared_ptr<VulkanDevice> device, const std::filesystem::path &
                                  error);
     }
 
-    m_ResourcePath = scenePath.parent_path();
+    resourcePath = scenePath.parent_path();
 
     std::vector<uint32_t> indexBuffer;
     std::vector<Vertex> vertexBuffer;
@@ -63,13 +63,13 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     const VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     const auto stagingBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{
+            device, BufferSpecification{
                               .name = "Vertex Buffer Staging Buffer", .size = bufferSize, .type = BufferType::STAGING});
     stagingBuffer->From(vertices.data(), bufferSize);
 
-    m_VertexBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.name = "Vertex Buffer", .size = bufferSize, .type = BufferType::VERTEX});
-    m_VertexBuffer->FromBuffer(stagingBuffer.get());
+    vertexBuffer = std::make_unique<Buffer>(
+            device, BufferSpecification{.name = "Vertex Buffer", .size = bufferSize, .type = BufferType::VERTEX});
+    vertexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
 
     std::vector<Vertex> skyboxVertices = {
@@ -125,14 +125,14 @@ void Scene::CreateVertexBuffer(std::vector<Vertex> &vertices) {
     const VkDeviceSize skyboxBufferSize = sizeof(skyboxVertices[0]) * skyboxVertices.size();
 
     const auto skyboxStagingBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{
+            device, BufferSpecification{
                               .name = "Skybox Staging Buffer", .size = skyboxBufferSize, .type = BufferType::STAGING});
     skyboxStagingBuffer->From(skyboxVertices.data(), skyboxBufferSize);
 
-    m_SkyboxVertexBuffer = std::make_unique<Buffer>(
-            m_Device,
+    skyboxVertexBuffer = std::make_unique<Buffer>(
+            device,
             BufferSpecification{.name = "Skybox Vertex Buffer", .size = skyboxBufferSize, .type = BufferType::VERTEX});
-    m_SkyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
+    skyboxVertexBuffer->FromBuffer(skyboxStagingBuffer.get());
     skyboxStagingBuffer->Destroy();
 }
 
@@ -140,18 +140,18 @@ void Scene::CreateIndexBuffer(std::vector<uint32_t> &indices) {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
     const auto stagingBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{
+            device, BufferSpecification{
                               .name = "Index Buffer Staging Buffer", .size = bufferSize, .type = BufferType::STAGING});
     stagingBuffer->From(indices.data(), bufferSize);
 
-    m_IndexBuffer = std::make_unique<Buffer>(
-            m_Device, BufferSpecification{.name = "Index Buffer", .size = bufferSize, .type = BufferType::INDEX});
-    m_IndexBuffer->FromBuffer(stagingBuffer.get());
+    indexBuffer = std::make_unique<Buffer>(
+            device, BufferSpecification{.name = "Index Buffer", .size = bufferSize, .type = BufferType::INDEX});
+    indexBuffer->FromBuffer(stagingBuffer.get());
     stagingBuffer->Destroy();
 }
 
 void Scene::LoadImages(tinygltf::Model &input) {
-    m_Images.resize(input.images.size() + 1);
+    images.resize(input.images.size() + 1);
     for (size_t i = 0; i < input.images.size(); i++) {
         tinygltf::Image &glTFImage = input.images[i];
 
@@ -161,7 +161,7 @@ void Scene::LoadImages(tinygltf::Model &input) {
                                       .width = static_cast<uint32_t>(glTFImage.width),
                                       .height = static_cast<uint32_t>(glTFImage.height),
                                       .generateMipMaps = true};
-            m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, m_ResourcePath / glTFImage.uri);
+            images[i] = std::make_shared<Texture2D>(device, spec, resourcePath / glTFImage.uri);
         } else { // https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfloading/gltfloading.cpp
             unsigned char *buffer;
             VkDeviceSize bufferSize;
@@ -184,7 +184,7 @@ void Scene::LoadImages(tinygltf::Model &input) {
             }
             TextureSpecification spec{
                     .name = "Image loaded from buffer", .width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
-            m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, buffer);
+            images[i] = std::make_shared<Texture2D>(device, spec, buffer);
             if (deleteBuffer) {
                 delete[] buffer;
             }
@@ -194,21 +194,21 @@ void Scene::LoadImages(tinygltf::Model &input) {
     // Default image/texture
     std::array<unsigned char, 1 * 1 * 4> pixels = {128, 128, 128, 255};
     TextureSpecification spec{.name = "Default Texture", .width = 1, .height = 1};
-    m_Images[m_Images.size() - 1] = std::make_shared<Texture2D>(m_Device, spec, pixels.data());
+    images[images.size() - 1] = std::make_shared<Texture2D>(device, spec, pixels.data());
 }
 
 void Scene::LoadTextures(tinygltf::Model &input) {
-    m_Textures.resize(input.textures.size());
+    textures.resize(input.textures.size());
     for (size_t i = 0; i < input.textures.size(); i++) {
-        m_Textures[i].imageIndex = input.textures[i].source;
+        textures[i].imageIndex = input.textures[i].source;
         if (input.textures[i].sampler != -1) {
-            TextureSampler sampler = m_TextureSamplers[input.textures[i].sampler];
-            m_Images[m_Textures[i].imageIndex]->SetSampler(sampler);
+            TextureSampler sampler = textureSamplers[input.textures[i].sampler];
+            images[textures[i].imageIndex]->SetSampler(sampler);
         }
     }
 
     // TODO: Check better way to do later
-    m_DefaultTexture.imageIndex = static_cast<int32_t>(m_Images.size() - 1);
+    defaultTexture.imageIndex = static_cast<int32_t>(images.size() - 1);
 }
 
 static TextureWrapMode GetWrapMode(int32_t wrapMode) {
@@ -249,14 +249,14 @@ void Scene::LoadTextureSamplers(tinygltf::Model &input) {
                 .samplerWrap = GetWrapMode(smpl.wrapS),
                 .samplerFilter = GetFilterMode(smpl.minFilter),
         };
-        m_TextureSamplers.push_back(sampler);
+        textureSamplers.push_back(sampler);
     }
 }
 
 void Scene::LoadMaterials(tinygltf::Model &input) {
-    m_DefaultMaterial = {};
+    defaultMaterial = {};
 
-    m_Materials.resize(input.materials.size());
+    materials.resize(input.materials.size());
     for (size_t i = 0; i < input.materials.size(); i++) {
         Material material{}; // Must have a different name than below, or it doesn't work
 
@@ -313,7 +313,7 @@ void Scene::LoadMaterials(tinygltf::Model &input) {
             material.alphaCutoff = static_cast<float>(glTFMaterial.additionalValues["alphaCutoff"].Factor());
         }
 
-        m_Materials[i] = material;
+        materials[i] = material;
     }
 }
 
@@ -484,33 +484,33 @@ void Scene::LoadNode(const tinygltf::Model &input, const tinygltf::Node &inputNo
     if (parent) {
         parent->children.push_back(node);
     } else {
-        m_Nodes.push_back(node);
+        nodes.push_back(node);
     }
 }
 
 void Scene::Destroy() {
-    m_IndexBuffer->Destroy();
-    m_VertexBuffer->Destroy();
+    indexBuffer->Destroy();
+    vertexBuffer->Destroy();
 
     materialsBuffer->Destroy();
     lightsBuffer->Destroy();
     camerasBuffer->Destroy();
 
-    for (const auto &node: m_Nodes) {
+    for (const auto &node: nodes) {
         delete node;
     }
 
     //    m_DefaultImage.texture.Destroy();
-    for (auto &image: m_Images) {
+    for (auto &image: images) {
         image->Destroy();
     }
 }
 
 void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const {
     VkDeviceSize offsets[] = {0};
-    VkBuffer vertexBuffers[] = {m_VertexBuffer->GetBuffer()};
+    VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     struct PBRPushConstants {
         VkDeviceAddress materialsBufferAddress;
@@ -528,7 +528,7 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
                     opaqueDrawDataBuffer->GetAddress(),
                     modelMatricesBuffer->GetAddress(),
                     0,
-                    static_cast<uint32_t>(m_Lights.size()),
+                    static_cast<uint32_t>(lights.size()),
                     800,
                     Application::cameraIndexDrawing};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -545,9 +545,9 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
 
 void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const {
     VkDeviceSize offsets[] = {0};
-    VkBuffer vertexBuffers[] = {m_VertexBuffer->GetBuffer()};
+    VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     struct shadowPushConstants {
         VkDeviceAddress lightBufferAddress;
@@ -571,7 +571,7 @@ void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipeli
 void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) {
 
     VkDeviceSize offsets[] = {0};
-    VkBuffer vertexBuffers[] = {m_SkyboxVertexBuffer->GetBuffer()};
+    VkBuffer vertexBuffers[] = {skyboxVertexBuffer->GetBuffer()};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     const struct SkyboxPushConstant {
@@ -592,7 +592,7 @@ void Scene::GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling) {
     transparentDrawIndirectCommands.clear();
 
     // Render all nodes at top-level
-    for (const auto &node: m_Nodes) {
+    for (const auto &node: nodes) {
         DrawNode(node, debugDraw, frustumCulling);
     }
 }
@@ -653,7 +653,7 @@ void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
                 }
 
                 // Get the texture index for this primitive
-                const auto &material = mesh.materialIndex != -1 ? m_Materials[mesh.materialIndex] : m_DefaultMaterial;
+                const auto &material = mesh.materialIndex != -1 ? materials[mesh.materialIndex] : defaultMaterial;
 
                 VkDrawIndexedIndirectCommand drawIndirectCommand{
                         .indexCount = mesh.indexCount,
@@ -685,61 +685,61 @@ void Scene::DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling) {
 
 void Scene::CreateLights() {
     constexpr auto lightDirection = glm::vec3(0.1f, 1.0f, 0.25f);
-    m_Lights.push_back(
+    lights.push_back(
             {.direction = lightDirection,
              .view = glm::lookAt(lightDirection * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
              .proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 100.0f),
              .type = Light::Type::DIRECTIONAL});
 
-    m_Lights.push_back({.position = glm::vec3(-11.0f, 0.1f, -0.3f), .type = Light::Type::POINT});
-    m_Lights.push_back({.position = glm::vec3(-6.5f, 1.0f, -1.5f), .type = Light::Type::POINT});
+    lights.push_back({.position = glm::vec3(-11.0f, 0.1f, -0.3f), .type = Light::Type::POINT});
+    lights.push_back({.position = glm::vec3(-6.5f, 1.0f, -1.5f), .type = Light::Type::POINT});
 }
 
 void Scene::CreateBuffers() {
 
     materialsBuffer = std::make_shared<Buffer>(
-            m_Device,
+            device,
             BufferSpecification{.name = "Materials Buffer", .size = 128 * sizeof(Material), .type = BufferType::GPU});
 
     constexpr size_t maxLights = 128;
     lightsBuffer = std::make_shared<Buffer>(
-            m_Device,
+            device,
             BufferSpecification{.name = "Lights Buffer", .size = maxLights * sizeof(Light), .type = BufferType::GPU});
 
     constexpr size_t maxCameras = 8;
     camerasBuffer =
-            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Cameras Buffer",
+            std::make_shared<Buffer>(device, BufferSpecification{.name = "Cameras Buffer",
                                                                    .size = sizeof(Camera::CameraData) * maxCameras,
                                                                    .type = BufferType::GPU});
 
     modelMatricesBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.name = "Model Matrices Buffer",
+            device, BufferSpecification{.name = "Model Matrices Buffer",
                                           .size = globalModelMatrices.size() * sizeof(glm::mat4),
                                           .type = BufferType::GPU});
 
     constexpr size_t maxDrawIndirectCommands = 8192;
     opaqueDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.name = "Opaque Draw Indirect Commands Buffer",
+            device, BufferSpecification{.name = "Opaque Draw Indirect Commands Buffer",
                                           .size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
 
     transparentDrawIndirectCommandsBuffer = std::make_shared<Buffer>(
-            m_Device, BufferSpecification{.name = "Transparent Draw Indirect Commands Buffer",
+            device, BufferSpecification{.name = "Transparent Draw Indirect Commands Buffer",
                                           .size = maxDrawIndirectCommands * sizeof(VkDrawIndexedIndirectCommand),
                                           .type = BufferType::GPU_INDIRECT});
 
     opaqueDrawDataBuffer =
-            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Opaque Draw Data Buffer",
+            std::make_shared<Buffer>(device, BufferSpecification{.name = "Opaque Draw Data Buffer",
                                                                    .size = maxDrawIndirectCommands * sizeof(DrawData),
                                                                    .type = BufferType::GPU});
 
     transparentDrawDataBuffer =
-            std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Transparent Draw Data Buffer",
+            std::make_shared<Buffer>(device, BufferSpecification{.name = "Transparent Draw Data Buffer",
                                                                    .size = maxDrawIndirectCommands * sizeof(DrawData),
                                                                    .type = BufferType::GPU});
 
     constexpr size_t maxMeshes = 16384;
-    meshesBuffer = std::make_shared<Buffer>(m_Device, BufferSpecification{.name = "Meshes Buffer",
+    meshesBuffer = std::make_shared<Buffer>(device, BufferSpecification{.name = "Meshes Buffer",
                                                                           .size = maxMeshes * sizeof(DrawData),
                                                                           .type = BufferType::GPU});
 }

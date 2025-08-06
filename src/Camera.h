@@ -17,10 +17,10 @@ public:
 
     [[nodiscard]] glm::mat4 GetViewMatrix() const;
     [[nodiscard]] glm::mat4 GetProjectionMatrix() const;
-    [[nodiscard]] glm::vec3 GetPosition() const { return m_Position; }
-    [[nodiscard]] Frustum GetFrustum() const { return m_Frustum; }
+    [[nodiscard]] glm::vec3 GetPosition() const { return position; }
+    [[nodiscard]] Frustum GetFrustum() const { return frustum; }
 
-    void SetAspectRatio(double aspectRatio) { m_AspectRatio = aspectRatio; }
+    void SetAspectRatio(double aspectRatio) { aspectRatio = aspectRatio; }
 
     void SetMove(bool move);
     void HandleMouseMovement(double xPos, double yPos);
@@ -37,30 +37,30 @@ public:
 
     [[nodiscard]] bool IsAABBFullyOutsideFrustum(const AABB& aabb) const;
 
-    glm::vec3 m_FocusPoint;
+    glm::vec3 focusPoint;
 
 private:
     void UpdateVectors();
     void UpdateFrustum();
 
-    CameraMode m_Mode = CameraMode::FREE;
+    CameraMode mode = CameraMode::FREE;
 
     glm::vec4 transform;
 
-    glm::vec3 m_Position;
-    glm::vec3 m_Up;
-    glm::vec3 m_Right;
-    glm::vec3 m_WorldUp;
+    glm::vec3 position;
+    glm::vec3 up;
+    glm::vec3 right;
+    glm::vec3 worldUp;
 
-    double m_AspectRatio;
-    double m_YFov;
+    double aspectRatio;
+    double yFov;
 
-    bool m_FirstMouse = true;
-    double m_LastMouseX = 0.0f;
-    double m_LastMouseY = 0.0f;
-    bool m_MoveCamera = false; // Right mouse button is pressed
+    bool firstMouse = true;
+    double lastMouseX = 0.0f;
+    double lastMouseY = 0.0f;
+    bool moveCamera = false; // Right mouse button is pressed
 
-    double m_MouseSensitivity = 0.005f;
+    double mouseSensitivity = 0.005f;
 
-    Frustum m_Frustum;
+    Frustum frustum;
 };

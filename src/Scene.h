@@ -99,13 +99,13 @@ public:
 
     void UpdateCameraDatas();
 
-    std::vector<Texture> m_Textures;
-    std::vector<TextureSampler> m_TextureSamplers;
-    std::vector<std::shared_ptr<Texture2D>> m_Images;
+    std::vector<Texture> textures;
+    std::vector<TextureSampler> textureSamplers;
+    std::vector<std::shared_ptr<Texture2D>> images;
 
-    Texture m_DefaultTexture;
-    std::shared_ptr<VulkanTexture> m_DefaultImage;
-    Material m_DefaultMaterial;
+    Texture defaultTexture;
+    std::shared_ptr<VulkanTexture> defaultImage;
+    Material defaultMaterial;
 
 private:
     void DrawNode(Node *node, DebugDraw &debugDraw, bool frustumCulling = true);
@@ -125,23 +125,23 @@ private:
     void CreateBuffers();
 
 public:
-    std::vector<Material> m_Materials;
-    std::vector<Node *> m_Nodes;
+    std::vector<Material> materials;
+    std::vector<Node *> nodes;
     std::vector<Mesh> meshes;
     std::vector<glm::mat4> localModelMatrices;
     std::vector<glm::mat4> globalModelMatrices;
-    std::vector<Light> m_Lights;
+    std::vector<Light> lights;
     std::vector<DrawData> opaqueDrawData;
     std::vector<DrawData> transparentDrawData;
 
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawIndirectCommands;
     std::vector<VkDrawIndexedIndirectCommand> transparentDrawIndirectCommands;
 
-    std::unique_ptr<Buffer> m_VertexBuffer;
-    std::unique_ptr<Buffer> m_IndexBuffer;
+    std::unique_ptr<Buffer> vertexBuffer;
+    std::unique_ptr<Buffer> indexBuffer;
 
-    std::shared_ptr<TextureCube> m_SkyboxTexture;
-    std::unique_ptr<Buffer> m_SkyboxVertexBuffer;
+    std::shared_ptr<TextureCube> skyboxTexture;
+    std::unique_ptr<Buffer> skyboxVertexBuffer;
 
     std::shared_ptr<Buffer> materialsBuffer;
     std::shared_ptr<Buffer> lightsBuffer;
@@ -155,10 +155,10 @@ public:
 
     std::shared_ptr<Buffer> meshesBuffer;
 
-    std::filesystem::path m_ResourcePath;
+    std::filesystem::path resourcePath;
 
     std::vector<Camera> cameras;
     std::vector<Camera::CameraData> cameraDatas;
 
-    std::shared_ptr<VulkanDevice> m_Device;
+    std::shared_ptr<VulkanDevice> device;
 };

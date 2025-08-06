@@ -4,8 +4,8 @@
 #include "DebugMarkers.h"
 
 Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specification) :
-    specification(std::move(specification)), m_Device(device) {
-    m_AllocationInfo.pMappedData = nullptr;
+    specification(std::move(specification)), device(device) {
+    allocationInfo.pMappedData = nullptr;
 
     VkBufferUsageFlags usageFlags = 0;
     if (specification.type == BufferType::STAGING) {
@@ -22,7 +22,7 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
         usageFlags = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
 
-    VkBufferCreateInfo bufferInfo{
+    const VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = specification.size,
             .usage = usageFlags,
@@ -45,9 +45,9 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocInfo.flags = allocationFlags;
-    vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo, &buffer, &m_Allocation, &m_AllocationInfo);
+    vmaCreateBuffer(device->GetAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, &allocationInfo);
 
-    DebugMarkers::BufferMarker(m_Device, buffer, this->specification.name);
+    DebugMarkers::BufferMarker(device, buffer, this->specification.name);
 
     if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
         const VkBufferDeviceAddressInfo deviceAddressInfo{
@@ -55,7 +55,7 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
                 .buffer = buffer,
         };
 
-        address = vkGetBufferDeviceAddress(m_Device->GetDevice(), &deviceAddressInfo);
+        address = vkGetBufferDeviceAddress(device->GetDevice(), &deviceAddressInfo);
     }
 }
 
@@ -63,45 +63,45 @@ void Buffer::Destroy() {
     if (isMapped) {
         Unmap();
     }
-    vmaDestroyBuffer(m_Device->GetAllocator(), buffer, m_Allocation);
+    vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
 }
 
 void Buffer::Map() {
-    vmaMapMemory(m_Device->GetAllocator(), m_Allocation, &m_AllocationInfo.pMappedData);
+    vmaMapMemory(device->GetAllocator(), allocation, &allocationInfo.pMappedData);
     isMapped = true;
 }
 
 void Buffer::Unmap() {
-    vmaUnmapMemory(m_Device->GetAllocator(), m_Allocation);
+    vmaUnmapMemory(device->GetAllocator(), allocation);
     isMapped = false;
 }
 
 void Buffer::From(void *src, VkDeviceSize srcSize) {
-    if (m_AllocationInfo.pMappedData == nullptr)
+    if (allocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    memcpy(m_AllocationInfo.pMappedData, src, srcSize);
+    memcpy(allocationInfo.pMappedData, src, srcSize);
 }
 
 void Buffer::From(void *src, VkDeviceSize srcSize, uint32_t offset) {
-    if (m_AllocationInfo.pMappedData == nullptr)
+    if (allocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    memcpy(static_cast<uint8_t *>(m_AllocationInfo.pMappedData) + offset, src, srcSize);
+    memcpy(static_cast<uint8_t *>(allocationInfo.pMappedData) + offset, src, srcSize);
 }
 
 // TODO: Maybe receive size??
 void Buffer::FromBuffer(Buffer *src) {
-    VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
     VkBufferCopy copyRegion{
             .size = specification.size,
     };
     vkCmdCopyBuffer(commandBuffer, src->buffer, buffer, 1, &copyRegion);
 
-    m_Device->EndSingleTimeCommands(commandBuffer);
+    device->EndSingleTimeCommands(commandBuffer);
 }
 
 void Buffer::Fill(uint8_t data, VkDeviceSize srcSize) {
-    if (m_AllocationInfo.pMappedData == nullptr)
+    if (allocationInfo.pMappedData == nullptr)
         throw std::runtime_error("Tried to copy to unmapped buffer");
-    std::memset(m_AllocationInfo.pMappedData, data, srcSize);
+    std::memset(allocationInfo.pMappedData, data, srcSize);
 }

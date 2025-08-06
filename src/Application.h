@@ -7,7 +7,7 @@
 #include "Vulkan/VulkanImage.h"
 #include "Vulkan/VulkanPipeline.h"
 #include "Vulkan/VulkanSwapchain.h"
-#include "vulkan/VulkanTexture.h"
+#include "Vulkan/VulkanTexture.h"
 
 #include <VkBootstrap.h>
 
@@ -30,7 +30,7 @@ public:
     void SetScene(const std::filesystem::path &scenePath);
     void ChangeScene();
 
-    [[nodiscard]] std::vector<std::filesystem::path> GetScenePaths() const { return m_ScenePaths; };
+    [[nodiscard]] std::vector<std::filesystem::path> GetScenePaths() const { return scenePaths; };
 
     void CreateInstance();
     [[nodiscard]] VkSurfaceKHR CreateSurface() const;
@@ -46,31 +46,31 @@ public:
 
     void HandleKeys();
 
-    std::shared_ptr<VulkanDevice> m_Device;
-    vkb::Instance m_Instance;
+    std::shared_ptr<VulkanDevice> device;
+    vkb::Instance instance;
 
-    std::shared_ptr<VulkanImage> m_DepthImage;
-    std::shared_ptr<VulkanImage> m_ColorImage;
+    std::shared_ptr<VulkanImage> depthImage;
+    std::shared_ptr<VulkanImage> colorImage;
 
-    std::shared_ptr<VulkanSwapchain> m_Swapchain;
-    std::shared_ptr<VulkanPipeline> m_GraphicsPipeline;
-    std::shared_ptr<VulkanPipeline> m_SkyboxPipeline;
+    std::shared_ptr<VulkanSwapchain> swapchain;
+    std::shared_ptr<VulkanPipeline> graphicsPipeline;
+    std::shared_ptr<VulkanPipeline> skyboxPipeline;
 
-    VkDescriptorSet m_BindlessTexturesSet;
-    std::vector<VkDescriptorImageInfo> m_TextureDescriptors;
+    VkDescriptorSet bindlessTexturesSet;
+    std::vector<VkDescriptorImageInfo> textureDescriptors;
 
-    uint32_t m_CurrentFrame = 0;
+    uint32_t currentFrame = 0;
 
-    std::vector<std::filesystem::path> m_ScenePaths;
-    std::filesystem::path m_NextScenePath;
-    bool m_ShouldChangeScene = false;
-    Scene m_Scene;
-    Scene m_Skybox;
-    UI m_UI;
+    std::vector<std::filesystem::path> scenePaths;
+    std::filesystem::path nextScenePath;
+    bool shouldChangeScene = false;
+    std::unique_ptr<Scene> scene;
+    std::unique_ptr<Scene> skybox;
+    UI userInterface;
 
-    std::shared_ptr<TextureCube> m_CubemapTexture;
+    std::shared_ptr<TextureCube> cubemapTexture;
 
-    GLFWwindow *m_Window;
+    GLFWwindow *window;
 
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 800;
@@ -86,11 +86,11 @@ public:
 
     static constexpr bool frustumCulling{false};
 
-    std::shared_ptr<Texture2D> m_ShadowDepthTexture;
-    std::shared_ptr<VulkanPipeline> m_ShadowMapPipeline;
+    std::shared_ptr<Texture2D> shadowDepthTexture;
+    std::shared_ptr<VulkanPipeline> shadowMapPipeline;
 
     std::shared_ptr<VulkanPipeline> debugDrawPipeline;
-    std::shared_ptr<VulkanPipeline> m_FrustumCullingPipeline;
+    std::shared_ptr<VulkanPipeline> frustumCullingPipeline;
 
     GPUDataUploader stagingManager;
     std::unique_ptr<DebugDraw> debugDraw;

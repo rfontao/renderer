@@ -17,8 +17,8 @@ public:
 
 private:
 
-    Application *m_App{nullptr};
-    VkDescriptorPool m_DescriptorPool{};
-    std::shared_ptr<VulkanDevice> m_Device;
+    Application *app{nullptr};
+    VkDescriptorPool descriptorPool{};
+    std::shared_ptr<VulkanDevice> device;
 };
 

@@ -4,7 +4,7 @@
 #include "Vulkan/Utils.h"
 #include "VulkanDevice.h"
 
-VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Surface(surface) {
+VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : surface(surface) {
     PickPhysicalDevice(instance);
 
     CreateLogicalDevice();
@@ -13,8 +13,8 @@ VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Sur
 
     VmaAllocatorCreateInfo allocatorCreateInfo = {};
     allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_4;
-    allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
-    allocatorCreateInfo.device = m_Device;
+    allocatorCreateInfo.physicalDevice = physicalDevice;
+    allocatorCreateInfo.device = device;
     allocatorCreateInfo.instance = instance;
     allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
@@ -22,14 +22,14 @@ VulkanDevice::VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface) : m_Sur
     VK_CHECK(vmaImportVulkanFunctionsFromVolk(&allocatorCreateInfo, &vulkanFunctions), "Failed to load VMA functions!");
     allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
 
-    vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator);
+    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
 }
 
 void VulkanDevice::Destroy() {
-    vmaDestroyAllocator(m_Allocator);
-    vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
-    vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-    vkb::destroy_device(m_Device);
+    vmaDestroyAllocator(allocator);
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    vkDestroyCommandPool(device, commandPool, nullptr);
+    vkb::destroy_device(device);
 }
 
 void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
@@ -92,7 +92,7 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
 
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn =
-            physicalDeviceSelector.set_surface(m_Surface)
+            physicalDeviceSelector.set_surface(surface)
                     .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
                     // .add_required_extension(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)
                     .set_required_features(deviceFeatures)
@@ -106,32 +106,32 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
         throw std::runtime_error("Failed to find a suitable GPU!");
     }
 
-    m_PhysicalDevice = physicalDeviceSelectorReturn.value();
+    physicalDevice = physicalDeviceSelectorReturn.value();
 }
 
 void VulkanDevice::CreateLogicalDevice() {
-    vkb::DeviceBuilder deviceBuilder{m_PhysicalDevice};
+    vkb::DeviceBuilder deviceBuilder{physicalDevice};
     auto deviceRet = deviceBuilder.build();
     if (!deviceRet) {
         throw std::runtime_error("Failed to create logical device!");
     }
-    m_Device = deviceRet.value();
+    device = deviceRet.value();
 
-    volkLoadDevice(m_Device);
+    volkLoadDevice(device);
 
-    m_GraphicsQueue = m_Device.get_queue(vkb::QueueType::graphics).value();
-    m_ComputeQueue = m_Device.get_queue(vkb::QueueType::compute).value();
-    m_PresentQueue = m_Device.get_queue(vkb::QueueType::present).value();
+    graphicsQueue = device.get_queue(vkb::QueueType::graphics).value();
+    computeQueue = device.get_queue(vkb::QueueType::compute).value();
+    presentQueue = device.get_queue(vkb::QueueType::present).value();
 }
 
 void VulkanDevice::CreateCommandPool() {
     VkCommandPoolCreateInfo poolInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = m_Device.get_queue_index(vkb::QueueType::graphics).value(),
+            .queueFamilyIndex = device.get_queue_index(vkb::QueueType::graphics).value(),
     };
 
-    VK_CHECK(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool), "Failed to create command pool!");
+    VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool), "Failed to create command pool!");
 }
 
 void VulkanDevice::CreateDescriptorPool() {
@@ -148,20 +148,20 @@ void VulkanDevice::CreateDescriptorPool() {
             .pPoolSizes = poolSizes.data(),
     };
 
-    VK_CHECK(vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool),
+    VK_CHECK(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool),
              "Failed to create descriptor pool!");
 }
 
 VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = m_CommandPool,
+            .commandPool = commandPool,
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1,
     };
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -181,8 +181,8 @@ void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) {
             .pCommandBuffers = &commandBuffer,
     };
 
-    VK_CHECK(vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer!");
-    VK_CHECK(vkQueueWaitIdle(m_GraphicsQueue), "Failed to wait for command buffer submission!");
+    VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer!");
+    VK_CHECK(vkQueueWaitIdle(graphicsQueue), "Failed to wait for command buffer submission!");
 
-    vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }

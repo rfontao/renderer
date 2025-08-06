@@ -7,7 +7,7 @@
 #include "DebugMarkers.h"
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecification &specification) :
-    m_Device(device), m_Width(specification.width), m_Height(specification.height) {
+    device(device), width(specification.width), height(specification.height) {
 
     VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT;
     if (specification.usage == ImageUsage::Texture) {
@@ -34,8 +34,8 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    imageInfo.extent.height = m_Height;
-    imageInfo.extent.width = m_Width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.width = width;
     imageInfo.extent.depth = 1;
 
     if (specification.layers == 6) {
@@ -44,7 +44,7 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    vmaCreateImage(m_Device->GetAllocator(), &imageInfo, &allocCreateInfo, &m_Image, &m_Allocation, nullptr);
+    vmaCreateImage(device->GetAllocator(), &imageInfo, &allocCreateInfo, &image, &allocation, nullptr);
 
     VkImageAspectFlags aspectMask =
             IsDepthFormat(specification.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
@@ -54,7 +54,7 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = m_Image,
+            .image = image,
             .viewType = (specification.layers == 6) ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D,
             .format = static_cast<VkFormat>(specification.format),
     };
@@ -64,14 +64,14 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, const ImageSpecif
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = specification.layers;
 
-    VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
+    VK_CHECK(vkCreateImageView(device->GetDevice(), &viewInfo, nullptr, &view),
              "Failed to create texture image view!");
 
-    DebugMarkers::ImageMarker(m_Device, m_Image, specification.name);
+    DebugMarkers::ImageMarker(device, image, specification.name);
 }
 
 VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) :
-    m_IsSwapchainImage(true), m_Image(image), m_Device(std::move(device)) {
+    isSwapchainImage(true), image(image), device(std::move(device)) {
     // VkImageView creation
     VkImageViewCreateInfo viewInfo{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -85,17 +85,17 @@ VulkanImage::VulkanImage(std::shared_ptr<VulkanDevice> device, VkImage image) :
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    VK_CHECK(vkCreateImageView(m_Device->GetDevice(), &viewInfo, nullptr, &m_View),
+    VK_CHECK(vkCreateImageView(this->device->GetDevice(), &viewInfo, nullptr, &view),
              "Failed to create texture image view!");
-    DebugMarkers::ImageMarker(m_Device, m_Image, "Swapchain Image");
+    DebugMarkers::ImageMarker(this->device, image, "Swapchain Image");
 }
 
 void VulkanImage::Destroy() {
-    vkDestroyImageView(m_Device->GetDevice(), m_View, nullptr);
+    vkDestroyImageView(device->GetDevice(), view, nullptr);
 
     // Image should only be destroyed if it doesn't belong to swapchain
-    if (!m_IsSwapchainImage) {
-        vmaDestroyImage(m_Device->GetAllocator(), m_Image, m_Allocation);
+    if (!isSwapchainImage) {
+        vmaDestroyImage(device->GetAllocator(), image, allocation);
     }
 }
 
@@ -107,7 +107,7 @@ void VulkanImage::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout 
             .newLayout = newLayout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = m_Image,
+            .image = image,
     };
 
     const auto isDepth = newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ||
@@ -175,7 +175,7 @@ void VulkanImage::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout 
 
 
 void VulkanImage::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout) {
-    VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
     VkImageMemoryBarrier2 barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -183,7 +183,7 @@ void VulkanImage::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLay
             .newLayout = newLayout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = m_Image,
+            .image = image,
     };
     barrier.subresourceRange.aspectMask = newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
                                                   ? VK_IMAGE_ASPECT_DEPTH_BIT
@@ -237,11 +237,11 @@ void VulkanImage::TransitionLayout(VkImageLayout oldLayout, VkImageLayout newLay
     };
     vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
-    m_Device->EndSingleTimeCommands(commandBuffer);
+    device->EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanImage::CopyBufferData(Buffer &buffer, uint32_t layerCount) {
-    VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
     VkBufferImageCopy region{
             .bufferOffset = 0,
@@ -254,23 +254,23 @@ void VulkanImage::CopyBufferData(Buffer &buffer, uint32_t layerCount) {
     region.imageSubresource.layerCount = layerCount;
 
     region.imageOffset = {0, 0, 0};
-    region.imageExtent = {m_Width, m_Height, 1};
+    region.imageExtent = {width, height, 1};
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer.GetBuffer(), m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+    vkCmdCopyBufferToImage(commandBuffer, buffer.GetBuffer(), image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                            &region);
 
-    m_Device->EndSingleTimeCommands(commandBuffer);
+    device->EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool cube) {
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(m_Device->GetPhysicalDevice(), format, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(device->GetPhysicalDevice(), format, &formatProperties);
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("VulkanTexture image format does not support linear blitting!");
     }
 
-    VkCommandBuffer commandBuffer = m_Device->BeginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
     for (size_t face = 0; face < (cube ? 6 : 1); face++) {
 
@@ -278,15 +278,15 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = m_Image,
+                .image = image,
         };
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseArrayLayer = face;
         barrier.subresourceRange.layerCount = 1;
         barrier.subresourceRange.levelCount = 1;
 
-        auto mipWidth = (int32_t) m_Width;
-        auto mipHeight = (int32_t) m_Height;
+        auto mipWidth = (int32_t) width;
+        auto mipHeight = (int32_t) height;
 
         for (uint32_t mipLevel = 1; mipLevel < mipLevelCount; mipLevel++) {
             barrier.subresourceRange.baseMipLevel = mipLevel - 1;
@@ -312,7 +312,7 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
             blit.dstSubresource.baseArrayLayer = face;
             blit.dstSubresource.layerCount = 1;
 
-            vkCmdBlitImage(commandBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Image,
+            vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
 
             barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -339,7 +339,7 @@ void VulkanImage::GenerateMipMaps(VkFormat format, uint32_t mipLevelCount, bool 
                              nullptr, 0, nullptr, 1, &barrier);
     }
 
-    m_Device->EndSingleTimeCommands(commandBuffer);
+    device->EndSingleTimeCommands(commandBuffer);
 }
 
 bool IsDepthFormat(ImageFormat format) {

@@ -35,21 +35,21 @@ public:
 
     void Destroy();
 
-    [[nodiscard]] VkPipeline GetPipeline() const { return m_Pipeline; }
+    [[nodiscard]] VkPipeline GetPipeline() const { return pipeline; }
 
-    [[nodiscard]] VkPipelineLayout GetLayout() const { return m_Layout; }
+    [[nodiscard]] VkPipelineLayout GetLayout() const { return layout; }
 
     [[nodiscard]] const std::vector<VkDescriptorSetLayout> &
-    GetDescriptorSetLayouts() const { return m_DescriptorSetLayouts; }
+    GetDescriptorSetLayouts() const { return descriptorSetLayouts; }
 
 private:
     [[nodiscard]] VkShaderModule CreateShaderModule(const std::vector<char> &code) const;
 
-    VkPipelineLayout m_Layout = VK_NULL_HANDLE;
-    VkPipeline m_Pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
 
     PipelineSpecification spec;
 
-    std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts; // index are sets
-    std::shared_ptr<VulkanDevice> m_Device;
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts; // index are sets
+    std::shared_ptr<VulkanDevice> device;
 };

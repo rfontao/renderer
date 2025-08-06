@@ -7,82 +7,82 @@
 #include "VulkanDevice.h"
 
 VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDevice> device, GLFWwindow *window) :
-    m_Window(window), m_Device(std::move(device)) {
+    window(window), device(std::move(device)) {
     Create();
 }
 
 void VulkanSwapchain::Destroy() {
     for (size_t i = 0; i < numFramesInFlight; i++) {
-        vkDestroySemaphore(m_Device->GetDevice(), m_RenderFinishedSemaphores[i], nullptr);
-        vkDestroySemaphore(m_Device->GetDevice(), m_ImageAvailableSemaphores[i], nullptr);
-        vkDestroyFence(m_Device->GetDevice(), m_WaitFences[i], nullptr);
+        vkDestroySemaphore(device->GetDevice(), renderFinishedSemaphores[i], nullptr);
+        vkDestroySemaphore(device->GetDevice(), imageAvailableSemaphores[i], nullptr);
+        vkDestroyFence(device->GetDevice(), waitFences[i], nullptr);
     }
 
-    for (auto &image: m_Images) {
+    for (auto &image: images) {
         image->Destroy();
     }
-    vkb::destroy_swapchain(m_Swapchain);
+    vkb::destroy_swapchain(swapchain);
 }
 
 void VulkanSwapchain::Recreate() {
     // Handle window resizing
     int width = 0, height = 0;
-    glfwGetFramebufferSize(m_Window, &width, &height);
+    glfwGetFramebufferSize(window, &width, &height);
 
     // Handle minimization of window
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(m_Window, &width, &height);
+        glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
     }
 
-    vkDeviceWaitIdle(m_Device->GetDevice());
+    vkDeviceWaitIdle(device->GetDevice());
 
-    vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
-    auto swapRet = swapchainBuilder.set_old_swapchain(m_Swapchain)
+    vkb::SwapchainBuilder swapchainBuilder{device->GetDevice()};
+    auto swapRet = swapchainBuilder.set_old_swapchain(swapchain)
                            .set_desired_min_image_count(requestedFramesInFlight)
                            .build();
     if (!swapRet) {
         // If it failed to create a swapchain, the old swapchain handle is invalid.
-        m_Swapchain.swapchain = VK_NULL_HANDLE;
+        swapchain.swapchain = VK_NULL_HANDLE;
     }
 
-    for (auto &image: m_Images) {
+    for (auto &image: images) {
         image->Destroy();
     }
-    vkb::destroy_swapchain(m_Swapchain);
+    vkb::destroy_swapchain(swapchain);
 
-    m_Swapchain = swapRet.value();
+    swapchain = swapRet.value();
 
-    auto swapchainImages = m_Swapchain.get_images().value();
+    auto swapchainImages = swapchain.get_images().value();
     numFramesInFlight = swapchainImages.size();
     // Create swapchain images
-    m_Images.resize(numFramesInFlight);
-    for (size_t i = 0; i < m_Images.size(); ++i) {
-        m_Images[i] = std::make_shared<VulkanImage>(m_Device, swapchainImages[i]);
+    images.resize(numFramesInFlight);
+    for (size_t i = 0; i < images.size(); ++i) {
+        images[i] = std::make_shared<VulkanImage>(device, swapchainImages[i]);
     }
 }
 
 void VulkanSwapchain::Create() {
-    vkb::SwapchainBuilder swapchainBuilder{m_Device->GetDevice()};
+    vkb::SwapchainBuilder swapchainBuilder{device->GetDevice()};
     swapchainBuilder.set_desired_min_image_count(requestedFramesInFlight);
     auto swapRet = swapchainBuilder.build();
     if (!swapRet) {
         throw std::runtime_error("Failed to build swapchain");
     }
-    m_Swapchain = swapRet.value();
+    swapchain = swapRet.value();
 
     // Create swapchain images
-    auto swapchainImages = m_Swapchain.get_images().value();
+    auto swapchainImages = swapchain.get_images().value();
     numFramesInFlight = swapchainImages.size();
-    m_Images.resize(swapchainImages.size());
-    for (size_t i = 0; i < m_Images.size(); ++i) {
-        m_Images[i] = std::make_shared<VulkanImage>(m_Device, swapchainImages[i]);
+    images.resize(swapchainImages.size());
+    for (size_t i = 0; i < images.size(); ++i) {
+        images[i] = std::make_shared<VulkanImage>(device, swapchainImages[i]);
     }
 
     // Sync objects
-    m_ImageAvailableSemaphores.resize(numFramesInFlight);
-    m_RenderFinishedSemaphores.resize(numFramesInFlight);
-    m_WaitFences.resize(numFramesInFlight);
+    imageAvailableSemaphores.resize(numFramesInFlight);
+    renderFinishedSemaphores.resize(numFramesInFlight);
+    waitFences.resize(numFramesInFlight);
 
     VkSemaphoreCreateInfo semaphoreInfo{
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -94,33 +94,33 @@ void VulkanSwapchain::Create() {
     };
 
     for (size_t i = 0; i < numFramesInFlight; ++i) {
-        if (vkCreateSemaphore(m_Device->GetDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) !=
+        if (vkCreateSemaphore(device->GetDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) !=
                     VK_SUCCESS ||
-            vkCreateSemaphore(m_Device->GetDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) !=
+            vkCreateSemaphore(device->GetDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) !=
                     VK_SUCCESS ||
-            vkCreateFence(m_Device->GetDevice(), &fenceInfo, nullptr, &m_WaitFences[i]) != VK_SUCCESS) {
+            vkCreateFence(device->GetDevice(), &fenceInfo, nullptr, &waitFences[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create swapchain sync objects!");
         }
     }
 
     // Command buffers
-    m_CommandBuffers.resize(numFramesInFlight);
+    commandBuffers.resize(numFramesInFlight);
 
     VkCommandBufferAllocateInfo allocInfo{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = m_Device->GetCommandPool(),
+            .commandPool = device->GetCommandPool(),
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = (uint32_t) m_CommandBuffers.size(),
+            .commandBufferCount = (uint32_t) commandBuffers.size(),
     };
 
-    VK_CHECK(vkAllocateCommandBuffers(m_Device->GetDevice(), &allocInfo, m_CommandBuffers.data()),
+    VK_CHECK(vkAllocateCommandBuffers(device->GetDevice(), &allocInfo, commandBuffers.data()),
              "Failed to allocate command buffers!");
 }
 
 uint32_t VulkanSwapchain::AcquireNextImage(uint32_t currentFrame) {
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(m_Device->GetDevice(), m_Swapchain, UINT64_MAX,
-                                            m_ImageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device->GetDevice(), swapchain, UINT64_MAX,
+                                            imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     // Handle window resizing and minimization
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -134,8 +134,8 @@ uint32_t VulkanSwapchain::AcquireNextImage(uint32_t currentFrame) {
 }
 
 bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
-    VkSwapchainKHR swapChains[] = {m_Swapchain};
-    VkSemaphore signalSemaphores[] = {m_RenderFinishedSemaphores[currentFrame]};
+    VkSwapchainKHR swapChains[] = {swapchain};
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     VkPresentInfoKHR presentInfo{
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = 1,
@@ -145,9 +145,9 @@ bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
             .pImageIndices = &imageIndex,
     };
 
-    VkResult result = vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_NeedsResizing) {
-        m_NeedsResizing = false;
+    VkResult result = vkQueuePresentKHR(device->GetPresentQueue(), &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || needsResizing) {
+        needsResizing = false;
         Recreate();
         return true;
     } else if (result != VK_SUCCESS) {
@@ -157,9 +157,9 @@ bool VulkanSwapchain::Present(uint32_t imageIndex, uint32_t currentFrame) {
     return false;
 }
 
-std::shared_ptr<VulkanImage> VulkanSwapchain::GetImage(uint32_t index) const { return m_Images[index]; }
+std::shared_ptr<VulkanImage> VulkanSwapchain::GetImage(uint32_t index) const { return images[index]; }
 
-VkImageView VulkanSwapchain::GetImageView(uint32_t index) const { return m_Images[index]->GetImageView(); }
+VkImageView VulkanSwapchain::GetImageView(uint32_t index) const { return images[index]->GetImageView(); }
 
 VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
     for (const auto &availableFormat: availableFormats) {
@@ -189,7 +189,7 @@ VkExtent2D VulkanSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap
         return capabilities.currentExtent;
     } else {
         int width, height;
-        glfwGetFramebufferSize(m_Window, &width, &height);
+        glfwGetFramebufferSize(window, &width, &height);
 
         VkExtent2D actualExtent = {(uint32_t) width, (uint32_t) height};
 

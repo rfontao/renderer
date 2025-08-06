@@ -20,21 +20,21 @@ public:
     uint32_t AcquireNextImage(uint32_t currentFrame);
     bool Present(uint32_t imageIndex, uint32_t currentFrame);
 
-    [[nodiscard]] const std::vector<VkFence> &GetWaitFences() const { return m_WaitFences; }
+    [[nodiscard]] const std::vector<VkFence> &GetWaitFences() const { return waitFences; }
     [[nodiscard]] const std::vector<VkSemaphore> &
-    GetImageAvailableSemaphores() const { return m_ImageAvailableSemaphores; }
+    GetImageAvailableSemaphores() const { return imageAvailableSemaphores; }
     [[nodiscard]] const std::vector<VkSemaphore> &
-    GetRenderFinishedSemaphores() const { return m_RenderFinishedSemaphores; }
-    [[nodiscard]] const std::vector<VkCommandBuffer> &GetCommandBuffers() const { return m_CommandBuffers; }
+    GetRenderFinishedSemaphores() const { return renderFinishedSemaphores; }
+    [[nodiscard]] const std::vector<VkCommandBuffer> &GetCommandBuffers() const { return commandBuffers; }
     [[nodiscard]] VkImageView GetImageView(uint32_t index) const;
     [[nodiscard]] std::shared_ptr<VulkanImage> GetImage(uint32_t index) const;
-    [[nodiscard]] uint32_t GetHeight() const { return m_Swapchain.extent.height; }
-    [[nodiscard]] uint32_t GetWidth() const { return m_Swapchain.extent.width; }
-    [[nodiscard]] VkExtent2D GetExtent() const { return m_Swapchain.extent; }
-    [[nodiscard]] VkFormat GetImageFormat() const { return m_Swapchain.image_format; }
+    [[nodiscard]] uint32_t GetHeight() const { return swapchain.extent.height; }
+    [[nodiscard]] uint32_t GetWidth() const { return swapchain.extent.width; }
+    [[nodiscard]] VkExtent2D GetExtent() const { return swapchain.extent; }
+    [[nodiscard]] VkFormat GetImageFormat() const { return swapchain.image_format; }
 
     uint32_t numFramesInFlight {0};
-    bool m_NeedsResizing = false;
+    bool needsResizing = false;
 private:
     void Create();
 
@@ -42,16 +42,16 @@ private:
     static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
     VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
-    vkb::Swapchain m_Swapchain;
-    std::vector<std::shared_ptr<VulkanImage>> m_Images;
+    vkb::Swapchain swapchain;
+    std::vector<std::shared_ptr<VulkanImage>> images;
 
-    GLFWwindow *m_Window {nullptr};
+    GLFWwindow *window {nullptr};
 
-    std::vector<VkFence> m_WaitFences;
-    std::vector<VkSemaphore> m_ImageAvailableSemaphores;
-    std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+    std::vector<VkFence> waitFences;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
 
-    std::vector<VkCommandBuffer> m_CommandBuffers;
+    std::vector<VkCommandBuffer> commandBuffers;
 
-    std::shared_ptr<VulkanDevice> m_Device;
+    std::shared_ptr<VulkanDevice> device;
 };

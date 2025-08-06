@@ -390,7 +390,7 @@ static uint32_t FormatSize(VkFormat format) {
 }
 
 VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpecification &pipelineSpecification) :
-    spec(pipelineSpecification), m_Device(std::move(device)) {
+    spec(pipelineSpecification), device(std::move(device)) {
 
     bool isCompute = !pipelineSpecification.compShaderPath.empty();
     std::vector<std::vector<char>> shaderSources;
@@ -526,7 +526,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         }
     }
 
-    m_DescriptorSetLayouts.resize(setLayouts.size());
+    descriptorSetLayouts.resize(setLayouts.size());
     for (int i = 0; i < setLayouts.size(); ++i) {
         VkDescriptorSetLayoutCreateInfo layoutInfo{
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -550,7 +550,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
             layoutInfo.pNext = &bindingFlags;
         }
 
-        VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayouts[i]),
+        VK_CHECK(vkCreateDescriptorSetLayout(this->device->GetDevice(), &layoutInfo, nullptr, &descriptorSetLayouts[i]),
                  "Failed to create descriptor set layout!");
     }
 
@@ -687,13 +687,13 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
-            .pSetLayouts = m_DescriptorSetLayouts.data(),
+            .setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
+            .pSetLayouts = descriptorSetLayouts.data(),
             .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
             .pPushConstantRanges = pushConstantRanges.data(),
     };
 
-    VK_CHECK(vkCreatePipelineLayout(m_Device->GetDevice(), &pipelineLayoutInfo, nullptr, &m_Layout),
+    VK_CHECK(vkCreatePipelineLayout(this->device->GetDevice(), &pipelineLayoutInfo, nullptr, &layout),
              "Failed to create pipeline layout!");
 
     // Dynamic rendering
@@ -720,10 +720,10 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         VkComputePipelineCreateInfo pipelineInfo{
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                 .stage = shaderStages[0],
-                .layout = m_Layout,
+                .layout = layout,
         };
         VK_CHECK(
-                vkCreateComputePipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline),
+                vkCreateComputePipelines(this->device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline),
                 "Failed to create graphics pipeline!");
     } else {
         VkGraphicsPipelineCreateInfo pipelineInfo{
@@ -739,21 +739,21 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 .pDepthStencilState = &depthStencil,
                 .pColorBlendState = &colorBlending,
                 .pDynamicState = &dynamicState,
-                .layout = m_Layout,
+                .layout = layout,
                 // .renderPass = renderPass, -> no longer needed because of dynamic rendering
                 .renderPass = VK_NULL_HANDLE,
                 .subpass = 0,
                 .basePipelineHandle = VK_NULL_HANDLE,
         };
 
-        VK_CHECK(vkCreateGraphicsPipelines(m_Device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                           &m_Pipeline),
+        VK_CHECK(vkCreateGraphicsPipelines(this->device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+                                           &pipeline),
                  "Failed to create graphics pipeline!");
     }
 
 
     for (const auto &shaderModule: shaderModules) {
-        vkDestroyShaderModule(m_Device->GetDevice(), shaderModule, nullptr);
+        vkDestroyShaderModule(this->device->GetDevice(), shaderModule, nullptr);
     }
 }
 
@@ -765,15 +765,15 @@ VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<char> &code)
     };
 
     VkShaderModule shaderModule;
-    VK_CHECK(vkCreateShaderModule(m_Device->GetDevice(), &createInfo, nullptr, &shaderModule),
+    VK_CHECK(vkCreateShaderModule(device->GetDevice(), &createInfo, nullptr, &shaderModule),
              "Failed to create shader module!");
     return shaderModule;
 }
 
 void VulkanPipeline::Destroy() {
-    for (auto m_DescriptorSetLayout: m_DescriptorSetLayouts) {
-        vkDestroyDescriptorSetLayout(m_Device->GetDevice(), m_DescriptorSetLayout, nullptr);
+    for (auto& descriptorSetLayout: descriptorSetLayouts) {
+        vkDestroyDescriptorSetLayout(device->GetDevice(), descriptorSetLayout, nullptr);
     }
-    vkDestroyPipeline(m_Device->GetDevice(), m_Pipeline, nullptr);
-    vkDestroyPipelineLayout(m_Device->GetDevice(), m_Layout, nullptr);
+    vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);
+    vkDestroyPipelineLayout(device->GetDevice(), layout, nullptr);
 }

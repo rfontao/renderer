@@ -10,7 +10,7 @@
 #include "imgui_impl_vulkan.h"
 
 UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *window, Application *app) :
-    m_Device(std::move(device)), m_App(app) {
+    device(std::move(device)), app(app) {
     constexpr VkDescriptorPoolSize pool_sizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -18,7 +18,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     poolInfo.maxSets = 1;
     poolInfo.poolSizeCount = (uint32_t) IM_ARRAYSIZE(pool_sizes);
     poolInfo.pPoolSizes = pool_sizes;
-    VK_CHECK(vkCreateDescriptorPool(m_Device->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool),
+    VK_CHECK(vkCreateDescriptorPool(this->device->GetDevice(), &poolInfo, nullptr, &descriptorPool),
              "Failed to allocate UI descriptor pool");
 
 
@@ -44,7 +44,7 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
         c = {ToLinear(c.x), ToLinear(c.y), ToLinear(c.z), c.w};
     }
 
-    std::array<VkFormat, 1> imageFormat{m_App->m_Swapchain->GetImageFormat()};
+    std::array<VkFormat, 1> imageFormat{app->swapchain->GetImageFormat()};
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
             .colorAttachmentCount = 1,
@@ -56,10 +56,10 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     ImGui_ImplGlfw_InitForVulkan(window, true);
     ImGui_ImplVulkan_InitInfo initInfo{};
     initInfo.Instance = instance;
-    initInfo.PhysicalDevice = m_Device->GetPhysicalDevice();
-    initInfo.Device = m_Device->GetDevice();
-    initInfo.Queue = m_Device->GetGraphicsQueue();
-    initInfo.DescriptorPool = m_DescriptorPool;
+    initInfo.PhysicalDevice = this->device->GetPhysicalDevice();
+    initInfo.Device = this->device->GetDevice();
+    initInfo.Queue = this->device->GetGraphicsQueue();
+    initInfo.DescriptorPool = descriptorPool;
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = 2;
     initInfo.UseDynamicRendering = true;
@@ -67,9 +67,9 @@ UI::UI(std::shared_ptr<VulkanDevice> device, VkInstance instance, GLFWwindow *wi
     initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
     ImGui_ImplVulkan_Init(&initInfo);
 
-    VkCommandBuffer cmd = m_Device->BeginSingleTimeCommands();
+    VkCommandBuffer cmd = this->device->BeginSingleTimeCommands();
     ImGui_ImplVulkan_CreateFontsTexture();
-    m_Device->EndSingleTimeCommands(cmd);
+    this->device->EndSingleTimeCommands(cmd);
 
     ImGui_ImplVulkan_DestroyFontsTexture();
 }
@@ -79,7 +79,7 @@ void UI::Destroy() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    vkDestroyDescriptorPool(m_Device->GetDevice(), m_DescriptorPool, nullptr);
+    vkDestroyDescriptorPool(device->GetDevice(), descriptorPool, nullptr);
 }
 
 void UI::Draw(VkCommandBuffer cmd) {
@@ -99,14 +99,14 @@ void UI::Draw(VkCommandBuffer cmd) {
     ImGui::Separator();
 
     if (ImGui::BeginCombo("Scene", selectedSceneName.c_str(), 0)) {
-        auto paths = m_App->GetScenePaths();
+        auto paths = app->GetScenePaths();
         for (const auto &path: paths) {
             auto pathString = path.filename().string();
             auto filename = pathString.c_str();
             bool is_selected = selectedSceneName == filename;
             if (ImGui::Selectable(filename, is_selected)) {
                 selectedSceneName = filename;
-                m_App->SetScene(path);
+                app->SetScene(path);
             }
             if (is_selected) {
                 ImGui::SetItemDefaultFocus();

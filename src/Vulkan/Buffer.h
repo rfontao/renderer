@@ -21,8 +21,11 @@ class VulkanDevice;
 class Buffer {
 public:
     Buffer() = delete;
+
     Buffer(const Buffer &) = delete;
     Buffer &operator=(const Buffer &) = delete;
+    Buffer(Buffer &&) = delete;
+    Buffer &operator=(Buffer &&) = delete;
 
     Buffer(std::shared_ptr<VulkanDevice> &device, BufferSpecification specification);
     void Destroy();
@@ -43,8 +46,8 @@ public:
 
 private:
     VkBuffer buffer{VK_NULL_HANDLE};
-    VmaAllocation m_Allocation;
-    VmaAllocationInfo m_AllocationInfo;
+    VmaAllocation allocation;
+    VmaAllocationInfo allocationInfo;
 
     VkDeviceAddress address{0};
 
@@ -52,5 +55,5 @@ private:
 
     BufferSpecification specification;
 
-    std::shared_ptr<VulkanDevice> m_Device;
+    std::shared_ptr<VulkanDevice> device;
 };

@@ -38,14 +38,14 @@ public:
     virtual ~VulkanTexture() = default;
     void Destroy();
 
-    [[nodiscard]] VkSampler GetSampler() const { return m_Sampler; }
-    [[nodiscard]] std::shared_ptr<VulkanImage> GetImage() const { return m_Image; }
+    [[nodiscard]] VkSampler GetSampler() const { return sampler; }
+    [[nodiscard]] std::shared_ptr<VulkanImage> GetImage() const { return image; }
 
     void SetSampler(const TextureSampler& sampler);
 
-    std::shared_ptr<VulkanImage> m_Image;
-    std::shared_ptr<VulkanDevice> m_Device;
-    VkSampler m_Sampler { VK_NULL_HANDLE };
+    std::shared_ptr<VulkanImage> image;
+    std::shared_ptr<VulkanDevice> device;
+    VkSampler sampler { VK_NULL_HANDLE };
 };
 
 class Texture2D : public VulkanTexture {

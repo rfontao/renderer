@@ -20,16 +20,16 @@ void Application::InitVulkan() {
     FindScenePaths("models");
 
     VkSurfaceKHR surface = CreateSurface();
-    m_Device = std::make_shared<VulkanDevice>(m_Instance, surface);
-    m_Swapchain = std::make_shared<VulkanSwapchain>(m_Device, m_Window);
+    device = std::make_shared<VulkanDevice>(instance, surface);
+    swapchain = std::make_shared<VulkanSwapchain>(device, window);
 
-    debugDraw = std::make_unique<DebugDraw>(m_Device);
+    debugDraw = std::make_unique<DebugDraw>(device);
 
     VulkanPipeline::PipelineSpecification graphicsSpec{
             .vertShaderPath = "shaders/pbr.vert.spv",
             .fragShaderPath = "shaders/pbr_bindless.frag.spv",
     };
-    m_GraphicsPipeline = std::make_shared<VulkanPipeline>(m_Device, graphicsSpec);
+    graphicsPipeline = std::make_shared<VulkanPipeline>(device, graphicsSpec);
 
     VulkanPipeline::PipelineSpecification skyboxSpec{
             .vertShaderPath = "shaders/skybox.vert.spv",
@@ -38,7 +38,7 @@ void Application::InitVulkan() {
             .blendEnable = false,
             .enableDepthTesting = false,
     };
-    m_SkyboxPipeline = std::make_shared<VulkanPipeline>(m_Device, skyboxSpec);
+    skyboxPipeline = std::make_shared<VulkanPipeline>(device, skyboxSpec);
 
     VulkanPipeline::PipelineSpecification shadowMapSpec{
             .vertShaderPath = "shaders/shadowmap.vert.spv",
@@ -46,7 +46,7 @@ void Application::InitVulkan() {
             .cullingMode = VulkanPipeline::CullingMode::NONE,
             .depthBiasEnable = true,
     };
-    m_ShadowMapPipeline = std::make_shared<VulkanPipeline>(m_Device, shadowMapSpec);
+    shadowMapPipeline = std::make_shared<VulkanPipeline>(device, shadowMapSpec);
 
     VulkanPipeline::PipelineSpecification debugDrawSpec{
             .vertShaderPath = "shaders/DebugDraw.vert.spv",
@@ -54,12 +54,12 @@ void Application::InitVulkan() {
             .cullingMode = VulkanPipeline::CullingMode::NONE,
             .wireframe = true,
     };
-    debugDrawPipeline = std::make_shared<VulkanPipeline>(m_Device, debugDrawSpec);
+    debugDrawPipeline = std::make_shared<VulkanPipeline>(device, debugDrawSpec);
 
     VulkanPipeline::PipelineSpecification frustumCullingSpec{
             .compShaderPath = "shaders/frustumCulling.comp.spv",
     };
-    m_FrustumCullingPipeline = std::make_shared<VulkanPipeline>(m_Device, frustumCullingSpec);
+    frustumCullingPipeline = std::make_shared<VulkanPipeline>(device, frustumCullingSpec);
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap16.html#_cube_map_face_selection_and_transformations
     std::vector<std::filesystem::path> cubemapPaths = {
@@ -69,10 +69,10 @@ void Application::InitVulkan() {
     };
 
     TextureSpecification cubemapTextureSpec{.name = "Skybox cubemap texture"};
-    m_CubemapTexture = std::make_shared<TextureCube>(m_Device, cubemapTextureSpec, cubemapPaths);
+    cubemapTexture = std::make_shared<TextureCube>(device, cubemapTextureSpec, cubemapPaths);
 
-    m_UI = UI(m_Device, m_Instance, m_Window, this);
-    m_Scene = Scene(m_Device, m_ScenePaths[26], m_CubemapTexture, *debugDraw);
+    userInterface = UI(device, instance, window, this);
+    scene = std::make_unique<Scene>(device, scenePaths[26], cubemapTexture, *debugDraw);
 
     TextureSpecification shadowmapTextureSpec{
             .name = "Shadow Depth Texture",
@@ -80,64 +80,64 @@ void Application::InitVulkan() {
             .width = shadowSize,
             .height = shadowSize,
     };
-    m_ShadowDepthTexture = std::make_shared<Texture2D>(m_Device, shadowmapTextureSpec);
+    shadowDepthTexture = std::make_shared<Texture2D>(device, shadowmapTextureSpec);
 
     CreateColorResources();
     CreateDepthResources();
     CreateBindlessTexturesArray();
 
-    stagingManager.InitializeStagingBuffers(m_Device);
+    stagingManager.InitializeStagingBuffers(device);
 
-    stagingManager.AddCopy(m_Scene.m_Materials, m_Scene.materialsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->materials, scene->materialsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
 
-    m_Scene.UpdateCameraDatas();
-    stagingManager.AddCopy(m_Scene.cameraDatas, m_Scene.camerasBuffer->GetBuffer());
+    scene->UpdateCameraDatas();
+    stagingManager.AddCopy(scene->cameraDatas, scene->camerasBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
+                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
 }
 
 void Application::MainLoop() {
-    while (!glfwWindowShouldClose(m_Window)) {
+    while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         HandleKeys();
         DrawFrame();
     }
 
-    vkDeviceWaitIdle(m_Device->GetDevice());
+    vkDeviceWaitIdle(device->GetDevice());
 }
 
 void Application::Cleanup() {
-    m_UI.Destroy();
-    m_Swapchain->Destroy();
+    userInterface.Destroy();
+    swapchain->Destroy();
 
-    m_ColorImage->Destroy();
-    m_DepthImage->Destroy();
+    colorImage->Destroy();
+    depthImage->Destroy();
 
-    m_CubemapTexture->Destroy();
-    m_ShadowDepthTexture->Destroy();
+    cubemapTexture->Destroy();
+    shadowDepthTexture->Destroy();
 
-    m_GraphicsPipeline->Destroy();
-    m_SkyboxPipeline->Destroy();
-    m_ShadowMapPipeline->Destroy();
-    m_Scene.Destroy();
-    m_Skybox.Destroy();
+    graphicsPipeline->Destroy();
+    skyboxPipeline->Destroy();
+    shadowMapPipeline->Destroy();
+    scene->Destroy();
+    skybox->Destroy();
 
     stagingManager.Destroy();
 
-    vkDestroySurfaceKHR(m_Instance, m_Device->GetSurface(), nullptr);
-    m_Device->Destroy();
+    vkDestroySurfaceKHR(instance, device->GetSurface(), nullptr);
+    device->Destroy();
 
-    vkb::destroy_instance(m_Instance);
+    vkb::destroy_instance(instance);
 
-    glfwDestroyWindow(m_Window);
+    glfwDestroyWindow(window);
     glfwTerminate();
 }
 
@@ -146,56 +146,56 @@ void Application::InitWindow() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    m_Window = glfwCreateWindow((int) WIDTH, (int) HEIGHT, "Experimental Renderer", nullptr, nullptr);
-    glfwSetWindowUserPointer(m_Window, this);
-    glfwSetFramebufferSizeCallback(m_Window, [](GLFWwindow *w, int width, int height) {
+    window = glfwCreateWindow((int) WIDTH, (int) HEIGHT, "Experimental Renderer", nullptr, nullptr);
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, [](GLFWwindow *w, int width, int height) {
         const auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Swapchain->m_NeedsResizing = true;
+        app->swapchain->needsResizing = true;
     });
 
-    glfwSetMouseButtonCallback(m_Window, [](GLFWwindow *w, const int button, const int action, int mods) {
+    glfwSetMouseButtonCallback(window, [](GLFWwindow *w, const int button, const int action, int mods) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
-                app->m_Scene.cameras[app->cameraIndexControlling].SetMove(true);
+                app->scene->cameras[app->cameraIndexControlling].SetMove(true);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             } else if (action == GLFW_RELEASE) {
-                app->m_Scene.cameras[app->cameraIndexControlling].SetMove(false);
+                app->scene->cameras[app->cameraIndexControlling].SetMove(false);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
         }
     });
 
-    glfwSetCursorPosCallback(m_Window, [](GLFWwindow *w, const double xPosIn, const double yPosIn) {
+    glfwSetCursorPosCallback(window, [](GLFWwindow *w, const double xPosIn, const double yPosIn) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
+        app->scene->cameras[app->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
     });
 
-    glfwSetScrollCallback(m_Window, [](GLFWwindow *w, const double xScroll, const double yScroll) {
+    glfwSetScrollCallback(window, [](GLFWwindow *w, const double xScroll, const double yScroll) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->m_Scene.cameras[app->cameraIndexControlling].HandleMouseScroll(yScroll);
+        app->scene->cameras[app->cameraIndexControlling].HandleMouseScroll(yScroll);
     });
 
-    glfwSetKeyCallback(m_Window, [](GLFWwindow *w, const int key, int scancode, const int action, int mods) {
+    glfwSetKeyCallback(window, [](GLFWwindow *w, const int key, int scancode, const int action, int mods) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
         if (key == GLFW_KEY_TAB && action == GLFW_RELEASE) {
-            app->cameraIndexControlling = (app->cameraIndexControlling + 1) % app->m_Scene.cameras.size();
+            app->cameraIndexControlling = (app->cameraIndexControlling + 1) % app->scene->cameras.size();
         }
     });
 }
 
 void Application::HandleKeys() {
 
-    auto &camera = m_Scene.cameras[cameraIndexControlling];
+    auto &camera = scene->cameras[cameraIndexControlling];
 
-    if (glfwGetKey(m_Window, GLFW_KEY_W) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::FRONT);
-    if (glfwGetKey(m_Window, GLFW_KEY_A) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::LEFT);
-    if (glfwGetKey(m_Window, GLFW_KEY_S) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::BACK);
-    if (glfwGetKey(m_Window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::RIGHT);
 }
 
@@ -239,14 +239,14 @@ void Application::CreateInstance() {
         throw std::runtime_error("Failed to create vulkan instance!");
     }
 
-    m_Instance = instanceRet.value();
+    instance = instanceRet.value();
 
-    volkLoadInstance(m_Instance);
+    volkLoadInstance(instance);
 }
 
 VkSurfaceKHR Application::CreateSurface() const {
     VkSurfaceKHR surface;
-    VK_CHECK(glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &surface), "Failed to create window surface!");
+    VK_CHECK(glfwCreateWindowSurface(instance, window, nullptr, &surface), "Failed to create window surface!");
     return surface;
 }
 
@@ -265,7 +265,7 @@ void Application::CreateBindlessTexturesArray() {
     };
 
     VkDescriptorPool pool;
-    VK_CHECK(vkCreateDescriptorPool(m_Device->GetDevice(), &poolInfo, nullptr, &pool),
+    VK_CHECK(vkCreateDescriptorPool(device->GetDevice(), &poolInfo, nullptr, &pool),
              "Failed to create descriptor pool!");
 
     VkDescriptorSetLayoutBinding bindingLayoutInfo{};
@@ -291,7 +291,7 @@ void Application::CreateBindlessTexturesArray() {
     setLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
     VkDescriptorSetLayout layout;
-    VK_CHECK(vkCreateDescriptorSetLayout(m_Device->GetDevice(), &setLayoutInfo, nullptr, &layout),
+    VK_CHECK(vkCreateDescriptorSetLayout(device->GetDevice(), &setLayoutInfo, nullptr, &layout),
              "Failed to allocate bindless textures array set layout");
 
     VkDescriptorSetAllocateInfo allocationInfo{};
@@ -308,13 +308,13 @@ void Application::CreateBindlessTexturesArray() {
 
     allocationInfo.pNext = &countInfo;
 
-    VK_CHECK(vkAllocateDescriptorSets(m_Device->GetDevice(), &allocationInfo, &m_BindlessTexturesSet),
+    VK_CHECK(vkAllocateDescriptorSets(device->GetDevice(), &allocationInfo, &bindlessTexturesSet),
              "Failed to allocate bindless textures array descriptor set");
 
-    for (auto &tex: m_Scene.m_Textures) {
-        m_TextureDescriptors.push_back({
-                .sampler = m_Scene.m_Images[tex.imageIndex]->GetSampler(),
-                .imageView = m_Scene.m_Images[tex.imageIndex]->GetImage()->GetImageView(),
+    for (auto &tex: scene->textures) {
+        textureDescriptors.push_back({
+                .sampler = scene->images[tex.imageIndex]->GetSampler(),
+                .imageView = scene->images[tex.imageIndex]->GetImage()->GetImageView(),
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         });
     }
@@ -323,16 +323,16 @@ void Application::CreateBindlessTexturesArray() {
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write.dstBinding = 0;
-    write.dstSet = m_BindlessTexturesSet;
+    write.dstSet = bindlessTexturesSet;
     write.dstArrayElement = 0;
-    write.descriptorCount = static_cast<uint32_t>(m_TextureDescriptors.size());
-    write.pImageInfo = m_TextureDescriptors.data();
+    write.descriptorCount = static_cast<uint32_t>(textureDescriptors.size());
+    write.pImageInfo = textureDescriptors.data();
 
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
+    vkUpdateDescriptorSets(device->GetDevice(), 1, &write, 0, nullptr);
 
     VkDescriptorImageInfo imageInfo{
-            .sampler = m_CubemapTexture->GetSampler(),
-            .imageView = m_CubemapTexture->GetImage()->GetImageView(),
+            .sampler = cubemapTexture->GetSampler(),
+            .imageView = cubemapTexture->GetImage()->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
@@ -340,12 +340,12 @@ void Application::CreateBindlessTexturesArray() {
     write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write2.dstBinding = 0;
-    write2.dstSet = m_BindlessTexturesSet;
+    write2.dstSet = bindlessTexturesSet;
     write2.dstArrayElement = 750;
     write2.descriptorCount = 1;
     write2.pImageInfo = &imageInfo;
 
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write2, 0, nullptr);
+    vkUpdateDescriptorSets(device->GetDevice(), 1, &write2, 0, nullptr);
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -361,7 +361,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+            .imageView = shadowDepthTexture->GetImage()->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -376,7 +376,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .pDepthAttachment = &shadowDepthAttachment,
     };
 
-    m_ShadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
+    shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
                                                        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
@@ -398,12 +398,12 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ShadowMapPipeline->GetPipeline());
-    m_Scene.DrawShadowMap(commandBuffer, m_ShadowMapPipeline->GetLayout());
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMapPipeline->GetPipeline());
+    scene->DrawShadowMap(commandBuffer, shadowMapPipeline->GetLayout());
 
     vkCmdEndRendering(commandBuffer);
 
-    m_ShadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // TODO: is this needed?
@@ -427,15 +427,15 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         VkDeviceAddress commandBufferAddress;
         VkDeviceAddress drawDataAddress;
         VkDeviceAddress modelMatricesAddress;
-    } frustumCullingPushConstants = {.frustum = m_Scene.cameras[0].GetFrustum(),
-                                     .commandBufferAddress = m_Scene.opaqueDrawIndirectCommandsBuffer->GetAddress(),
-                                     .drawDataAddress = m_Scene.opaqueDrawDataBuffer->GetAddress(),
-                                     .modelMatricesAddress = m_Scene.modelMatricesBuffer->GetAddress()};
+    } frustumCullingPushConstants = {.frustum = scene->cameras[0].GetFrustum(),
+                                     .commandBufferAddress = scene->opaqueDrawIndirectCommandsBuffer->GetAddress(),
+                                     .drawDataAddress = scene->opaqueDrawDataBuffer->GetAddress(),
+                                     .modelMatricesAddress = scene->modelMatricesBuffer->GetAddress()};
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_FrustumCullingPipeline->GetPipeline());
-    vkCmdPushConstants(commandBuffer, m_FrustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline->GetPipeline());
+    vkCmdPushConstants(commandBuffer, frustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
-    vkCmdDispatch(commandBuffer, (m_Scene.opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
+    vkCmdDispatch(commandBuffer, (scene->opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
 
     // NOTE: This barrier is needed so that drawing only starts after the culling is performed
     // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
@@ -454,8 +454,8 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
 
     VkDescriptorImageInfo imageInfo{
-            .sampler = m_ShadowDepthTexture->GetSampler(),
-            .imageView = m_ShadowDepthTexture->GetImage()->GetImageView(),
+            .sampler = shadowDepthTexture->GetSampler(),
+            .imageView = shadowDepthTexture->GetImage()->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
@@ -463,20 +463,20 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write.dstBinding = 0;
-    write.dstSet = m_BindlessTexturesSet;
+    write.dstSet = bindlessTexturesSet;
     write.dstArrayElement = 800;
     write.descriptorCount = 1;
     write.pImageInfo = &imageInfo;
 
-    vkUpdateDescriptorSets(m_Device->GetDevice(), 1, &write, 0, nullptr);
+    vkUpdateDescriptorSets(device->GetDevice(), 1, &write, 0, nullptr);
 
     // Main scene render
     VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_Swapchain->GetImageView(imageIndex),
+            .imageView = swapchain->GetImageView(imageIndex),
             .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
+            .resolveImageView = swapchain->GetImageView(imageIndex),
             .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -485,7 +485,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingAttachmentInfo depthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_DepthImage->GetImageView(),
+            .imageView = depthImage->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -494,7 +494,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingInfo renderInfo{
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachment,
@@ -502,16 +502,16 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             //            .pStencilAttachment = &depthAttachment,
     };
 
-    m_Swapchain->GetImage(imageIndex)
+    swapchain->GetImage(imageIndex)
             ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    m_DepthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    depthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
     VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
-            .width = (float) m_Swapchain->GetWidth(),
-            .height = (float) m_Swapchain->GetHeight(),
+            .width = (float) swapchain->GetWidth(),
+            .height = (float) swapchain->GetHeight(),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
     };
@@ -519,23 +519,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRect2D scissor{
             .offset = {0, 0},
-            .extent = m_Swapchain->GetExtent(),
+            .extent = swapchain->GetExtent(),
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     // Skybox
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetPipeline());
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_SkyboxPipeline->GetLayout(), 0, 1,
-                            &m_BindlessTexturesSet, 0, nullptr);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetPipeline());
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetLayout(), 0, 1,
+                            &bindlessTexturesSet, 0, nullptr);
 
-    m_Scene.DrawSkybox(commandBuffer, m_SkyboxPipeline->GetLayout());
+    scene->DrawSkybox(commandBuffer, skyboxPipeline->GetLayout());
 
     // Scene Rendering
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetPipeline());
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline->GetLayout(), 0, 1,
-                            &m_BindlessTexturesSet, 0, nullptr);
-    m_Scene.Draw(commandBuffer, m_GraphicsPipeline->GetLayout());
-    m_UI.Draw(commandBuffer);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipeline());
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetLayout(), 0, 1,
+                            &bindlessTexturesSet, 0, nullptr);
+    scene->Draw(commandBuffer, graphicsPipeline->GetLayout());
+    userInterface.Draw(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
 
@@ -545,7 +545,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
                                              .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                                              .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
                                              .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                             .image = m_DepthImage->GetImage(),
+                                             .image = depthImage->GetImage(),
                                              .subresourceRange = {
                                                      .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                                                      .levelCount = 1,
@@ -559,7 +559,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            .image = m_Swapchain->GetImage(imageIndex)->GetImage(),
+            .image = swapchain->GetImage(imageIndex)->GetImage(),
             .subresourceRange =
                     {
                             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -580,10 +580,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     // New rendering info
     VkRenderingAttachmentInfo colorAttachment2{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_Swapchain->GetImageView(imageIndex),
+            .imageView = swapchain->GetImageView(imageIndex),
             .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = m_Swapchain->GetImageView(imageIndex),
+            .resolveImageView = swapchain->GetImageView(imageIndex),
             .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -592,7 +592,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingAttachmentInfo depthAttachment2{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = m_DepthImage->GetImageView(),
+            .imageView = depthImage->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -601,7 +601,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     VkRenderingInfo renderInfo2{
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()},
+            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = &colorAttachment2,
@@ -612,9 +612,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
     // debugDraw->DrawFrustum(m_Scene.cameras[0].GetViewMatrix(), m_Scene.cameras[0].GetProjectionMatrix(),
     //                        {0.0, 0.0, 1.0});
-    debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, m_Scene, renderInfo2);
+    debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, *scene, renderInfo2);
 
-    m_Swapchain->GetImage(imageIndex)
+    swapchain->GetImage(imageIndex)
             ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
@@ -623,71 +623,71 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::DrawFrame() {
 
-    vkWaitForFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame], VK_TRUE, UINT64_MAX);
-    vkResetFences(m_Device->GetDevice(), 1, &m_Swapchain->GetWaitFences()[m_CurrentFrame]);
+    vkWaitForFences(device->GetDevice(), 1, &swapchain->GetWaitFences()[currentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(device->GetDevice(), 1, &swapchain->GetWaitFences()[currentFrame]);
 
-    const uint32_t imageIndex = m_Swapchain->AcquireNextImage(m_CurrentFrame);
+    const uint32_t imageIndex = swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() /
-                                                           (double) m_Swapchain->GetHeight());
-        m_ColorImage->Destroy();
+        scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
+                                                           (double) swapchain->GetHeight());
+        colorImage->Destroy();
         CreateColorResources();
-        m_DepthImage->Destroy();
+        depthImage->Destroy();
         CreateDepthResources();
         return;
     }
 
-    UpdateUniformBuffer(m_CurrentFrame);
+    UpdateUniformBuffer(currentFrame);
 
-    m_Scene.GenerateDrawCommands(*debugDraw, frustumCulling);
+    scene->GenerateDrawCommands(*debugDraw, frustumCulling);
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
+                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
 
-    vkResetCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], 0);
-    RecordCommandBuffer(m_Swapchain->GetCommandBuffers()[m_CurrentFrame], imageIndex);
+    vkResetCommandBuffer(swapchain->GetCommandBuffers()[currentFrame], 0);
+    RecordCommandBuffer(swapchain->GetCommandBuffers()[currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
     };
 
-    VkSemaphore waitSemaphores[] = {m_Swapchain->GetImageAvailableSemaphores()[m_CurrentFrame]};
+    VkSemaphore waitSemaphores[] = {swapchain->GetImageAvailableSemaphores()[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_Swapchain->GetCommandBuffers()[m_CurrentFrame];
+    submitInfo.pCommandBuffers = &swapchain->GetCommandBuffers()[currentFrame];
 
-    VkSemaphore signalSemaphores[] = {m_Swapchain->GetRenderFinishedSemaphores()[m_CurrentFrame]};
+    VkSemaphore signalSemaphores[] = {swapchain->GetRenderFinishedSemaphores()[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    VK_CHECK(vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_Swapchain->GetWaitFences()[m_CurrentFrame]),
+    VK_CHECK(vkQueueSubmit(device->GetGraphicsQueue(), 1, &submitInfo, swapchain->GetWaitFences()[currentFrame]),
              "Failed to submit draw command buffer!");
 
-    bool resourceNeedResizing = m_Swapchain->Present(imageIndex, m_CurrentFrame);
+    bool resourceNeedResizing = swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
-        m_Scene.cameras[cameraIndexDrawing].SetAspectRatio((double) m_Swapchain->GetWidth() /
-                                                           (double) m_Swapchain->GetHeight());
-        m_ColorImage->Destroy();
+        scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
+                                                           (double) swapchain->GetHeight());
+        colorImage->Destroy();
         CreateColorResources();
-        m_DepthImage->Destroy();
+        depthImage->Destroy();
         CreateDepthResources();
     }
-    m_CurrentFrame = (m_CurrentFrame + 1) % m_Swapchain->numFramesInFlight;
+    currentFrame = (currentFrame + 1) % swapchain->numFramesInFlight;
 
     stagingManager.NextFrame();
     debugDraw->EndFrame();
 
-    if (m_ShouldChangeScene)
+    if (shouldChangeScene)
         ChangeScene();
 }
 
@@ -697,15 +697,15 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
-    m_Scene.UpdateCameraDatas();
-    stagingManager.AddCopy(m_Scene.cameraDatas, m_Scene.camerasBuffer->GetBuffer());
+    scene->UpdateCameraDatas();
+    stagingManager.AddCopy(scene->cameraDatas, scene->camerasBuffer->GetBuffer());
 
     // NOTE(RF): Directional light moving test
-    m_Scene.m_Lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
-    m_Scene.m_Lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
-    m_Scene.m_Lights.at(0).view = glm::lookAt(m_Scene.m_Lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
+    scene->lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
+    scene->lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
+    scene->lights.at(0).view = glm::lookAt(scene->lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
                                               glm::vec3(0.0f, -1.0f, 0.0f)),
-    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
 }
 
 void Application::CreateDepthResources() {
@@ -713,12 +713,12 @@ void Application::CreateDepthResources() {
             .name = "Depth Image",
             .format = ImageFormat::D32,
             .usage = ImageUsage::Attachment,
-            .width = m_Swapchain->GetWidth(),
-            .height = m_Swapchain->GetHeight(),
+            .width = swapchain->GetWidth(),
+            .height = swapchain->GetHeight(),
             .mipLevels = 1,
             .layers = 1,
     };
-    m_DepthImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
+    depthImage = std::make_shared<VulkanImage>(device, imageSpecification);
 }
 
 void Application::CreateColorResources() {
@@ -726,46 +726,46 @@ void Application::CreateColorResources() {
             .name = "Color Image",
             .format = ImageFormat::R8G8B8A8_SRGB,
             .usage = ImageUsage::Attachment,
-            .width = m_Swapchain->GetWidth(),
-            .height = m_Swapchain->GetHeight(),
+            .width = swapchain->GetWidth(),
+            .height = swapchain->GetHeight(),
             .mipLevels = 1,
             .layers = 1,
     };
-    m_ColorImage = std::make_shared<VulkanImage>(m_Device, imageSpecification);
+    colorImage = std::make_shared<VulkanImage>(device, imageSpecification);
 }
 
 void Application::SetScene(const std::filesystem::path &scenePath) {
-    m_ShouldChangeScene = true;
-    m_NextScenePath = scenePath;
+    shouldChangeScene = true;
+    nextScenePath = scenePath;
 }
 
 void Application::ChangeScene() {
-    m_ShouldChangeScene = false;
-    vkDeviceWaitIdle(m_Device->GetDevice());
-    m_Scene.Destroy();
-    m_Scene = Scene(m_Device, m_NextScenePath, m_CubemapTexture, *debugDraw);
+    shouldChangeScene = false;
+    vkDeviceWaitIdle(device->GetDevice());
+    scene->Destroy();
+    scene = std::make_unique<Scene>(device, nextScenePath, cubemapTexture, *debugDraw);
 
-    m_TextureDescriptors.clear();
+    textureDescriptors.clear();
     CreateBindlessTexturesArray();
 
-    stagingManager.AddCopy(m_Scene.m_Materials, m_Scene.materialsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.m_Lights, m_Scene.lightsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->materials, scene->materialsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.opaqueDrawIndirectCommands, m_Scene.opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.opaqueDrawData, m_Scene.opaqueDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.transparentDrawIndirectCommands,
-                           m_Scene.transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(m_Scene.transparentDrawData, m_Scene.transparentDrawDataBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
+                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
 
-    stagingManager.AddCopy(m_Scene.globalModelMatrices, m_Scene.modelMatricesBuffer->GetBuffer());
+    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {
     for (const auto &dirEntry: std::filesystem::recursive_directory_iterator(basePath)) {
         if (dirEntry.is_regular_file() &&
             (dirEntry.path().extension() == ".gltf" || dirEntry.path().extension() == ".glb")) {
-            m_ScenePaths.push_back(dirEntry.path());
+            scenePaths.push_back(dirEntry.path());
         }
     }
 }

@@ -8,14 +8,14 @@ public:
     VulkanDevice(vkb::Instance instance, VkSurfaceKHR surface);
     void Destroy();
 
-    [[nodiscard]] vkb::Device GetDevice() const { return m_Device; }
-    [[nodiscard]] VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
-    [[nodiscard]] VkSurfaceKHR GetSurface() const { return m_Surface; }
-    [[nodiscard]] VkQueue GetPresentQueue() const { return m_PresentQueue; }
-    [[nodiscard]] VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
-    [[nodiscard]] VkCommandPool GetCommandPool() const { return m_CommandPool; }
-    [[nodiscard]] VkDescriptorPool GetDescriptorPool() const { return m_DescriptorPool; }
-    [[nodiscard]] VmaAllocator GetAllocator() const { return m_Allocator; }
+    [[nodiscard]] vkb::Device GetDevice() const { return device; }
+    [[nodiscard]] VkPhysicalDevice GetPhysicalDevice() const { return physicalDevice; }
+    [[nodiscard]] VkSurfaceKHR GetSurface() const { return surface; }
+    [[nodiscard]] VkQueue GetPresentQueue() const { return presentQueue; }
+    [[nodiscard]] VkQueue GetGraphicsQueue() const { return graphicsQueue; }
+    [[nodiscard]] VkCommandPool GetCommandPool() const { return commandPool; }
+    [[nodiscard]] VkDescriptorPool GetDescriptorPool() const { return descriptorPool; }
+    [[nodiscard]] VmaAllocator GetAllocator() const { return allocator; }
 
     VkCommandBuffer BeginSingleTimeCommands();
     void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -27,19 +27,19 @@ private:
     void CreateCommandPool();
 
     /* Logical Device */
-    vkb::Device m_Device;
-    vkb::PhysicalDevice m_PhysicalDevice;
+    vkb::Device device;
+    vkb::PhysicalDevice physicalDevice;
 
-    VkSurfaceKHR m_Surface;
+    VkSurfaceKHR surface;
 
-    VkQueue m_GraphicsQueue;
-    VkQueue m_ComputeQueue;
-    VkQueue m_PresentQueue;
+    VkQueue graphicsQueue;
+    VkQueue computeQueue;
+    VkQueue presentQueue;
 
-    VkCommandPool m_CommandPool;
-    VkDescriptorPool m_DescriptorPool;
+    VkCommandPool commandPool;
+    VkDescriptorPool descriptorPool;
 
-    VmaAllocator m_Allocator;
+    VmaAllocator allocator;
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
