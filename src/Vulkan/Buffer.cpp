@@ -47,7 +47,7 @@ Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specif
     allocInfo.flags = allocationFlags;
     vmaCreateBuffer(m_Device->GetAllocator(), &bufferInfo, &allocInfo, &buffer, &m_Allocation, &m_AllocationInfo);
 
-    DebugMarkers::BufferMarker(m_Device, buffer, specification.name);
+    DebugMarkers::BufferMarker(m_Device, buffer, this->specification.name);
 
     if (usageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
         const VkBufferDeviceAddressInfo deviceAddressInfo{

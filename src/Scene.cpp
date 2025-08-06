@@ -157,7 +157,7 @@ void Scene::LoadImages(tinygltf::Model &input) {
 
         // Load from disk
         if (!glTFImage.uri.empty()) {
-            TextureSpecification spec{.name = glTFImage.name,
+            TextureSpecification spec{.name = glTFImage.uri,
                                       .width = static_cast<uint32_t>(glTFImage.width),
                                       .height = static_cast<uint32_t>(glTFImage.height),
                                       .generateMipMaps = true};
@@ -183,7 +183,7 @@ void Scene::LoadImages(tinygltf::Model &input) {
                 bufferSize = glTFImage.image.size();
             }
             TextureSpecification spec{
-                    .name = glTFImage.name, .width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
+                    .name = "Image loaded from buffer", .width = (uint32_t) glTFImage.width, .height = (uint32_t) glTFImage.height};
             m_Images[i] = std::make_shared<Texture2D>(m_Device, spec, buffer);
             if (deleteBuffer) {
                 delete[] buffer;

@@ -85,13 +85,15 @@ void VulkanDevice::PickPhysicalDevice(vkb::Instance instance) {
 
             // Dynamic rendering local read (allows barriers to be used with dynamic rendering)
             .dynamicRenderingLocalRead = VK_TRUE,
+
+            // Push Descriptor (needed by Nsight??)
+            .pushDescriptor = VK_TRUE,
     };
 
     vkb::PhysicalDeviceSelector physicalDeviceSelector(instance);
     auto physicalDeviceSelectorReturn =
             physicalDeviceSelector.set_surface(m_Surface)
                     .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-                    .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
                     // .add_required_extension(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)
                     .set_required_features(deviceFeatures)
                     .set_required_features_11(vulkan11Features)

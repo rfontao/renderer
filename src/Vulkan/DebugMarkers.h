@@ -8,8 +8,6 @@
 namespace DebugMarkers {
 
     inline void BufferMarker(const std::shared_ptr<VulkanDevice> &device, VkBuffer buffer, std::string_view name) {
-        // const auto vkSetDebugUtilsObjectNameEXT = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
-        //         vkGetInstanceProcAddr(m_Instance, "vkSetDebugUtilsObjectNameEXT"));
         const VkDebugUtilsObjectNameInfoEXT bufferMarkerInfo{
                 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
                 .objectType = VK_OBJECT_TYPE_BUFFER,
@@ -30,8 +28,9 @@ namespace DebugMarkers {
     }
 
     class ScopedMarker {
+    public:
         ScopedMarker() = delete;
-        ScopedMarker(const VkCommandBuffer commandBuffer, std::string_view name) : commandBuffer(commandBuffer) {
+        ScopedMarker(VkCommandBuffer commandBuffer, std::string_view name) : commandBuffer(commandBuffer) {
             const VkDebugUtilsLabelEXT debugUtil = {
                     .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
                     .pLabelName = name.data(),

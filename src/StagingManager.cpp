@@ -7,7 +7,7 @@ void StagingManager::InitializeStagingBuffers(std::shared_ptr<VulkanDevice> devi
 
     for (size_t i = 0; i < stagingBuffers.size(); ++i) {
         // 64 MB staging buffer
-        const auto bufferName = std::format("Buffer_{}", i);
+        const auto bufferName = std::format("StagingBuffer_{}", i);
         stagingBuffers[i] = {.buffer =
                                      std::make_unique<Buffer>(device, BufferSpecification{.name = bufferName,
                                                                                           .size = 64 * 1024 * 1024,
