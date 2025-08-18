@@ -154,7 +154,7 @@ void Camera::HandleMouseScroll(double scrollAmount) {
     UpdateVectors();
 }
 
-Camera::CameraData Camera::GetCameraData() const {
+Camera::GPUData Camera::GetGPUData() const {
     return {
             .view = GetViewMatrix(),
             .proj = GetProjectionMatrix(),

@@ -92,7 +92,7 @@ public:
     std::shared_ptr<VulkanPipeline> debugDrawPipeline;
     std::shared_ptr<VulkanPipeline> frustumCullingPipeline;
 
-    GPUDataUploader stagingManager;
+    GPUDataUploader GPUDataUploader;
     std::unique_ptr<DebugDraw> debugDraw;
 
 #ifdef NDEBUG

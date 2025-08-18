@@ -86,22 +86,8 @@ void Application::InitVulkan() {
     CreateDepthResources();
     CreateBindlessTexturesArray();
 
-    stagingManager.InitializeStagingBuffers(device);
-
-    stagingManager.AddCopy(scene->materials, scene->materialsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
-
-    scene->UpdateCameraDatas();
-    stagingManager.AddCopy(scene->cameraDatas, scene->camerasBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
-                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
+    GPUDataUploader.InitializeStagingBuffers(device);
+    scene->UploadToGPU(GPUDataUploader);
 }
 
 void Application::MainLoop() {
@@ -130,7 +116,7 @@ void Application::Cleanup() {
     scene->Destroy();
     skybox->Destroy();
 
-    stagingManager.Destroy();
+    GPUDataUploader.Destroy();
 
     vkDestroySurfaceKHR(instance, device->GetSurface(), nullptr);
     device->Destroy();
@@ -356,7 +342,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
         throw std::runtime_error("Failed to begin recording command buffer!");
     }
 
-    stagingManager.Flush(commandBuffer);
+    GPUDataUploader.Flush(commandBuffer);
 
     // Shadow rendering
     VkRenderingAttachmentInfo shadowDepthAttachment{
@@ -377,7 +363,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
 
     shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                       VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
     VkViewport shadowViewport{
@@ -404,7 +390,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkCmdEndRendering(commandBuffer);
 
     shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // TODO: is this needed?
     // // Add barrier to prevent writing to commandbuffer until shadow map is done
@@ -612,7 +598,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
     // debugDraw->DrawFrustum(m_Scene.cameras[0].GetViewMatrix(), m_Scene.cameras[0].GetProjectionMatrix(),
     //                        {0.0, 0.0, 1.0});
-    debugDraw->Draw(commandBuffer, stagingManager, *debugDrawPipeline, *scene, renderInfo2);
+    debugDraw->Draw(commandBuffer, GPUDataUploader, *debugDrawPipeline, *scene, renderInfo2);
 
     swapchain->GetImage(imageIndex)
             ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -630,7 +616,7 @@ void Application::DrawFrame() {
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
         scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                           (double) swapchain->GetHeight());
+                                                          (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -641,15 +627,7 @@ void Application::DrawFrame() {
     UpdateUniformBuffer(currentFrame);
 
     scene->GenerateDrawCommands(*debugDraw, frustumCulling);
-
-    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
-                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
+    scene->UploadToGPU(GPUDataUploader);
 
     vkResetCommandBuffer(swapchain->GetCommandBuffers()[currentFrame], 0);
     RecordCommandBuffer(swapchain->GetCommandBuffers()[currentFrame], imageIndex);
@@ -676,7 +654,7 @@ void Application::DrawFrame() {
     bool resourceNeedResizing = swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
         scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                           (double) swapchain->GetHeight());
+                                                          (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -684,7 +662,7 @@ void Application::DrawFrame() {
     }
     currentFrame = (currentFrame + 1) % swapchain->numFramesInFlight;
 
-    stagingManager.NextFrame();
+    GPUDataUploader.NextFrame();
     debugDraw->EndFrame();
 
     if (shouldChangeScene)
@@ -697,15 +675,12 @@ void Application::UpdateUniformBuffer(uint32_t currentImage) {
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const double time = std::chrono::duration<double>(currentTime - startTime).count();
 
-    scene->UpdateCameraDatas();
-    stagingManager.AddCopy(scene->cameraDatas, scene->camerasBuffer->GetBuffer());
-
     // NOTE(RF): Directional light moving test
     scene->lights.at(0).direction.x = std::lerp(-0.8, 0.8, std::fmod(0.05 * time, 1.0));
     scene->lights.at(0).direction.z = std::lerp(-0.5, 0.5, std::fmod(0.05 * time, 1.0));
     scene->lights.at(0).view = glm::lookAt(scene->lights.at(0).direction * 15.0f, glm::vec3(0.0f, 0.0f, 0.0f),
-                                              glm::vec3(0.0f, -1.0f, 0.0f)),
-    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
+                                           glm::vec3(0.0f, -1.0f, 0.0f)),
+    GPUDataUploader.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
 }
 
 void Application::CreateDepthResources() {
@@ -748,17 +723,7 @@ void Application::ChangeScene() {
     textureDescriptors.clear();
     CreateBindlessTexturesArray();
 
-    stagingManager.AddCopy(scene->materials, scene->materialsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->lights, scene->lightsBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->opaqueDrawIndirectCommands, scene->opaqueDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->opaqueDrawData, scene->opaqueDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->transparentDrawIndirectCommands,
-                           scene->transparentDrawIndirectCommandsBuffer->GetBuffer());
-    stagingManager.AddCopy(scene->transparentDrawData, scene->transparentDrawDataBuffer->GetBuffer());
-
-    stagingManager.AddCopy(scene->globalModelMatrices, scene->modelMatricesBuffer->GetBuffer());
+    scene->UploadToGPU(GPUDataUploader);
 }
 
 void Application::FindScenePaths(const std::filesystem::path &basePath) {

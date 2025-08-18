@@ -27,7 +27,7 @@ public:
     Buffer(Buffer &&) = delete;
     Buffer &operator=(Buffer &&) = delete;
 
-    Buffer(std::shared_ptr<VulkanDevice> &device, BufferSpecification specification);
+    Buffer(const std::shared_ptr<VulkanDevice> &device, const BufferSpecification &specification);
     void Destroy();
 
     void Map();

@@ -3,8 +3,8 @@
 #include "Buffer.h"
 #include "DebugMarkers.h"
 
-Buffer::Buffer(std::shared_ptr<VulkanDevice>& device, BufferSpecification specification) :
-    specification(std::move(specification)), device(device) {
+Buffer::Buffer(const std::shared_ptr<VulkanDevice>& device, const BufferSpecification& specification) :
+    specification(specification), device(device) {
     allocationInfo.pMappedData = nullptr;
 
     VkBufferUsageFlags usageFlags = 0;

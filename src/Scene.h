@@ -5,6 +5,8 @@
 
 #include "Camera.h"
 
+
+class GPUDataUploader;
 class DebugDraw;
 
 struct AABB {
@@ -97,7 +99,7 @@ public:
 
     void GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling = false);
 
-    void UpdateCameraDatas();
+    void UploadToGPU(GPUDataUploader& uploader);
 
     std::vector<Texture> textures;
     std::vector<TextureSampler> textureSamplers;
@@ -130,7 +132,6 @@ public:
     std::vector<Mesh> meshes;
     std::vector<glm::mat4> localModelMatrices;
     std::vector<glm::mat4> globalModelMatrices;
-    std::vector<Light> lights;
     std::vector<DrawData> opaqueDrawData;
     std::vector<DrawData> transparentDrawData;
 
@@ -143,22 +144,24 @@ public:
     std::shared_ptr<TextureCube> skyboxTexture;
     std::unique_ptr<Buffer> skyboxVertexBuffer;
 
-    std::shared_ptr<Buffer> materialsBuffer;
-    std::shared_ptr<Buffer> lightsBuffer;
-    std::shared_ptr<Buffer> camerasBuffer;
-    std::shared_ptr<Buffer> modelMatricesBuffer; // Global
+    std::unique_ptr<Buffer> materialsBuffer;
+    std::unique_ptr<Buffer> lightsBuffer;
+    std::unique_ptr<Buffer> camerasBuffer;
+    std::unique_ptr<Buffer> modelMatricesBuffer; // Global
 
-    std::shared_ptr<Buffer> opaqueDrawIndirectCommandsBuffer;
-    std::shared_ptr<Buffer> transparentDrawIndirectCommandsBuffer;
-    std::shared_ptr<Buffer> opaqueDrawDataBuffer;
-    std::shared_ptr<Buffer> transparentDrawDataBuffer;
+    std::unique_ptr<Buffer> opaqueDrawIndirectCommandsBuffer;
+    std::unique_ptr<Buffer> transparentDrawIndirectCommandsBuffer;
+    std::unique_ptr<Buffer> opaqueDrawDataBuffer;
+    std::unique_ptr<Buffer> transparentDrawDataBuffer;
 
-    std::shared_ptr<Buffer> meshesBuffer;
+    std::unique_ptr<Buffer> meshesBuffer;
 
     std::filesystem::path resourcePath;
 
+    std::vector<Light> lights;
+
     std::vector<Camera> cameras;
-    std::vector<Camera::CameraData> cameraDatas;
+    std::vector<Camera::GPUData> cameraDatas;
 
     std::shared_ptr<VulkanDevice> device;
 };

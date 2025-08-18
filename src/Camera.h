@@ -20,22 +20,22 @@ public:
     [[nodiscard]] glm::vec3 GetPosition() const { return position; }
     [[nodiscard]] Frustum GetFrustum() const { return frustum; }
 
-    void SetAspectRatio(double aspectRatio) { aspectRatio = aspectRatio; }
+    void SetAspectRatio(double aspectRatio) { this->aspectRatio = aspectRatio; }
 
     void SetMove(bool move);
     void HandleMouseMovement(double xPos, double yPos);
     void HandleMouseScroll(double scrollAmount);
     void HandleMovement(MovementDirection direction);
 
-    struct CameraData {
+    struct GPUData {
         glm::mat4 view;
         glm::mat4 proj;
         glm::vec3 position;
     };
 
-    [[nodiscard]] CameraData GetCameraData() const;
+    [[nodiscard]] GPUData GetGPUData() const;
 
-    [[nodiscard]] bool IsAABBFullyOutsideFrustum(const AABB& aabb) const;
+    [[nodiscard]] bool IsAABBFullyOutsideFrustum(const AABB &aabb) const;
 
     glm::vec3 focusPoint;
 
