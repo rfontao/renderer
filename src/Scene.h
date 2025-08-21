@@ -163,5 +163,8 @@ public:
     std::vector<Camera> cameras;
     std::vector<Camera::GPUData> cameraDatas;
 
+    size_t cameraIndexControlling{0};
+    size_t cameraIndexDrawing{0};
+
     std::shared_ptr<VulkanDevice> device;
 };

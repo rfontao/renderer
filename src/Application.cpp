@@ -144,10 +144,10 @@ void Application::InitWindow() {
 
         if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
-                app->scene->cameras[app->cameraIndexControlling].SetMove(true);
+                app->scene->cameras[app->scene->cameraIndexControlling].SetMove(true);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             } else if (action == GLFW_RELEASE) {
-                app->scene->cameras[app->cameraIndexControlling].SetMove(false);
+                app->scene->cameras[app->scene->cameraIndexControlling].SetMove(false);
                 glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
         }
@@ -155,25 +155,25 @@ void Application::InitWindow() {
 
     glfwSetCursorPosCallback(window, [](GLFWwindow *w, const double xPosIn, const double yPosIn) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->scene->cameras[app->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
+        app->scene->cameras[app->scene->cameraIndexControlling].HandleMouseMovement(xPosIn, yPosIn);
     });
 
     glfwSetScrollCallback(window, [](GLFWwindow *w, const double xScroll, const double yScroll) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
-        app->scene->cameras[app->cameraIndexControlling].HandleMouseScroll(yScroll);
+        app->scene->cameras[app->scene->cameraIndexControlling].HandleMouseScroll(yScroll);
     });
 
     glfwSetKeyCallback(window, [](GLFWwindow *w, const int key, int scancode, const int action, int mods) {
         auto *app = static_cast<Application *>(glfwGetWindowUserPointer(w));
         if (key == GLFW_KEY_TAB && action == GLFW_RELEASE) {
-            app->cameraIndexControlling = (app->cameraIndexControlling + 1) % app->scene->cameras.size();
+            app->scene->cameraIndexControlling = (app->scene->cameraIndexControlling + 1) % app->scene->cameras.size();
         }
     });
 }
 
 void Application::HandleKeys() {
 
-    auto &camera = scene->cameras[cameraIndexControlling];
+    auto &camera = scene->cameras[scene->cameraIndexControlling];
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.HandleMovement(Camera::MovementDirection::FRONT);
@@ -615,7 +615,7 @@ void Application::DrawFrame() {
     const uint32_t imageIndex = swapchain->AcquireNextImage(currentFrame);
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
-        scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
+        scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
                                                           (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
@@ -653,7 +653,7 @@ void Application::DrawFrame() {
 
     bool resourceNeedResizing = swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
-        scene->cameras[cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
+        scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
                                                           (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();

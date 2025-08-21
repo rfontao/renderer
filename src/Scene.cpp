@@ -4,7 +4,7 @@
 #include <ranges>
 #include <utility>
 
-#include "Application.h"
+#include "GPUDataUploader.h"
 #include "Vulkan/Buffer.h"
 
 
@@ -527,7 +527,7 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
                     camerasBuffer->GetAddress(),          opaqueDrawDataBuffer->GetAddress(),
                     modelMatricesBuffer->GetAddress(),    0,
                     static_cast<uint32_t>(lights.size()), 800,
-                    Application::cameraIndexDrawing};
+                    (int32_t)cameraIndexDrawing};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PBRPushConstants), &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
@@ -575,7 +575,7 @@ void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineL
         VkDeviceAddress cameraBufferAddress;
         uint32_t cameraIndex;
         uint32_t skyboxTextureIndex;
-    } pushConstants{camerasBuffer->GetAddress(), Application::cameraIndexDrawing, 750};
+    } pushConstants{camerasBuffer->GetAddress(), (uint32_t)cameraIndexDrawing, 750};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(SkyboxPushConstant), &pushConstants);
     vkCmdDraw(commandBuffer, 36, 1, 0, 0);
