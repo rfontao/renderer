@@ -2,17 +2,21 @@
 
 A Physically-Based Renderer written in C++ using the Vulkan API.
 
-Sponza with 2 point lights:
-![sponza_point_lights](screenshots/sponza_point_lights.png)
-
 Sponza with a directional light:
 ![sponza_point_lights](screenshots/sponza_directional_light.png)
+
+Sponza with 2 point lights:
+![sponza_point_lights](screenshots/sponza_point_lights.png)
 
 Damaged helmet:
 ![damaged_helmet](screenshots/damaged_helmet.png)
 
 ## Features
 
+- Use of modern Vulkan features:
+  - Dynamic rendering
+  - Descriptor indexing
+  - Buffer Device Address
 - glTF 2.0 model loading, both .gltf and .glb formats, with tinygltf
 - Physically-Based Rendering based on the glTF 2.0 specification. Supports:
   - Metallic-Roughness Textures
@@ -22,18 +26,11 @@ Damaged helmet:
   - Multiple UV coordinates per vertex
 - Skybox rendering
 - Supports directional and point lights
-- Two different camera movements
-  - Arcball
-  - Free movement
+- Directional Light Shadow Mapping
+- Debug Primitive Drawing
 - Automatic Descriptor Set Layout creation based on shader reflection data with SPIRV-Reflect
 - Dependency management with vcpkg
-- Vulkan Dynamic Rendering
 - Scene selector UI with Imgui
-
-## TODO
-
-- Shadows
-- Fix max memory allocation (possibly with VMA)
 
 ## Dependencies
 
@@ -45,6 +42,8 @@ Damaged helmet:
 - glfw (https://github.com/glfw/glfw)
 - glm (https://github.com/g-truc/glm)
 - VMA (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- tinygltf (https://github.com/syoyo/tinygltf)
+- volk (https://github.com/zeux/volk)
 
 ## Relevant resources
 
