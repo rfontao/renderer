@@ -1,5 +1,3 @@
-#include "Scene.h"
-#include "pch.h"
 
 #include <ranges>
 #include <utility>

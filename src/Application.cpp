@@ -466,8 +466,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue{
+                    .color = {0.0f, 0.0f, 0.0f, 0.0f},
+            },
     };
-    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
     VkRenderingAttachmentInfo depthAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -475,8 +477,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue{
+                    .depthStencil = {1.0f, 0},
+            },
     };
-    depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo renderInfo{
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -616,7 +620,7 @@ void Application::DrawFrame() {
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
         scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                          (double) swapchain->GetHeight());
+                                                                 (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -654,7 +658,7 @@ void Application::DrawFrame() {
     bool resourceNeedResizing = swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
         scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                          (double) swapchain->GetHeight());
+                                                                 (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
