@@ -52,6 +52,10 @@ public:
     std::shared_ptr<VulkanImage> depthImage;
     std::shared_ptr<VulkanImage> colorImage;
 
+    std::shared_ptr<VulkanTexture> albedoTexture;
+    std::shared_ptr<VulkanTexture> normalTexture;
+    std::shared_ptr<VulkanTexture> metallicRoughnessAOTexture;
+
     std::shared_ptr<VulkanSwapchain> swapchain;
     std::shared_ptr<VulkanPipeline> graphicsPipeline;
     std::shared_ptr<VulkanPipeline> skyboxPipeline;
