@@ -11,3 +11,6 @@
 %VK_SDK_PATH%/Bin/glslc.exe DebugDraw.frag -o DebugDraw.frag.spv
 
 %VK_SDK_PATH%/Bin/glslc.exe frustumCulling.comp -o frustumCulling.comp.spv
+
+%VK_SDK_PATH%/Bin/slangc.exe slang/skybox.slang -fvk-use-scalar-layout -matrix-layout-column-major -stage fragment -entry fragmentMain -target spirv -o slang/skybox.frag.spv
+%VK_SDK_PATH%/Bin/slangc.exe slang/skybox.slang -fvk-use-scalar-layout -matrix-layout-column-major -stage vertex -entry vertexMain -target spirv -o slang/skybox.vert.spv

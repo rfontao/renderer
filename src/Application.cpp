@@ -32,8 +32,8 @@ void Application::InitVulkan() {
     graphicsPipeline = std::make_shared<VulkanPipeline>(device, graphicsSpec);
 
     VulkanPipeline::PipelineSpecification skyboxSpec{
-            .vertShaderPath = "shaders/skybox.vert.spv",
-            .fragShaderPath = "shaders/skybox.frag.spv",
+            .vertShaderPath = "shaders/slang/skybox.vert.spv",
+            .fragShaderPath = "shaders/slang/skybox.frag.spv",
             .cullingMode = VulkanPipeline::CullingMode::FRONT,
             .blendEnable = false,
             .enableDepthTesting = false,
