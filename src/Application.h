@@ -93,6 +93,8 @@ public:
     std::shared_ptr<VulkanPipeline> debugDrawPipeline;
     std::shared_ptr<VulkanPipeline> frustumCullingPipeline;
 
+    std::shared_ptr<VulkanPipeline> depthPrepassPipeline;
+
     GPUDataUploader GPUDataUploader;
     std::unique_ptr<DebugDraw> debugDraw;
 

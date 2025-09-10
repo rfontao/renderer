@@ -2,9 +2,9 @@
 
 #include <utility>
 
+#include "Utils.h"
 #include "VulkanPipeline.h"
 #include "spirv_reflect.h"
-#include "Utils.h"
 
 // https://github.com/KhronosGroup/SPIRV-Reflect/blob/master/examples/main_io_variables.cpp
 static uint32_t FormatSize(VkFormat format) {
@@ -679,8 +679,11 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     VkPipelineDepthStencilStateCreateInfo depthStencil{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
             .depthTestEnable = pipelineSpecification.enableDepthTesting,
-            .depthWriteEnable = pipelineSpecification.enableDepthTesting,
-            .depthCompareOp = VK_COMPARE_OP_LESS,
+            .depthWriteEnable = pipelineSpecification.fragShaderPath == "shaders/DepthPrepass.frag"
+                                        ? false
+                                        : pipelineSpecification.enableDepthTesting,
+            .depthCompareOp = pipelineSpecification.fragShaderPath == "shaders/DepthPrepass.frag" ? VK_COMPARE_OP_EQUAL
+                                                                                                  : VK_COMPARE_OP_LESS,
             .depthBoundsTestEnable = VK_FALSE,
             .stencilTestEnable = VK_FALSE,
     };
@@ -706,6 +709,12 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 .colorAttachmentCount = 0,
                 .depthAttachmentFormat = VK_FORMAT_D16_UNORM,
         };
+    } else if (pipelineSpecification.fragShaderPath == "shaders/DepthPrepass.frag.spv") {
+        pipelineRenderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                .colorAttachmentCount = 0,
+                .depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
+        };
     } else {
         pipelineRenderingInfo = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
@@ -722,9 +731,9 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
                 .stage = shaderStages[0],
                 .layout = layout,
         };
-        VK_CHECK(
-                vkCreateComputePipelines(this->device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline),
-                "Failed to create graphics pipeline!");
+        VK_CHECK(vkCreateComputePipelines(this->device->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+                                          &pipeline),
+                 "Failed to create graphics pipeline!");
     } else {
         VkGraphicsPipelineCreateInfo pipelineInfo{
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -771,7 +780,7 @@ VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<char> &code)
 }
 
 void VulkanPipeline::Destroy() {
-    for (auto& descriptorSetLayout: descriptorSetLayouts) {
+    for (auto &descriptorSetLayout: descriptorSetLayouts) {
         vkDestroyDescriptorSetLayout(device->GetDevice(), descriptorSetLayout, nullptr);
     }
     vkDestroyPipeline(device->GetDevice(), pipeline, nullptr);

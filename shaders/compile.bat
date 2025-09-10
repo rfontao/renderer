@@ -11,3 +11,6 @@
 %VK_SDK_PATH%/Bin/glslc.exe DebugDraw.frag -o DebugDraw.frag.spv
 
 %VK_SDK_PATH%/Bin/glslc.exe frustumCulling.comp -o frustumCulling.comp.spv
+
+%VK_SDK_PATH%/Bin/glslc.exe DepthPrepass.vert -o DepthPrepass.vert.spv
+%VK_SDK_PATH%/Bin/glslc.exe DepthPrepass.frag -o DepthPrepass.frag.spv

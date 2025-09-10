@@ -527,7 +527,7 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
                     camerasBuffer->GetAddress(),          opaqueDrawDataBuffer->GetAddress(),
                     modelMatricesBuffer->GetAddress(),    0,
                     static_cast<uint32_t>(lights.size()), 800,
-                    (int32_t)cameraIndexDrawing};
+                    (int32_t) cameraIndexDrawing};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PBRPushConstants), &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
@@ -536,6 +536,31 @@ void Scene::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout)
     pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(PBRPushConstants), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+}
+
+void Scene::DrawDepthPrepass(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const {
+    VkDeviceSize offsets[] = {0};
+    VkBuffer vertexBuffers[] = {vertexBuffer->GetBuffer()};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    struct DepthPrepass {
+        VkDeviceAddress cameraBufferAddress;
+        VkDeviceAddress drawDataBufferAddress;
+        VkDeviceAddress modelMatricesBufferAddress;
+        int32_t cameraIndex;
+    } pushConstants{camerasBuffer->GetAddress(), opaqueDrawDataBuffer->GetAddress(), modelMatricesBuffer->GetAddress(),
+                    (int32_t) cameraIndexDrawing};
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                       sizeof(DepthPrepass), &pushConstants);
+    vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
+                             opaqueDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
+
+    pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
+    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                       sizeof(DepthPrepass), &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
                              transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
@@ -575,7 +600,7 @@ void Scene::DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineL
         VkDeviceAddress cameraBufferAddress;
         uint32_t cameraIndex;
         uint32_t skyboxTextureIndex;
-    } pushConstants{camerasBuffer->GetAddress(), (uint32_t)cameraIndexDrawing, 750};
+    } pushConstants{camerasBuffer->GetAddress(), (uint32_t) cameraIndexDrawing, 750};
     vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(SkyboxPushConstant), &pushConstants);
     vkCmdDraw(commandBuffer, 36, 1, 0, 0);
@@ -743,6 +768,7 @@ void Scene::CreateBuffers() {
                                                                  .type = BufferType::GPU});
 
     constexpr size_t maxMeshes = 16384;
-    meshesBuffer = std::make_unique<Buffer>(
-            device, BufferSpecification{.name = "Meshes Buffer", .size = maxMeshes * sizeof(DrawData), .type = BufferType::GPU});
+    meshesBuffer = std::make_unique<Buffer>(device, BufferSpecification{.name = "Meshes Buffer",
+                                                                        .size = maxMeshes * sizeof(DrawData),
+                                                                        .type = BufferType::GPU});
 }

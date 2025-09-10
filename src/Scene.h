@@ -96,6 +96,7 @@ public:
     void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
     void DrawSkybox(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
     void DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
+    void DrawDepthPrepass(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const;
 
     void GenerateDrawCommands(DebugDraw &debugDraw, bool frustumCulling = false);
 

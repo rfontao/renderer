@@ -25,6 +25,12 @@ void Application::InitVulkan() {
 
     debugDraw = std::make_unique<DebugDraw>(device);
 
+    VulkanPipeline::PipelineSpecification depthPrepassSpec{
+            .vertShaderPath = "shaders/DepthPrepass.vert.spv",
+            .fragShaderPath = "shaders/DepthPrepass.frag.spv",
+    };
+    depthPrepassPipeline = std::make_shared<VulkanPipeline>(device, depthPrepassSpec);
+
     VulkanPipeline::PipelineSpecification graphicsSpec{
             .vertShaderPath = "shaders/pbr.vert.spv",
             .fragShaderPath = "shaders/pbr_bindless.frag.spv",
@@ -392,21 +398,6 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    // TODO: is this needed?
-    // // Add barrier to prevent writing to commandbuffer until shadow map is done
-    // VkMemoryBarrier2 shadowBarrier{
-    //         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-    //         .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-    //         .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-    //         .dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-    //         .dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
-    // };
-    // VkDependencyInfo shadowDependencyInfo{
-    //         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-    //         .memoryBarrierCount = 1,
-    //         .pMemoryBarriers = &shadowBarrier,
-    // };
-    // vkCmdPipelineBarrier2(commandBuffer, &shadowDependencyInfo);
 
     struct FrustumCullingPushConstants {
         Frustum frustum;
@@ -438,6 +429,48 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     };
 
     vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
+
+    // Depth Prepass
+    VkRenderingAttachmentInfo depthPrepassAttachment{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = depthImage->GetImageView(),
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    };
+    depthPrepassAttachment.clearValue.depthStencil = {1.0f, 0};
+
+    VkRenderingInfo depthPrepassRenderInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
+            .layerCount = 1,
+            .colorAttachmentCount = 0,
+            .pDepthAttachment = &depthPrepassAttachment,
+    };
+
+    depthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    vkCmdBeginRendering(commandBuffer, &depthPrepassRenderInfo);
+    VkViewport viewport{
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float) swapchain->GetWidth(),
+            .height = (float) swapchain->GetHeight(),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{
+            .offset = {0, 0},
+            .extent = swapchain->GetExtent(),
+    };
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Scene Rendering
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipeline->GetPipeline());
+    scene->DrawDepthPrepass(commandBuffer, depthPrepassPipeline->GetLayout());
+    vkCmdEndRendering(commandBuffer);
 
     VkDescriptorImageInfo imageInfo{
             .sampler = shadowDepthTexture->GetSampler(),
@@ -473,7 +506,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = depthImage->GetImageView(),
             .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
@@ -490,23 +523,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
     swapchain->GetImage(imageIndex)
             ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    depthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     vkCmdBeginRendering(commandBuffer, &renderInfo);
-    VkViewport viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) swapchain->GetWidth(),
-            .height = (float) swapchain->GetHeight(),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-    };
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{
-            .offset = {0, 0},
-            .extent = swapchain->GetExtent(),
-    };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     // Skybox
@@ -616,7 +635,7 @@ void Application::DrawFrame() {
     // Recreate swapchain
     if (imageIndex == std::numeric_limits<uint32_t>::max()) {
         scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                          (double) swapchain->GetHeight());
+                                                                 (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
@@ -654,7 +673,7 @@ void Application::DrawFrame() {
     bool resourceNeedResizing = swapchain->Present(imageIndex, currentFrame);
     if (resourceNeedResizing) {
         scene->cameras[scene->cameraIndexDrawing].SetAspectRatio((double) swapchain->GetWidth() /
-                                                          (double) swapchain->GetHeight());
+                                                                 (double) swapchain->GetHeight());
         colorImage->Destroy();
         CreateColorResources();
         depthImage->Destroy();
