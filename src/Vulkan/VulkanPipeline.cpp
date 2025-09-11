@@ -592,9 +592,9 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
         shaderStages.push_back(compShaderStageInfo);
     }
 
-    std::vector<VkDynamicState> dynamicStates = {
+    std::vector dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_DEPTH_BIAS // NOTE: For shadow mapping
+            VK_DYNAMIC_STATE_DEPTH_BIAS, // NOTE: For shadow mapping
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{
@@ -679,11 +679,8 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDevice> device, PipelineSpe
     VkPipelineDepthStencilStateCreateInfo depthStencil{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
             .depthTestEnable = pipelineSpecification.enableDepthTesting,
-            .depthWriteEnable = pipelineSpecification.fragShaderPath == "shaders/DepthPrepass.frag"
-                                        ? false
-                                        : pipelineSpecification.enableDepthTesting,
-            .depthCompareOp = pipelineSpecification.fragShaderPath == "shaders/DepthPrepass.frag" ? VK_COMPARE_OP_EQUAL
-                                                                                                  : VK_COMPARE_OP_LESS,
+            .depthWriteEnable = pipelineSpecification.enableDepthWrite,
+            .depthCompareOp = static_cast<VkCompareOp>(pipelineSpecification.depthCompareOp),
             .depthBoundsTestEnable = VK_FALSE,
             .stencilTestEnable = VK_FALSE,
     };

@@ -12,6 +12,17 @@ public:
         FRONT_AND_BACK
     };
 
+    enum class DepthCompareOp {
+        LESS = VK_COMPARE_OP_LESS,
+        LESS_OR_EQUAL = VK_COMPARE_OP_LESS_OR_EQUAL,
+        GREATER = VK_COMPARE_OP_GREATER,
+        GREATER_OR_EQUAL = VK_COMPARE_OP_GREATER_OR_EQUAL,
+        EQUAL = VK_COMPARE_OP_EQUAL,
+        NOT_EQUAL = VK_COMPARE_OP_NOT_EQUAL,
+        ALWAYS = VK_COMPARE_OP_ALWAYS,
+        NEVER = VK_COMPARE_OP_NEVER
+    };
+
     struct PipelineSpecification {
         std::filesystem::path vertShaderPath;
         std::filesystem::path fragShaderPath;
@@ -21,6 +32,8 @@ public:
         bool blendEnable{true};
         bool enableDepthTesting{true};
         bool wireframe{false};
+        DepthCompareOp depthCompareOp{DepthCompareOp::LESS};
+        bool enableDepthWrite{true};
     };
 
     struct DescriptorSetLayoutData {

@@ -34,6 +34,8 @@ void Application::InitVulkan() {
     VulkanPipeline::PipelineSpecification graphicsSpec{
             .vertShaderPath = "shaders/pbr.vert.spv",
             .fragShaderPath = "shaders/pbr_bindless.frag.spv",
+            .depthCompareOp = VulkanPipeline::DepthCompareOp::LESS_OR_EQUAL,
+            .enableDepthWrite = false,
     };
     graphicsPipeline = std::make_shared<VulkanPipeline>(device, graphicsSpec);
 
@@ -351,126 +353,134 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     GPUDataUploader.Flush(commandBuffer);
 
     // Shadow rendering
-    VkRenderingAttachmentInfo shadowDepthAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = shadowDepthTexture->GetImage()->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
+    {
+        VkRenderingAttachmentInfo shadowDepthAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = shadowDepthTexture->GetImage()->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    VkRenderingInfo shadowRenderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, shadowSize, shadowSize},
-            .layerCount = 1,
-            .colorAttachmentCount = 0,
-            .pDepthAttachment = &shadowDepthAttachment,
-    };
+        VkRenderingInfo shadowRenderInfo{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = {0, 0, shadowSize, shadowSize},
+                .layerCount = 1,
+                .colorAttachmentCount = 0,
+                .pDepthAttachment = &shadowDepthAttachment,
+        };
 
-    shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
-    VkViewport shadowViewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) shadowSize,
-            .height = (float) shadowSize,
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-    };
-    vkCmdSetViewport(commandBuffer, 0, 1, &shadowViewport);
+        vkCmdBeginRendering(commandBuffer, &shadowRenderInfo);
+        VkViewport shadowViewport{
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = (float) shadowSize,
+                .height = (float) shadowSize,
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+        };
+        vkCmdSetViewport(commandBuffer, 0, 1, &shadowViewport);
 
-    VkRect2D shadowScissor{
-            .offset = {0, 0},
-            .extent = {shadowSize, shadowSize},
-    };
-    vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
+        VkRect2D shadowScissor{
+                .offset = {0, 0},
+                .extent = {shadowSize, shadowSize},
+        };
+        vkCmdSetScissor(commandBuffer, 0, 1, &shadowScissor);
 
-    vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
+        vkCmdSetDepthBias(commandBuffer, shadowDepthBias, 0.0f, shadowDepthSlope);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMapPipeline->GetPipeline());
-    scene->DrawShadowMap(commandBuffer, shadowMapPipeline->GetLayout());
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMapPipeline->GetPipeline());
+        scene->DrawShadowMap(commandBuffer, shadowMapPipeline->GetLayout());
 
-    vkCmdEndRendering(commandBuffer);
+        vkCmdEndRendering(commandBuffer);
 
-    shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        shadowDepthTexture->GetImage()->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
 
+    // Frustum culling
+    {
+        struct FrustumCullingPushConstants {
+            Frustum frustum;
+            VkDeviceAddress commandBufferAddress;
+            VkDeviceAddress drawDataAddress;
+            VkDeviceAddress modelMatricesAddress;
+        } frustumCullingPushConstants = {.frustum = scene->cameras[0].GetFrustum(),
+                                         .commandBufferAddress = scene->opaqueDrawIndirectCommandsBuffer->GetAddress(),
+                                         .drawDataAddress = scene->opaqueDrawDataBuffer->GetAddress(),
+                                         .modelMatricesAddress = scene->modelMatricesBuffer->GetAddress()};
 
-    struct FrustumCullingPushConstants {
-        Frustum frustum;
-        VkDeviceAddress commandBufferAddress;
-        VkDeviceAddress drawDataAddress;
-        VkDeviceAddress modelMatricesAddress;
-    } frustumCullingPushConstants = {.frustum = scene->cameras[0].GetFrustum(),
-                                     .commandBufferAddress = scene->opaqueDrawIndirectCommandsBuffer->GetAddress(),
-                                     .drawDataAddress = scene->opaqueDrawDataBuffer->GetAddress(),
-                                     .modelMatricesAddress = scene->modelMatricesBuffer->GetAddress()};
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline->GetPipeline());
+        vkCmdPushConstants(commandBuffer, frustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                           sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
+        vkCmdDispatch(commandBuffer, (scene->opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline->GetPipeline());
-    vkCmdPushConstants(commandBuffer, frustumCullingPipeline->GetLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(FrustumCullingPushConstants), &frustumCullingPushConstants);
-    vkCmdDispatch(commandBuffer, (scene->opaqueDrawIndirectCommands.size() + 255) / 256, 1, 1);
+        // NOTE: This barrier is needed so that drawing only starts after the culling is performed
+        // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
+        VkMemoryBarrier2 cullingMemoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                                              .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                              .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                              .dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+                                              .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
 
-    // NOTE: This barrier is needed so that drawing only starts after the culling is performed
-    // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#upload-data-from-the-cpu-to-a-vertex-buffer
-    VkMemoryBarrier2 cullingMemoryBarrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                                          .srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                                          .srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
-                                          .dstStageMask = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
-                                          .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT};
+        VkDependencyInfo cullingDependencyInfo{
+                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                .memoryBarrierCount = 1,
+                .pMemoryBarriers = &cullingMemoryBarrier,
+        };
 
-    VkDependencyInfo cullingDependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .memoryBarrierCount = 1,
-            .pMemoryBarriers = &cullingMemoryBarrier,
-    };
+        vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
+    }
 
-    vkCmdPipelineBarrier2(commandBuffer, &cullingDependencyInfo);
 
     // Depth Prepass
-    VkRenderingAttachmentInfo depthPrepassAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = depthImage->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    depthPrepassAttachment.clearValue.depthStencil = {1.0f, 0};
+    {
+        VkRenderingAttachmentInfo depthPrepassAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = depthImage->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        depthPrepassAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    VkRenderingInfo depthPrepassRenderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
-            .layerCount = 1,
-            .colorAttachmentCount = 0,
-            .pDepthAttachment = &depthPrepassAttachment,
-    };
+        VkRenderingInfo depthPrepassRenderInfo{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
+                .layerCount = 1,
+                .colorAttachmentCount = 0,
+                .pDepthAttachment = &depthPrepassAttachment,
+        };
 
-    depthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        depthImage->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
+                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    vkCmdBeginRendering(commandBuffer, &depthPrepassRenderInfo);
-    VkViewport viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = (float) swapchain->GetWidth(),
-            .height = (float) swapchain->GetHeight(),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-    };
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdBeginRendering(commandBuffer, &depthPrepassRenderInfo);
+        VkViewport viewport{
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = (float) swapchain->GetWidth(),
+                .height = (float) swapchain->GetHeight(),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+        };
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-    VkRect2D scissor{
-            .offset = {0, 0},
-            .extent = swapchain->GetExtent(),
-    };
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        VkRect2D scissor{
+                .offset = {0, 0},
+                .extent = swapchain->GetExtent(),
+        };
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // Scene Rendering
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipeline->GetPipeline());
-    scene->DrawDepthPrepass(commandBuffer, depthPrepassPipeline->GetLayout());
-    vkCmdEndRendering(commandBuffer);
+        // Scene Rendering
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipeline->GetPipeline());
+        scene->DrawDepthPrepass(commandBuffer, depthPrepassPipeline->GetLayout());
+        vkCmdEndRendering(commandBuffer);
+    }
 
     VkDescriptorImageInfo imageInfo{
             .sampler = shadowDepthTexture->GetSampler(),
@@ -490,134 +500,149 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     vkUpdateDescriptorSets(device->GetDevice(), 1, &write, 0, nullptr);
 
     // Main scene render
-    VkRenderingAttachmentInfo colorAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = swapchain->GetImageView(imageIndex),
-            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = swapchain->GetImageView(imageIndex),
-            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+    {
+        VkRenderingAttachmentInfo colorAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = swapchain->GetImageView(imageIndex),
+                .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = swapchain->GetImageView(imageIndex),
+                .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
-    VkRenderingAttachmentInfo depthAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = depthImage->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    depthAttachment.clearValue.depthStencil = {1.0f, 0};
+        VkRenderingAttachmentInfo depthAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = depthImage->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    VkRenderingInfo renderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment,
-            .pDepthAttachment = &depthAttachment,
-            //            .pStencilAttachment = &depthAttachment,
-    };
+        VkRenderingInfo renderInfo{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &colorAttachment,
+                .pDepthAttachment = &depthAttachment,
+                //            .pStencilAttachment = &depthAttachment,
+        };
 
-    swapchain->GetImage(imageIndex)
-            ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        swapchain->GetImage(imageIndex)
+                ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    vkCmdBeginRendering(commandBuffer, &renderInfo);
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        vkCmdBeginRendering(commandBuffer, &renderInfo);
+        VkViewport viewport{
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = (float) swapchain->GetWidth(),
+                .height = (float) swapchain->GetHeight(),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+        };
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-    // Skybox
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetPipeline());
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetLayout(), 0, 1,
-                            &bindlessTexturesSet, 0, nullptr);
+        VkRect2D scissor{
+                .offset = {0, 0},
+                .extent = swapchain->GetExtent(),
+        };
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    scene->DrawSkybox(commandBuffer, skyboxPipeline->GetLayout());
+        // Skybox
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetPipeline());
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline->GetLayout(), 0, 1,
+                                &bindlessTexturesSet, 0, nullptr);
 
-    // Scene Rendering
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipeline());
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetLayout(), 0, 1,
-                            &bindlessTexturesSet, 0, nullptr);
-    scene->Draw(commandBuffer, graphicsPipeline->GetLayout());
-    userInterface.Draw(commandBuffer);
-
-    vkCmdEndRendering(commandBuffer);
-
-    // TODO: Evaluate if these are needed
-    const VkImageMemoryBarrier2 depthBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-                                             .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-                                             .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                             .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-                                             .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                                             .image = depthImage->GetImage(),
-                                             .subresourceRange = {
-                                                     .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                     .levelCount = 1,
-                                                     .layerCount = 1,
-                                             }};
+        scene->DrawSkybox(commandBuffer, skyboxPipeline->GetLayout());
 
 
-    const VkImageMemoryBarrier2 graphicsBarrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-            .image = swapchain->GetImage(imageIndex)->GetImage(),
-            .subresourceRange =
-                    {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .levelCount = 1,
-                            .layerCount = 1,
-                    },
-    };
+        // Scene Rendering
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetPipeline());
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->GetLayout(), 0, 1,
+                                &bindlessTexturesSet, 0, nullptr);
+        scene->Draw(commandBuffer, graphicsPipeline->GetLayout());
+        userInterface.Draw(commandBuffer);
+
+        vkCmdEndRendering(commandBuffer);
+    }
+
+    // Debug draw
+    {
+        // TODO: Evaluate if these are needed
+        const VkImageMemoryBarrier2 depthBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                                                 .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                                                 .srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                                 .dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+                                                 .dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                                 .image = depthImage->GetImage(),
+                                                 .subresourceRange = {
+                                                         .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                         .levelCount = 1,
+                                                         .layerCount = 1,
+                                                 }};
 
 
-    std::array barriers = {depthBarrier, graphicsBarrier};
-    VkDependencyInfo dependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = barriers.size(),
-            .pImageMemoryBarriers = barriers.data(),
-    };
-    vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+        const VkImageMemoryBarrier2 graphicsBarrier{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                .image = swapchain->GetImage(imageIndex)->GetImage(),
+                .subresourceRange =
+                        {
+                                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                .levelCount = 1,
+                                .layerCount = 1,
+                        },
+        };
+        std::array barriers = {depthBarrier, graphicsBarrier};
+        VkDependencyInfo dependencyInfo{
+                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                .imageMemoryBarrierCount = barriers.size(),
+                .pImageMemoryBarriers = barriers.data(),
+        };
+        vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
-    // New rendering info
-    VkRenderingAttachmentInfo colorAttachment2{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = swapchain->GetImageView(imageIndex),
-            .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = swapchain->GetImageView(imageIndex),
-            .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    colorAttachment2.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+        VkRenderingAttachmentInfo colorAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = swapchain->GetImageView(imageIndex),
+                .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = swapchain->GetImageView(imageIndex),
+                .resolveImageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
-    VkRenderingAttachmentInfo depthAttachment2{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = depthImage->GetImageView(),
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    depthAttachment2.clearValue.depthStencil = {1.0f, 0};
+        VkRenderingAttachmentInfo depthAttachment{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = depthImage->GetImageView(),
+                .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        };
+        depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    VkRenderingInfo renderInfo2{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment2,
-            .pDepthAttachment = &depthAttachment2,
-            //            .pStencilAttachment = &depthAttachment,
-    };
+        VkRenderingInfo renderInfo{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = {0, 0, swapchain->GetWidth(), swapchain->GetHeight()},
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &colorAttachment,
+                .pDepthAttachment = &depthAttachment,
+        };
 
-    debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
-    // debugDraw->DrawFrustum(m_Scene.cameras[0].GetViewMatrix(), m_Scene.cameras[0].GetProjectionMatrix(),
-    //                        {0.0, 0.0, 1.0});
-    debugDraw->Draw(commandBuffer, GPUDataUploader, *debugDrawPipeline, *scene, renderInfo2);
+        debugDraw->DrawAxis({0.0, 0.0, 0.0}, 1.0);
+        // debugDraw->DrawFrustum(m_Scene.cameras[0].GetViewMatrix(), m_Scene.cameras[0].GetProjectionMatrix(),
+        //                        {0.0, 0.0, 1.0});
+        debugDraw->Draw(commandBuffer, GPUDataUploader, *debugDrawPipeline, *scene, renderInfo);
+    }
 
     swapchain->GetImage(imageIndex)
             ->TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,

@@ -557,12 +557,6 @@ void Scene::DrawDepthPrepass(VkCommandBuffer commandBuffer, VkPipelineLayout pip
                        sizeof(DepthPrepass), &pushConstants);
     vkCmdDrawIndexedIndirect(commandBuffer, opaqueDrawIndirectCommandsBuffer->GetBuffer(), 0,
                              opaqueDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
-
-    pushConstants.drawDataBufferAddress = transparentDrawDataBuffer->GetAddress();
-    vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
-                       sizeof(DepthPrepass), &pushConstants);
-    vkCmdDrawIndexedIndirect(commandBuffer, transparentDrawIndirectCommandsBuffer->GetBuffer(), 0,
-                             transparentDrawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
 
 void Scene::DrawShadowMap(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout) const {
